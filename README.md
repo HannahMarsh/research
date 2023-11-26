@@ -1,14 +1,14 @@
-# Project Title
+# A Study of Cache-Database Interactions and Metastable States in Simulated Environments
 
 ## Description
 
-This project is focused on benchmarking distributed systems, specifically investigating how cache and database interactions impact system stability.
-The research emphasizes scenarios of metastable failure triggered by cache node failure and aims to provide insights into the behavior of systems under various load conditions.
+This project is focused on benchmarking distributed systems, specifically investigating how cache and database interactions impact system stability.  
+The research emphasizes scenarios of metastable states that arise from cache node failure and aims to provide insights into the behavior of systems under various load conditions.
 It utilizes real-world trace data to simulate workload and analyze system performance.
 
 
 ## System Configuration
-- Utilizes 5 servers - one for the database and four for cache instances.
+- 5 servers - one for the database and four for cache instances.
 - The database runs in its own container using 2 cores.
 - Each cache instance uses 3 cores, totaling 12 cores for all cache instances.
 - Aims for 90% of requests to be served by the cache and 10% by the database.
