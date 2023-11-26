@@ -1,8 +1,8 @@
 package benchmark
 
 import (
-	"./shared"
 	"fmt"
+	"shared"
 )
 
 func main() {
