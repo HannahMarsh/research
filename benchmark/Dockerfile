@@ -22,4 +22,5 @@ CMD ["./benchmark"]
 # ddocker build --platform=linux/amd64 -f benchmark/Dockerfile -t hannahmarsh12/benchmark:benchmark .
 
 ## Run the Docker container
-# docker run -it --rm hannahmarsh12/benchmark:benchmark
+## mount the directory containing the traces into the Docker container
+# docker run -v /usr/local/share/datasets/cmu-cache-datasets/alibabaBlock:/app/traces -it --rm hannahmarsh12/benchmark:benchmark
