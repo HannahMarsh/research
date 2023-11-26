@@ -7,7 +7,11 @@ COPY go.mod .
 
 RUN go mod download
 
-COPY . .
+# Copy the shared utilities and config file from the shared directory
+COPY shared/ ./shared/
+
+# Copy the source code of the cache module
+COPY benchmark/ ./
 
 RUN go build -o benchmark
 
@@ -15,7 +19,7 @@ CMD ["./benchmark"]
 
 
 ## Build the Docker image
-# ddocker build --platform=linux/amd64 -t hannahmarsh12/benchmark:benchmark .
+# ddocker build --platform=linux/amd64 -f benchmark/Dockerfile -t hannahmarsh12/benchmark:benchmark .
 
 ## Run the Docker container
 # docker run -it --rm hannahmarsh12/benchmark:benchmark

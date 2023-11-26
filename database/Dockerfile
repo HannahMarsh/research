@@ -7,7 +7,11 @@ COPY go.mod .
 
 RUN go mod download
 
-COPY . .
+# Copy the shared utilities and config file from the shared directory
+COPY shared/ ./shared/
+
+# Copy the source code of the cache module
+COPY database/ ./
 
 RUN go build -o database
 
@@ -15,7 +19,7 @@ CMD ["./database"]
 
 
 ## Build the Docker image
-# ddocker build --platform=linux/amd64 -t hannahmarsh12/database:database .
+# ddocker build --platform=linux/amd64 f database/Dockerfile -t hannahmarsh12/database:database .
 
 ## Run the Docker container
 # docker run -it --rm hannahmarsh12/database:database

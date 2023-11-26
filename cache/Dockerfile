@@ -8,7 +8,7 @@ COPY cache/go.mod cache/go.sum ./
 RUN go mod download
 
 # Copy the shared utilities and config file from the shared directory
-COPY shared/ ./
+COPY shared/ ./shared/
 
 # Copy the source code of the cache module
 COPY cache/ ./
@@ -20,7 +20,7 @@ RUN go build -o cache
 CMD ["./cache"]
 
 # Build the Docker image
-# docker build --platform=linux/amd64 -t hannahmarsh12/cache:cache .
+# docker build --platform=linux/amd64 f cache/Dockerfile -t hannahmarsh12/cache:cache .
 
 # Run the Docker container
 # docker run -it --rm hannahmarsh12/cache:cache
