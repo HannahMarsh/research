@@ -25,7 +25,7 @@ type CacheConfig struct {
 
 type Config struct {
 	Cache     map[string]CacheConfig `json:"cache"`
-	Database  NodeConfig             `json:"database"`
+	Database  NodeConfig             `json:"db"`
 	Benchmark NodeConfig             `json:"benchmark"`
 }
 

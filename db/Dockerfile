@@ -13,13 +13,13 @@ COPY shared/ ./shared/
 # Copy the source code of the cache module
 COPY database/ ./
 
-RUN go build -o database
+RUN go build -o db
 
 CMD ["./database"]
 
 
 ## Build the Docker image
-# ddocker build --platform=linux/amd64 f database/Dockerfile -t hannahmarsh12/database:database .
+# ddocker build --platform=linux/amd64 f db/Dockerfile -t hannahmarsh12/db:db .
 
 ## Run the Docker container
-# docker run -it --rm hannahmarsh12/database:database
+# docker run -it --rm hannahmarsh12/db:db

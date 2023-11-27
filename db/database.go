@@ -1,4 +1,4 @@
-package database
+package db
 
 import (
 	"encoding/gob"
@@ -20,8 +20,8 @@ type DataBase struct {
 	port string
 }
 
-func (db *DataBase) init(ip string, port string) {
-	db.kv = NewKVStore()
+func (db *DataBase) init(ip string, port string, keyspace string, cassandraHosts ...string) {
+	db.kv = NewKVStore(keyspace, cassandraHosts...)
 	gob.Register(shared.DbRequest{})
 	db.ip = ip
 	db.port = port

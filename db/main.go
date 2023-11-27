@@ -1,4 +1,4 @@
-package database
+package db
 
 import (
 	"shared"
@@ -10,6 +10,6 @@ func main() {
 	ip := node.IP
 	port := node.Port
 	var db DataBase
-	db.init(ip, port)
+	db.init(ip, port, "keyspace", "localhost") // jdbc:cassandra://localhost:9042
 	db.StartListening()
 }
