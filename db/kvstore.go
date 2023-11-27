@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"github.com/gocql/gocql"
 	"log"
 )
@@ -10,16 +11,30 @@ type KVStore struct {
 	session *gocql.Session
 }
 
-func NewKVStore(keyspace string, hosts ...string) *KVStore {
+func NewKVStore(keyspace string, hosts ...string) (*KVStore, error) {
 	cluster := gocql.NewCluster(hosts...)
 	cluster.Keyspace = keyspace
 	cluster.Consistency = gocql.Quorum
 	session, err := cluster.CreateSession()
 	if err != nil {
-		log.Fatalf("Failed to connect to Cassandra: %v", err)
+		log.Printf("Failed to connect to Cassandra: %v", err)
+		return nil, err
 	}
 
-	return &KVStore{session: session}
+	kv := &KVStore{session: session}
+	err = kv.CreateKeyspace(keyspace, "SimpleStrategy", 1)
+	return kv, err
+}
+
+func (k *KVStore) CreateKeyspace(keyspaceName string, replicationStrategy string, replicationFactor int) error {
+	query := fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': '%s', 'replication_factor': %d};", keyspaceName, replicationStrategy, replicationFactor)
+
+	if err := k.session.Query(query).Exec(); err != nil {
+		log.Printf("Failed to create keyspace %s: %v", keyspaceName, err)
+		return err
+	}
+	log.Printf("Keyspace %s created successfully", keyspaceName)
+	return nil
 }
 
 func (k *KVStore) Put(key, value string) {
