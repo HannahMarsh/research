@@ -1,5 +1,9 @@
 # A Study of Cache-Database Interactions
 
+## To do
+- replace database module with a real one (Apache Cassandra, for ex.)
+
+
 ## Description
 
 This project is focused on benchmarking distributed systems, specifically investigating how cache and database interactions impact system stability.  
