@@ -3,6 +3,8 @@
 ## To do
 - replace database module with a real one (Apache Cassandra, for ex.)
 
+## Resources
+- [A Hitchhiker’s Guide to Caching Patterns](https://hazelcast.com/blog/a-hitchhikers-guide-to-caching-patterns/)
 
 ## Description
 
