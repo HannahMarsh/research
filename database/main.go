@@ -1,12 +1,15 @@
 package database
 
 import (
-	"fmt"
 	"shared"
 )
 
 func main() {
 	config := shared.LoadConfig()
-	// Use the config...
-	fmt.Println(config)
+	node := config.Database
+	ip := node.IP
+	port := node.Port
+	var db DataBase
+	db.init(ip, port)
+	db.StartListening()
 }
