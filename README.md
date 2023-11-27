@@ -1,4 +1,4 @@
-# A Study of Cache-Database Interactions and Metastable States in Simulated Environments
+# A Study of Cache-Database Interactions
 
 ## Description
 
