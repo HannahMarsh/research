@@ -12,10 +12,21 @@ type NodeConfig struct {
 	Port string `json:"port"`
 }
 
+type DieInfo struct {
+	Time     int64 `json:"time"`
+	Duration int64 `json:"duration"`
+}
+
+type CacheConfig struct {
+	IP   string    `json:"ip"`
+	Port string    `json:"port"`
+	Die  []DieInfo `json:"die"` // times to fail to how long to fail for
+}
+
 type Config struct {
-	Cache     map[string]NodeConfig `json:"cache"`
-	Database  NodeConfig            `json:"database"`
-	Benchmark NodeConfig            `json:"benchmark"`
+	Cache     map[string]CacheConfig `json:"cache"`
+	Database  NodeConfig             `json:"database"`
+	Benchmark NodeConfig             `json:"benchmark"`
 }
 
 func LoadConfig() Config {

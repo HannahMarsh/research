@@ -33,11 +33,6 @@ The project consists of multiple modules, each with its own functionality:
 
 ## Getting Started
 
-### Prerequisites
-
-- Docker installed on your machine.
-- Access to the trace files located at `/usr/local/share/datasets/cmu-cache-datasets/alibabaBlock`.
-
 ### Installation
 
 To build and run the Docker containers for each module, follow these steps:

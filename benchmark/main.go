@@ -15,13 +15,13 @@ type CMUTrace struct {
 }
 
 func readTraceFile(filePath string) ([]CMUTrace, error) {
-	// Open the .zst file
+	// open the .zst file
 	// ...
 
-	// Create a zstd decompressor
+	// create a zstd decompressor
 	// ...
 
-	// Read and parse the data into CMUTrace structs
+	// read and parse the data into CMUTrace structs
 	// ...
 }
 
