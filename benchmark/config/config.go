@@ -1,4 +1,4 @@
-package benchmark
+package benchmark_config
 
 import (
 	"encoding/json"

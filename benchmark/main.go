@@ -1,6 +1,7 @@
 package benchmark
 
 import (
+	bconfig "benchmark_config"
 	"context"
 	"flag"
 	"fmt"
@@ -15,7 +16,7 @@ import (
 
 type config_ struct {
 	database       *DbWrapper
-	nodeConfigs    []*Config
+	nodeConfigs    []*bconfig.Config
 	numRequests    int     // total number of requests to send
 	readPercentage float64 // percentage of read operations
 }
@@ -81,7 +82,7 @@ func getFlags() (bool, string) {
 }
 
 func getConfigs() config_ {
-	config := GetConfig_()
+	config := bconfig.GetConfig_()
 	if config == nil {
 		fmt.Println("Failed to load config")
 		os.Exit(-1)
@@ -89,7 +90,7 @@ func getConfigs() config_ {
 	_, cr := getFlags()
 
 	nodesConfig := config.Get("cacheNodes")
-	cacheNodes := []*Config{
+	cacheNodes := []*bconfig.Config{
 		nodesConfig.Get("1").Get(cr),
 		nodesConfig.Get("2").Get(cr),
 		nodesConfig.Get("3").Get(cr),
