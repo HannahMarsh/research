@@ -17,13 +17,13 @@ caching layer.
 - Each cache instance uses 3 cores, totaling 12 cores for all cache instances.
 - Aims for 90% of requests to be served by the cache and 10% by the database.
 
-## Components   
+## Components and Interactions 
   
   
 [![](img/components.drawio.png)](https://viewer.diagrams.net/?tags=%7B%7D&highlight=0000ff&edit=_blank&layers=1&nav=1&title=new1.drawio#R7VtRc6M2EP41nmkfnAFhwH6MnaR9uM5kLp3eTN8UkDENRq6Q4%2Fh%2BfVcgAUJAnATcZMbxXM5aSQtov%2F12VyITZ7V9%2BY3h3eYPGpJkgqzwZeLcTBCy3TmC%2F4TkWEh85BeCiMVhIbIqwUP8k8iZSrqPQ5JJWSHilCY83unCgKYpCbgmw4zRgz5sTZNQE%2BxwRLTbEIKHACfEGPYjDvmmkCLLqg3%2FncTRhjd7tliNloJsg0N6qImc24mzYpTy4tv2ZUUSsXr6wtx19JZ3xkjKT5lwf%2BDff3jPz3echtfpX7dRsvp7iuaFmmec7OUjy7vlR7UGjO7TkAgt9sRZHjYxJw87HIjeA1gdZBu%2BTWT3mqZcmtH2oJ1xRp%2FIiiaUgSilKRGD4iR5kBfAe06lSI2aIOc2%2F4A8YjiM4QlrfauF%2BAjdakXFheVzEMbJS%2BcK2eW6A2IJ3RLOjjBETpjarlfMkWh1itahsrznSq2bmtFnrjQxlmiLStWVPeCLNMkbzOO9bh2ShtcC6NAKEpxlcaAbpLKe1TAPys2DmRLMoQ3aaq1gz55LwzcsROzQJb5hYeix8p%2ByR%2FkNKo1EwqjpXg0TwRPSPQtIz9IoNsAsIrxvXIfNa0ZV5qvbVMkYSTCPn%2FX7bbOzvMI9jeFJSkjZvqshChTrKornlLPq3ttQVE48NhQrRcVCGIoAG%2FhYG7YTA7LuG140LmN5DRAXCitIl0v6fpT7BsrhSX6ZIC8BYyxj%2BBLxHDyF4FEJnshRyeC6j81xICvn%2Fmr6DYDwG36EeKW5C07iKBW%2BBIAkAOilYJQYAsK17NjGYSh0LBnJ4p%2F4Mdcn0C5XFpS7y4l708KFibjcEgdPUe6UDVIseikLCWvSJdX4z%2FXFp4%2FyZDSUN1cPbpWfdfNNJz9aV7YzayPIDzrJ1PY1rdJnKxV0vc4IbwBxEOjZroE9nHADLBBpduLrfpvcMbwlr8fBHA2E3T6TAhRN8hV4UBTkCWOW5OOI6dkh3iY4JXc66d4sxKce%2Bqye2Gkws5f%2FmIgqfoYKok6TqTwjjLqLhUm59mI%2BUhi1zTDqXEOsCzZbzJ76rP0tXpMkzr1wR1gMtyNI4SaR4vtK9hogwCc5hilMtkNGd3%2Bq4GXlA5IE77K4YhRGIABn4FffBdUoKd1zcelVmfEW5MPAoClYHMe5nQjO%2BIFkgvtScrgFslMJ18QXDPnvXuSdKsKXbVgX4IpVJVDpgz7Cb6O3kxOEhec7WMyIRMIin0BL5vSUsyuP%2BBhOXZ10HMtAqW21JAYze6xkTynuy%2FaaDFPGm6UwW%2F2fK2IQWLLosWs906rL7pxkt07Kw1rdEQB2GxrRFCd1V2iFaJGgPAjfykzn%2BpL4PQmG3YzUic2ZzqAq1dOgaSLTsfyxkOm0pk%2FKIjJNKasFyyg7Kph8o3QnAfwP4fwoDSCrwI5C8vVKJcTZpuQL0bjHHLCY5hJktbNIw%2BDreUCCoLeiGbB%2BQafWL1Y7VN6Wc721DLAtRw%2FiszPUAfbMIEBG%2BB6sKBLYRvJvlAfFrJbcv71GsMC4p6hN4%2BR0pZ%2B9xjhfJVFQRnf0ta4c1xuofHD0XZupjc5VPqC2xHKFgw25JJWjBOVujn6cu2If7vyJpO2i9yWS44Xrlnrnkkh%2BZsy%2BP5FEb0okzUq8LZGcjVXhqP2iCzAvwNSAieanIRONRZktwHSubzAHG1F2Cebj4C%2FEZL5uxZ8XzMnj%2Bn8I5k7zBPDkXSFnrGDekmNeOPMzY%2Fb9nNlfMzU4016Yx9Ot0dwdC5ktp9OuKsOtOINfonh2bwy8wsJwYwlr7wY0RB27Qq5qS8VWXyVt1Nz9hfIAVNLcYLb9xWlcomrs4Q3mG5b4ZNt4n%2B0dA2mJ1zfpOrKdcTfpkK2fxqrz2HE36cw3huqn9d0bafppfe9G2hc4rT%2FjTprfTzPWFYJsfTLITlpjK%2BOMB%2FGlT34VbupOBHq46YRjiiHp63OfMSAV%2FBR9ef749KWy57OcMVxITHfvvjeLkOcNwmG2o6Nq2qzMRuSw2RfjsC%2BTX6GOymgoghocCeZrZZmeJNVAompQYcqpFF%2BLK3BghqAgF1Wmvvbm40qnsY9dpcl2l%2Fys2%2Bt7qA3NvYHSM7RoUNsAB53QrP4GoRhe%2FSmHc%2Fsf)
-- [**Benchmark**](#benchmark-tool-): Responsible for distributing requests between cache and database layers.
-- [**Cache Node**](#cache-node): Each is an instance of a cache server, encapsulated within a wrapper that facilitates remote access.
-- [**Database**](#setting-up-the-database): Manages database operations.
+- [**Benchmark**](#benchmark-tool-): Simulates client requests and distributes them between the cache and database layers.
+- [**Cache**](#cache-node): An instance of a cache server.
+- [**Datastore**](#setting-up-the-database): The ultimate source of data for the system.
 
 
 ## Setting Up the Database
