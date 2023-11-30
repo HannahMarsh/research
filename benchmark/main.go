@@ -17,6 +17,14 @@ type cacheNode struct {
 	port int
 }
 
+type database_ struct {
+	db       *DbWrapper
+	keyspace string
+	hosts    []string
+}
+
+var db_ database_
+
 // List of remote cache nodes
 var cacheNodesRemote = []cacheNode{
 	{ip: "132.177.10.81", port: 1025}, // ccl1.cs.unh.edu
@@ -82,22 +90,32 @@ func main() {
 
 	var local bool
 	var help bool
+	var keyspace string
 	flag.BoolVar(&help, "help", false, "Display usage")
 	flag.BoolVar(&local, "l", false, "use local ip addresses for cache nodes")
+	flag.StringVar(&keyspace, "keyspace", "", "create new keyspace as this")
 
 	flag.Parse()
 
 	if help == true {
-		fmt.Println("Usage: <program> [-help] [-l]")
+		fmt.Println("Usage: <program> [-help] [-l] [-keyspace <keyspace>]")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
 	var cacheNodes = cacheNodesRemote
+	db_ = database_{
+		db:       nil,
+		keyspace: keyspace,                  // todo replace with actual keyspace
+		hosts:    []string{"132.177.10.85"}, // ccl5.cs.unh.edu
+	}
 
 	if local == true {
 		cacheNodes = cacheNodesLocal
+		db_.hosts = []string{"localhost"}
 	}
+
+	db_.db = NewDbWrapper(db_.keyspace, db_.hosts...)
 
 	ctx := context.Background()
 	readRatio := int(readPercentage * 100)
@@ -163,6 +181,16 @@ func getValue(ctx context.Context, baseURL, key string, nodeLabel string) {
 		if bodyString == "null" || bodyString == "not found" { // todo replace this later
 			fmt.Printf("Cache miss for key: %s\n", key)
 			cacheMissesCounter.WithLabelValues(nodeLabel).Inc()
+
+			// retrieve value from the database
+			valueFromDB, keyExists := db_.db.Get(key)
+
+			if keyExists {
+				// write the value to the cache
+				setValue(ctx, baseURL, key, valueFromDB)
+			} else {
+				setValue(ctx, baseURL, key, "null") // todo remove this?
+			}
 		} else {
 			fmt.Printf("Cache hit for key: %s\n", key)
 			cacheHitsCounter.WithLabelValues(nodeLabel).Inc()
