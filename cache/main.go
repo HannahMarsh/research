@@ -2,16 +2,34 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"github.com/eko/gocache/lib/v4/cache"
 	gocachestore "github.com/eko/gocache/store/go_cache/v4"
 	gocache "github.com/patrickmn/go-cache"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
 func main() {
+
+	var cacheId string
+	var port string
+	var help bool
+	flag.BoolVar(&help, "help", false, "Display usage")
+	flag.StringVar(&port, "port", "1025", "Port to listen on")
+	flag.StringVar(&cacheId, "id", "1", "Cache ID (an integer 1 to 5)")
+
+	flag.Parse()
+
+	if help == true {
+		fmt.Println("Usage: <program> [-help] -id <cache_id>")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
 	// Initialize Gocache in-memory store
 	geocacheClient := gocache.New(5*time.Minute, 10*time.Minute)
 	geocacheStore := gocachestore.NewGoCache(geocacheClient)
@@ -58,8 +76,8 @@ func main() {
 	})
 
 	// Start HTTP server
-	log.Println("Cache node running on http://localhost:1025")
-	if err := http.ListenAndServe(":1025", nil); err != nil {
+	log.Println("Cache node running on http://localhost:" + port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Failed to start HTTP server: %v", err)
 	}
 }

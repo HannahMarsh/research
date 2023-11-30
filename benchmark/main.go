@@ -14,11 +14,18 @@ type cacheNode struct {
 }
 
 // List of cache nodes
-var cacheNodes = []cacheNode{
+var cacheNodesRemote = []cacheNode{
 	{ip: "132.177.10.81", port: 1025}, // ccl1.cs.unh.edu
 	{ip: "132.177.10.82", port: 1025}, // ccl2.cs.unh.edu
 	{ip: "132.177.10.83", port: 1025}, // ccl3.cs.unh.edu
 	{ip: "132.177.10.84", port: 1025}, // ccl4.cs.unh.edu
+}
+
+var cacheNodesLocal = []cacheNode{
+	{ip: "localhost", port: 1025}, // ccl1.cs.unh.edu
+	{ip: "localhost", port: 1026}, // ccl2.cs.unh.edu
+	{ip: "localhost", port: 1027}, // ccl3.cs.unh.edu
+	{ip: "localhost", port: 1028}, // ccl4.cs.unh.edu
 }
 
 const (
@@ -36,7 +43,7 @@ func main() {
 		value := fmt.Sprintf("value-%d", rand.Intn(1000))
 
 		// Select a random cache node
-		node := cacheNodes[rand.Intn(len(cacheNodes))]
+		node := cacheNodesRemote[rand.Intn(len(cacheNodesRemote))]
 		cacheNodeURL := fmt.Sprintf("http://%s:%d", node.ip, node.port)
 
 		// Decide whether to perform a read or write operation
