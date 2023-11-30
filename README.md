@@ -128,7 +128,7 @@ database overloaded and the cache unfilled. This setup allows for the observatio
 An endpoint has been added to the cache server so that, when triggered, it tells the server to stop responding to
 regular cache requests. This way, we can simulate a failure without needing to shut down the process.
 - `/fail`: When this endpoint is hit, the server changes its state to a "failed" mode where it does not respond to cache requests.
-- `/recover`: switches the server back to normal operation.
+- `/recover`: clears the cache of any data from before failing and switches the server back to normal operation.
 
 ### Key Components  
 
