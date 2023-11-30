@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"time"
 )
 
 type config_ struct {
@@ -127,6 +128,10 @@ func main() {
 
 	zipf := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(len(config.nodeConfigs)))
 
+	// start failure simulation routine
+	go simulateNodeFailures(config.nodeConfigs, 30*time.Second, 15*time.Second)
+
+	// start generating requests
 	for i := 0; i < config.numRequests; i++ {
 
 		key := fmt.Sprintf("key-%d", zipf.Uint64())
@@ -174,11 +179,44 @@ func main() {
 	fmt.Println(string(metricsData))
 }
 
+// simulateNodeFailures periodically triggers failure and recovery of cache nodes
+func simulateNodeFailures(nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
+	for {
+		for _, nodeConfig := range nodeConfigs {
+			// Trigger failure
+			triggerNodeFailure(nodeConfig, true)
+			time.Sleep(failDuration)
+
+			// Trigger recovery
+			triggerNodeFailure(nodeConfig, false)
+			time.Sleep(recoverDuration)
+		}
+	}
+}
+
+// triggerNodeFailure sends a request to either fail or recover a node
+func triggerNodeFailure(nodeConfig *bconfig.Config, fail bool) {
+	ip := nodeConfig.Get("ip").AsString("")
+	port := nodeConfig.Get("port").AsString("")
+	endpoint := "/recover"
+	if fail {
+		endpoint = "/fail"
+	}
+	url := fmt.Sprintf("http://%s:%d%s", ip, port, endpoint)
+
+	_, err := http.Get(url)
+	if err != nil {
+		log.Printf("Failed to send %s request to %s: %v", endpoint, url, err)
+	} else {
+		log.Printf("Sent %s request to %s", endpoint, url)
+	}
+}
+
 // getNodeHash generates a hash for load balancing
 // We know how many caching servers we have, so we can hash keys into that many "buckets"
 func getNodeHash(key string, config config_) int {
 	// Simple hash function for now
-	// todo ask aleksey if we need a more complicated hash
+	// todo ask Aleksey if we need a more complicated hash for selecting which nodes to send requests to
 	var hash int
 	for i := 0; i < len(key); i++ {
 		hash = (hash*31 + int(key[i])) % len(config.nodeConfigs)
