@@ -2,10 +2,14 @@ package benchmark
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
 	"math/rand"
 	"net/http"
+	"os"
 )
 
 type cacheNode struct {
@@ -13,7 +17,7 @@ type cacheNode struct {
 	port int
 }
 
-// List of cache nodes
+// List of remote cache nodes
 var cacheNodesRemote = []cacheNode{
 	{ip: "132.177.10.81", port: 1025}, // ccl1.cs.unh.edu
 	{ip: "132.177.10.82", port: 1025}, // ccl2.cs.unh.edu
@@ -21,6 +25,7 @@ var cacheNodesRemote = []cacheNode{
 	{ip: "132.177.10.84", port: 1025}, // ccl4.cs.unh.edu
 }
 
+// for local testing (enable with -l flag)
 var cacheNodesLocal = []cacheNode{
 	{ip: "localhost", port: 1025}, // ccl1.cs.unh.edu
 	{ip: "localhost", port: 1026}, // ccl2.cs.unh.edu
@@ -33,25 +38,95 @@ const (
 	readPercentage = 0.99 // percentage of read operations
 )
 
+// metrics we want to track
+var (
+	readOpsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "benchmark_read_operations_total",
+			Help: "Total number of read operations.",
+		},
+		[]string{"status"},
+	)
+	writeOpsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "benchmark_write_operations_total",
+			Help: "Total number of write operations.",
+		},
+		[]string{"status"},
+	)
+	cacheHitsCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "benchmark_cache_hits_total",
+			Help: "Total number of cache hits.",
+		},
+		[]string{"node"}, // labels for cache nodes
+	)
+	cacheMissesCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "benchmark_cache_misses_total",
+			Help: "Total number of cache misses.",
+		},
+		[]string{"node"},
+	)
+)
+
+func init() {
+	// register metrics with Prometheus
+	prometheus.MustRegister(readOpsCounter)
+	prometheus.MustRegister(writeOpsCounter)
+	prometheus.MustRegister(cacheHitsCounter)
+	prometheus.MustRegister(cacheMissesCounter)
+}
+
 func main() {
+
+	var local bool
+	var help bool
+	flag.BoolVar(&help, "help", false, "Display usage")
+	flag.BoolVar(&local, "l", false, "use local ip addresses for cache nodes")
+
+	flag.Parse()
+
+	if help == true {
+		fmt.Println("Usage: <program> [-help] [-l]")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
+	var cacheNodes = cacheNodesRemote
+
+	if local == true {
+		cacheNodes = cacheNodesLocal
+	}
+
 	ctx := context.Background()
 	readRatio := int(readPercentage * 100)
 
+	// start an HTTP server for Prometheus scraping
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		if err := http.ListenAndServe(":9100", nil); err != nil {
+			panic(err)
+		}
+	}()
+
 	for i := 0; i < numRequests; i++ {
-		// Generate a random key-value pair
+		// generate a random key-value pair
+		// todo
 		key := fmt.Sprintf("key-%d", i)
 		value := fmt.Sprintf("value-%d", rand.Intn(1000))
 
-		// Select a random cache node
-		node := cacheNodesRemote[rand.Intn(len(cacheNodesRemote))]
+		// select a random cache node
+		node := cacheNodes[rand.Intn(len(cacheNodes))]
 		cacheNodeURL := fmt.Sprintf("http://%s:%d", node.ip, node.port)
 
-		// Decide whether to perform a read or write operation
+		// decide whether to perform a read or write operation
 		if rand.Intn(100) < readRatio {
-			// Perform a read operation
-			getValue(ctx, cacheNodeURL, key)
+			// 99% of the time, perform a read operation
+			nodeLabel := fmt.Sprintf("node%d", rand.Intn(len(cacheNodes))+1) // "node1", "node2", etc.
+			getValue(ctx, cacheNodeURL, key, nodeLabel)
 		} else {
-			// Perform a write operation
+			// 1% of the time perform a write operation
 			setValue(ctx, cacheNodeURL, key, value)
 		}
 	}
@@ -60,7 +135,7 @@ func main() {
 }
 
 // getValue simulates a read operation by sending a GET request to the cache node
-func getValue(ctx context.Context, baseURL, key string) {
+func getValue(ctx context.Context, baseURL, key string, nodeLabel string) {
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -75,9 +150,28 @@ func getValue(ctx context.Context, baseURL, key string) {
 	}(resp.Body)
 
 	if resp.StatusCode == http.StatusOK {
+		// Read the response body to determine if it was a hit or miss
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Printf("error reading response body: %s", err)
+			return
+		}
+		bodyString := string(bodyBytes)
+
+		// todo how do we know if we get a miss?
+		// for example, if the body contains "null" or "not found", consider it a miss
+		if bodyString == "null" || bodyString == "not found" { // todo replace this later
+			fmt.Printf("Cache miss for key: %s\n", key)
+			cacheMissesCounter.WithLabelValues(nodeLabel).Inc()
+		} else {
+			fmt.Printf("Cache hit for key: %s\n", key)
+			cacheHitsCounter.WithLabelValues(nodeLabel).Inc()
+		}
 		fmt.Printf("GET successful for key: %s\n", key)
+		readOpsCounter.WithLabelValues("success").Inc()
 	} else {
 		fmt.Printf("GET failed for key: %s with status code: %d\n", key, resp.StatusCode)
+		readOpsCounter.WithLabelValues("failure").Inc()
 	}
 }
 
@@ -98,7 +192,9 @@ func setValue(ctx context.Context, baseURL, key, value string) {
 
 	if resp.StatusCode == http.StatusOK {
 		fmt.Printf("SET successful for key: %s\n", key)
+		writeOpsCounter.WithLabelValues("success").Inc()
 	} else {
 		fmt.Printf("SET failed for key: %s with status code: %d\n", key, resp.StatusCode)
+		writeOpsCounter.WithLabelValues("failure").Inc()
 	}
 }
