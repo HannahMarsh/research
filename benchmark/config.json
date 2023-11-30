@@ -1,0 +1,68 @@
+{
+  "numRequests": 10000,
+  "readPercentage": 0.99,
+  "cacheNodes": {
+    "1": {
+      "local": {
+        "name": "node1",
+        "ip": "localhost",
+        "port": "1025"
+      },
+      "remote": {
+        "name": "ccl1.cs.unh.edu",
+        "ip": "132.177.10.81",
+        "port": "1025"
+      }
+    },
+    "2": {
+      "local": {
+        "name": "node2",
+        "ip": "localhost",
+        "port": "1026"
+      },
+      "remote": {
+        "name": "ccl2.cs.unh.edu",
+        "ip": "132.177.10.82",
+        "port": "1025"
+      }
+    },
+    "3": {
+      "local": {
+        "name": "node3",
+        "ip": "localhost",
+        "port": "1027"
+      },
+      "remote": {
+        "name": "ccl3.cs.unh.edu",
+        "ip": "132.177.10.83",
+        "port": "1025"
+      }
+    },
+    "4": {
+      "local": {
+        "name": "node4",
+        "ip": "localhost",
+        "port": "1028"
+      },
+      "remote": {
+        "name": "ccl4.cs.unh.edu",
+        "ip": "132.177.10.84",
+        "port": "1025"
+      }
+    }
+  },
+  "database": {
+    "local": {
+      "name": "local database",
+      "ip": "localhost",
+      "create_keyspace": false,
+      "keyspace": "mykeyspace"
+    },
+    "remote": {
+      "name": "ccl4.cs.unh.edu",
+      "ip": "132.177.10.85",
+      "create_keyspace": false,
+      "keyspace": "mykeyspace"
+    }
+  }
+}

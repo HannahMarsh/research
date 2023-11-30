@@ -7,15 +7,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
 )
-
-type cacheNode struct {
-	ip   string
-	port int
-}
 
 type database_ struct {
 	db       *DbWrapper
@@ -23,28 +19,12 @@ type database_ struct {
 	hosts    []string
 }
 
-var db_ database_
-
-// List of remote cache nodes
-var cacheNodesRemote = []cacheNode{
-	{ip: "132.177.10.81", port: 1025}, // ccl1.cs.unh.edu
-	{ip: "132.177.10.82", port: 1025}, // ccl2.cs.unh.edu
-	{ip: "132.177.10.83", port: 1025}, // ccl3.cs.unh.edu
-	{ip: "132.177.10.84", port: 1025}, // ccl4.cs.unh.edu
+type config_ struct {
+	database       database_
+	nodeConfigs    []*Config
+	numRequests    int     // total number of requests to send
+	readPercentage float64 // percentage of read operations
 }
-
-// for local testing (enable with -l flag)
-var cacheNodesLocal = []cacheNode{
-	{ip: "localhost", port: 1025}, // ccl1.cs.unh.edu
-	{ip: "localhost", port: 1026}, // ccl2.cs.unh.edu
-	{ip: "localhost", port: 1027}, // ccl3.cs.unh.edu
-	{ip: "localhost", port: 1028}, // ccl4.cs.unh.edu
-}
-
-const ( // todo change this or put it in a config file
-	numRequests    = 1000 // total number of requests to send
-	readPercentage = 0.99 // percentage of read operations
-)
 
 // metrics we want to track
 var (
@@ -86,39 +66,60 @@ func init() {
 	prometheus.MustRegister(cacheMissesCounter)
 }
 
-func main() {
-
+func getFlags() (bool, string) {
 	var local bool
 	var help bool
-	var keyspace string
 	flag.BoolVar(&help, "help", false, "Display usage")
-	flag.BoolVar(&local, "l", false, "use local ip addresses for cache nodes")
-	flag.StringVar(&keyspace, "keyspace", "", "create new keyspace as this")
+	flag.BoolVar(&local, "l", false, "use local ip addresses for cache nodes_config")
 
 	flag.Parse()
 
 	if help == true {
-		fmt.Println("Usage: <program> [-help] [-l] [-keyspace <keyspace>]")
+		fmt.Println("Usage: <program> [-help] [-l]")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
+	var cr = "remote"
+	if local {
+		cr = "local"
+	}
+	return local, cr
+}
 
-	var cacheNodes = cacheNodesRemote
-	db_ = database_{
-		db:       nil,
-		keyspace: keyspace,                  // todo replace with actual keyspace
-		hosts:    []string{"132.177.10.85"}, // ccl5.cs.unh.edu
+func getConfigs() config_ {
+	config := GetConfig_()
+	if config == nil {
+		fmt.Println("Failed to load config")
+		os.Exit(-1)
+	}
+	_, cr := getFlags()
+
+	nodesConfig := config.Get("cacheNodes")
+	cacheNodes := []*Config{
+		nodesConfig.Get("1").Get(cr),
+		nodesConfig.Get("2").Get(cr),
+		nodesConfig.Get("3").Get(cr),
+		nodesConfig.Get("4").Get(cr),
 	}
 
-	if local == true {
-		cacheNodes = cacheNodesLocal
-		db_.hosts = []string{"localhost"}
-	}
+	databaseConfig := config.Get("database").Get(cr)
+	var keyspace = ""
 
-	db_.db = NewDbWrapper(db_.keyspace, db_.hosts...)
+	if databaseConfig.Get("create_keyspace").AsBool(false) {
+		keyspace = databaseConfig.Get("keyspace").AsString("")
+	}
+	numRequests := config.Get("numRequests").AsInt(0)
+	readPercentage := config.Get("readPercentage").AsFloat(0.99)
+
+	hosts := []string{databaseConfig.Get("ip").AsString("localhost")}
+	return config_{database: database_{db: NewDbWrapper(keyspace, hosts...), keyspace: keyspace, hosts: hosts}, nodeConfigs: cacheNodes, numRequests: numRequests, readPercentage: readPercentage}
+}
+func main() {
+
+	config := getConfigs()
 
 	ctx := context.Background()
-	readRatio := int(readPercentage * 100)
+	readRatio := int(config.readPercentage * 100)
 
 	// start an HTTP server for Prometheus scraping
 	http.Handle("/metrics", promhttp.Handler())
@@ -128,32 +129,53 @@ func main() {
 		}
 	}()
 
-	for i := 0; i < numRequests; i++ {
+	for i := 0; i < config.numRequests; i++ {
 		// generate a random key-value pair
 		// todo
 		key := fmt.Sprintf("key-%d", i)
 		value := fmt.Sprintf("value-%d", rand.Intn(1000))
 
 		// select a random cache node
-		node := cacheNodes[rand.Intn(len(cacheNodes))]
-		cacheNodeURL := fmt.Sprintf("http://%s:%d", node.ip, node.port)
+		node := config.nodeConfigs[rand.Intn(len(config.nodeConfigs))]
+		ip := node.Get("ip").AsString("")
+		port := node.Get("port").AsString("")
+		cacheNodeURL := fmt.Sprintf("http://%s:%d", ip, port)
 
 		// decide whether to perform a read or write operation
 		if rand.Intn(100) < readRatio {
 			// 99% of the time, perform a read operation
-			nodeLabel := fmt.Sprintf("node%d", rand.Intn(len(cacheNodes))+1) // "node1", "node2", etc.
-			getValue(ctx, cacheNodeURL, key, nodeLabel)
+			nodeLabel := fmt.Sprintf("node%d", rand.Intn(len(config.nodeConfigs))+1) // "node1", "node2", etc.
+			getValue(ctx, cacheNodeURL, key, nodeLabel, config.database)
 		} else {
 			// 1% of the time perform a write operation
 			setValue(ctx, cacheNodeURL, key, value)
 		}
 	}
 
-	// todo collect and report metrics from Prometheus
+	// fetch and print metrics
+	metricsURL := "http://localhost:9100/metrics"
+	resp, err := http.Get(metricsURL)
+	if err != nil {
+		log.Fatalf("Failed to fetch metrics: %v", err)
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("error closing reader: %s", err)
+		}
+	}(resp.Body)
+
+	metricsData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Failed to read metrics response: %v", err)
+	}
+
+	fmt.Println("Metrics Data:")
+	fmt.Println(string(metricsData))
 }
 
 // getValue simulates a read operation by sending a GET request to the cache node
-func getValue(ctx context.Context, baseURL, key string, nodeLabel string) {
+func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db database_) {
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -183,7 +205,7 @@ func getValue(ctx context.Context, baseURL, key string, nodeLabel string) {
 			cacheMissesCounter.WithLabelValues(nodeLabel).Inc()
 
 			// retrieve value from the database
-			valueFromDB, keyExists := db_.db.Get(key)
+			valueFromDB, keyExists := db.db.Get(key)
 
 			if keyExists {
 				// write the value to the cache
