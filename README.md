@@ -189,6 +189,7 @@ This command mounts the `alibabaBlock` directory containing the trace files into
 
 ## Additional Resources
 - [A Hitchhiker’s Guide to Caching Patterns](https://hazelcast.com/blog/a-hitchhikers-guide-to-caching-patterns/)
+- [Amazon DynamoDB: A Scalable, Predictably Performant, and Fully Managed NoSQL Database Service](https://www.usenix.org/system/files/atc22-elhemali.pdf)
 
 ## Repositories
 - Gocache: [github.com/eko/gocache](https://github.com/eko/gocache)
