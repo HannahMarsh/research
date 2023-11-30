@@ -9,7 +9,7 @@
 - Prometheus Client Library: [github.com/prometheus/client_golang](https://github.com/prometheus/client_golang)
 
 ## my questions / answers
-- A cache node will be an instance of a cache server, running on a separate host machine with unique ip/port
+- What is a cache node?
   > a cache node is an instance of a cache server made out of cache library in a wrapper to facilitate the remote access to it. It will run on a separate container, which may or may not be on separate machine.
 - How will the benchmark determines which node to send requests to?
   > hashing is fine. it is a simple form of load balancing. We know how many caching servers we have, so we can hash keys into that many "buckets"
