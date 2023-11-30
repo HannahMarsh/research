@@ -126,6 +126,47 @@ regular cache requests. This way, we can simulate a failure without needing to s
 - `/recover`: switches the server back to normal operation.
 
 
+* * *
+
+## Cache Wrapper  
+
+The Cache Wrapper provides a straightforward interface for cache operations, including setting and 
+retrieving values, and simulating node failures and recoveries for testing.
+
+### Functionality  
+
+- Facilitates standard cache operations such as setting (`/set`) and getting (`/get`) values, using Gocache's in-memory store.
+- Implements endpoints (`/fail` and `/recover`) to simulate node failures and recoveries.
+- Uses a mutex (`failMutex`) to manage concurrent access to the cache's failure state, ensuring thread safety.
+
+### Key Components  
+
+- **Cache Initialization:**
+  - **Gocache Client:** Creates an in-memory cache client with a default expiration time and cleanup interval.
+  - **Cache Manager:** Initializes a cache manager using Gocache's store, which is central to all cache operations.
+  - **HTTP Handlers:**
+  - `setupHandlers`: Sets up routes for cache operations and failure simulation.
+    - `set_` and `get_`: Handle HTTP requests for setting and retrieving values from the cache.
+    - `fail_` and `recover_`: Enable simulation of cache node failures and recoveries.
+- **Failure Simulation:**
+  - `simulateFailure`: Checks and responds if the cache node is in a failed state.
+
+### Usage  
+
+1.  **Starting the cache node instance:**  
+     - Run the cache node using `go run cache.go -id <cache_id> -port <port>`. Replace `<cache_id>` and `<port>` with appropriate values.
+       - By default, the cache listens on port `1025`. Use the `-port` flag to change the listening port.  
+
+2.  **Interacting with the cache:**
+     - Use HTTP requests to interact with the cache:
+       - `GET /get?key=<key>` to retrieve a value.
+       - `POST /set?key=<key>&value=<value>` to set a value.  
+     
+3.  **Simulating failures:**
+     - To simulate a failure, send a request to `GET /fail`.
+     - To recover the cache, send a request to `GET /recover`.
+
+
 -------
 
 Outdated readme (need to update):
