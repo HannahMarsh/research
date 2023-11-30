@@ -5,8 +5,8 @@
   
 ## repos
 - Gocache: [github.com/eko/gocache](https://github.com/eko/gocache)
-- Apache Cassandra: [github.com/gocql/gocql](https://github.com/gocql/gocql)
-- Prometheus: [github.com/prometheus/client_golang](https://github.com/prometheus/client_golang)
+- Apache Cassandra Client Library: [github.com/gocql/gocql](https://github.com/gocql/gocql)
+- Prometheus Client Library: [github.com/prometheus/client_golang](https://github.com/prometheus/client_golang)
 
 ## my notes / questions
 - A cache node will be an instance of a cache server, running on a separate host machine with unique ip/port
