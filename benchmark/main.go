@@ -125,14 +125,18 @@ func main() {
 		}
 	}()
 
+	zipf := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(len(config.nodeConfigs)))
+
 	for i := 0; i < config.numRequests; i++ {
-		// generate a random key-value pair
-		// todo
-		key := fmt.Sprintf("key-%d", i)
+
+		key := fmt.Sprintf("key-%d", zipf.Uint64())
 		value := fmt.Sprintf("value-%d", rand.Intn(1000))
 
-		// select a random cache node
-		node := config.nodeConfigs[rand.Intn(len(config.nodeConfigs))]
+		// select a cache node based on load-balancing hash
+		nodeIndex := getNodeHash(key, config)
+		node := config.nodeConfigs[nodeIndex]
+
+		// get node's url
 		ip := node.Get("ip").AsString("")
 		port := node.Get("port").AsString("")
 		cacheNodeURL := fmt.Sprintf("http://%s:%d", ip, port)
@@ -168,6 +172,18 @@ func main() {
 
 	fmt.Println("Metrics Data:")
 	fmt.Println(string(metricsData))
+}
+
+// getNodeHash generates a hash for load balancing
+// We know how many caching servers we have, so we can hash keys into that many "buckets"
+func getNodeHash(key string, config config_) int {
+	// Simple hash function for now
+	// todo ask aleksey if we need a more complicated hash
+	var hash int
+	for i := 0; i < len(key); i++ {
+		hash = (hash*31 + int(key[i])) % len(config.nodeConfigs)
+	}
+	return hash
 }
 
 // getValue simulates a read operation by sending a GET request to the cache node
