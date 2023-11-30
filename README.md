@@ -70,9 +70,56 @@ resilience and performance under different failure scenarios.
 - Implement failure detection and fallback logic in the benchmark client.
 - Set up a metrics collection system using Gocache's integration with Prometheus or another monitoring tool.
 - Write a custom request generator that produces the desired mix of read and write operations.
+  
+
+## Cache Benchmark Tool
+This benchmark tool is designed to simulate a realistic load on a distributed cache system, measuring its performance and 
+resilience under various conditions.   
+It is tailored for scenarios involving read-heavy workloads and dynamic cache recovery.
+  
+
+### Features
+- Generates a large number of cache read and write requests to test cache performance under load.
+- Simulates failures in cache nodes to analyze the system's failover mechanisms and resilience.
+- Integrates with Prometheus to track key metrics like read/write operations, cache hits and misses, operation latency, and throughput.
+- Allows adjustment of parameters such as the number of requests, read/write ratios, and cache node details for flexible testing.
+- Uses a Zipfian distribution for key selection to simulate real-world access patterns where some keys are hotter than others.
+
+### System Architecture
+The benchmark tool interacts with a distributed cache setup comprising multiple cache nodes. It can operate in both local 
+and remote configurations. Cache nodes are simulated using `gocache`, a Go-based in-memory cache.
+  
+
+### Key Components
+- **`config_`:** 
+  - Central configuration struct holding database connection details, cache node configurations, and other operational parameters.
+- **Metrics Tracking:**
+  - **Counters:** `readOpsCounter`, `writeOpsCounter`, `cacheHitsCounter`, `cacheMissesCounter` for tracking various operation counts.
+  - **Histogram:** `opLatencyHistogram` for observing the latency of read/write operations.
+  - **Gauge:** `throughputGauge` for measuring the operations per second, providing a dynamic view of the system's throughput.
+- **Simulated Node Failures:** 
+  - A routine that periodically triggers failures and recoveries in cache nodes to test the system's resilience.
+- **Throughput Updater:** 
+  - A background process that regularly updates the throughput gauge based on the number of successful operations.
+
+### Usage
+
+To run the benchmark:
+
+1.  Configure the cache nodes and database settings in the `config.json` file.
+2.  Execute the benchmark program using `go run benchmark.go`. Use flags `-l` for local testing and `-help` for usage instructions.
+3.  The tool will start sending requests to the cache nodes, simulating read/write operations.
+4.  Prometheus metrics can be accessed at `http://localhost:9100/metrics`.
+
+### Prometheus Integration
+
+The tool exposes various metrics in Prometheus format for easy integration with monitoring systems.  
+It provides a detailed view of the cache system's performance, including latency and throughput under normal operation and simulated failure conditions.
 
 
-## Simulating Cache Failure
+## Cache Nodes
+
+### Simulating Cache Failure
 An endpoint has been added to the cache server so that, when triggered, it makes the server stop responding to 
 regular cache requests. This way, we can simulate a failure without needing to shut down the process.
 - `/fail`: When this endpoint is hit, the server changes its state to a "failed" mode where it does not respond to cache requests.
@@ -81,6 +128,7 @@ regular cache requests. This way, we can simulate a failure without needing to s
 
 -------
 
+Outdated readme (need to update):
 
 
 ## Description

@@ -206,11 +206,11 @@ func main() {
 func simulateNodeFailures(nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
 	for {
 		for _, nodeConfig := range nodeConfigs {
-			// Trigger failure
+			// trigger failure
 			triggerNodeFailureOrRecovery(nodeConfig, true)
 			time.Sleep(failDuration)
 
-			// Trigger recovery
+			// trigger recovery
 			triggerNodeFailureOrRecovery(nodeConfig, false)
 			time.Sleep(recoverDuration)
 		}
@@ -265,7 +265,7 @@ func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db *Db
 	}(resp.Body)
 
 	if resp.StatusCode == http.StatusOK {
-		// Read the response body to determine if it was a hit or miss
+		// read the response body to determine if it was a hit or miss
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			fmt.Printf("error reading response body: %s", err)
