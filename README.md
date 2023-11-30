@@ -1,10 +1,58 @@
 # A Study of Cache-Database Interactions
 
-## To do
-- replace database module with a real one (Apache Cassandra, for ex.)
-
-## Resources
+## resources
 - [A Hitchhiker’s Guide to Caching Patterns](https://hazelcast.com/blog/a-hitchhikers-guide-to-caching-patterns/)
+  
+## repos
+- Gocache: [github.com/eko/gocache](https://github.com/eko/gocache)
+- Apache Cassandra: [github.com/gocql/gocql](https://github.com/gocql/gocql)
+- Prometheus: [github.com/prometheus/client_golang](https://github.com/prometheus/client_golang)
+
+## my notes / questions
+- A cache node will be an instance of a cache server, running on a separate host machine with unique ip/port
+- How will the benchmark determines which node to send requests to?
+  - based on a load balancing strategy or some sort of hashing mechanism?
+- How will we simulate cache node failures?
+  - Are these failures to be artificially triggered by the benchmark? 
+    - If not, how will the benchmark detect when a node failure occurs?
+      - Is a health-check or timeout mechanism in place for this? 
+    - Upon detecting a node failure, what is the benchmark's failover strategy? 
+      - Should it attempt to reroute to an alternate cache node or fall back to the database directly? 
+    - Is there a cache synchronization protocol to handle the situation when a failed cache node comes back online?
+      - If so, what layer will this be implemented at?
+- For request generation, do we want an even distribution of keys, or should we design the generator to produce a skewed distribution where some keys are accessed more frequently ("hotter")?
+- Should the generator use a deterministic or a stochastic model to simulate the requests (assuming 99% reads, 1% writes)?
+- What specific metrics are we interested in gathering? 
+  - Is it ok if we use Gocache's built-in Prometheus metrics provider?
+  - Should the database/benchmark also collect results like latency/throughput?
+
+## summary of what i need to do
+
+1. Create a distributed cache system that interfaces with Apache Cassandra ([gocql](https://github.com/gocql/gocql)) as a datastore and uses [Gocache](https://github.com/eko/gocache) as the
+caching layer.  
+   - Gocache has an interface-based approach that will allow us to create our own custom store.  
+   - Gocache also offers built-in metrics functionality (like Prometheus integration), which we can use to gather and expose metrics about cache hits, misses, and errors. 
+     - We have to configure Gocache to use a metrics provider and the benchmark will then query that provider for the necessary data.
+
+2. We will have 4 cache nodes that will each be separate cache instances that we can manage and orchestrate.   
+
+3. The benchmark acts as a client, issuing requests and handling node failures while collecting metrics to evaluate the system's 
+resilience and performance under different failure scenarios.   
+
+  
+### implementation:
+
+- Set up multiple cache node instances, each with a unique address.
+- Configure the benchmark client to distribute requests across these nodes.
+- Implement failure detection and fallback logic in the benchmark client.
+- Set up a metrics collection system using Gocache's integration with Prometheus or another monitoring tool.
+- Write a custom request generator that produces the desired mix of read and write operations.
+
+
+
+-------
+
+
 
 ## Description
 

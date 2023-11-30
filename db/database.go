@@ -21,7 +21,7 @@ type DataBase struct {
 }
 
 func (db *DataBase) init(ip string, port string, keyspace string, cassandraHosts ...string) {
-	db.kv, err = NewKVStore(keyspace, cassandraHosts...)
+	db.kv, _ = NewKVStore(keyspace, cassandraHosts...)
 	gob.Register(shared.DbRequest{})
 	db.ip = ip
 	db.port = port
