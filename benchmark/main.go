@@ -22,8 +22,8 @@ var cacheNodes = []cacheNode{
 }
 
 const (
-	numRequests    = 1000 // Total number of requests to send
-	readPercentage = 0.99 // Percentage of read operations
+	numRequests    = 1000 // total number of requests to send
+	readPercentage = 0.99 // percentage of read operations
 )
 
 func main() {
@@ -49,8 +49,7 @@ func main() {
 		}
 	}
 
-	// Here you would typically collect and report metrics from Prometheus
-	// Metrics collection code would go here
+	// todo collect and report metrics from Prometheus
 }
 
 // getValue simulates a read operation by sending a GET request to the cache node
