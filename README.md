@@ -19,11 +19,12 @@ caching layer.
 
 ## Project Structure
 
-The system consists of multiple components, each with its own functionality:
+The system consists of multiple components, each with its own functionality:  
+  
+- [**Benchmark**](#benchmark-tool-): Responsible for distributing requests between cache and database layers.
+- [**Cache Node**](#cache-node): Each is an instance of a cache server, encapsulated within a wrapper that facilitates remote access.
+- [**Database**](#setting-up-the-database): Manages database operations.
 
-- **Cache Node**: an instance of a cache server, encapsulated within a wrapper that facilitates remote access.
-- **Database**: Manages database operations.
-- **Benchmark**: Responsible for distributing requests between cache and database layers.
 
 ## Setting Up the Database
 
@@ -41,7 +42,7 @@ Setup Apache Cassandra database on `ccl5.cs.unh.edu`
         CREATE KEYSPACE mykeyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
         ```
 
-## Cache Benchmark Tool  
+## Benchmark Tool  
 
 This benchmark tool is designed to simulate a realistic load on a distributed cache system, measuring its performance and 
 resilience under various conditions.   
