@@ -19,9 +19,9 @@ caching layer.
 
 ## Project Structure
 
-The project consists of multiple components, each with its own functionality:
+The system consists of multiple components, each with its own functionality:
 
-- **Cache Node**: Manages caching operations.
+- **Cache Node**: an instance of a cache server, encapsulated within a wrapper that facilitates remote access.
 - **Database**: Manages database operations.
 - **Benchmark**: Responsible for distributing requests between cache and database layers.
 
