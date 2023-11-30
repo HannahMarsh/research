@@ -13,14 +13,8 @@ import (
 	"os"
 )
 
-type database_ struct {
-	db       *DbWrapper
-	keyspace string
-	hosts    []string
-}
-
 type config_ struct {
-	database       database_
+	database       *DbWrapper
 	nodeConfigs    []*Config
 	numRequests    int     // total number of requests to send
 	readPercentage float64 // percentage of read operations
@@ -112,8 +106,9 @@ func getConfigs() config_ {
 	readPercentage := config.Get("readPercentage").AsFloat(0.99)
 
 	hosts := []string{databaseConfig.Get("ip").AsString("localhost")}
-	return config_{database: database_{db: NewDbWrapper(keyspace, hosts...), keyspace: keyspace, hosts: hosts}, nodeConfigs: cacheNodes, numRequests: numRequests, readPercentage: readPercentage}
+	return config_{database: NewDbWrapper(keyspace, hosts...), nodeConfigs: cacheNodes, numRequests: numRequests, readPercentage: readPercentage}
 }
+
 func main() {
 
 	config := getConfigs()
@@ -175,7 +170,7 @@ func main() {
 }
 
 // getValue simulates a read operation by sending a GET request to the cache node
-func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db database_) {
+func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db *DbWrapper) {
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -205,7 +200,7 @@ func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db dat
 			cacheMissesCounter.WithLabelValues(nodeLabel).Inc()
 
 			// retrieve value from the database
-			valueFromDB, keyExists := db.db.Get(key)
+			valueFromDB, keyExists := db.Get(key)
 
 			if keyExists {
 				// write the value to the cache

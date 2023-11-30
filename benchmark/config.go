@@ -55,6 +55,7 @@ func (c *Config) Get(key string) *Config {
 	if resultMap, ok := c.value.(map[string]interface{}); ok {
 		return &Config{value: resultMap[key], isEmpty: resultMap[key] == nil}
 	} else {
+		fmt.Printf("Did not find key %s in config file\n\n", key)
 		return &Config{value: nil, isEmpty: true}
 	}
 }
@@ -65,6 +66,7 @@ func (c *Config) AsString(dflt string) string {
 			return resultString
 		}
 	}
+	fmt.Printf("Can not convert to string\n")
 	return dflt
 }
 
@@ -78,6 +80,7 @@ func (c *Config) AsFloat(dflt float64) float64 {
 			return resultFloat
 		}
 	}
+	fmt.Printf("Can not convert to float\n")
 	return dflt
 }
 
@@ -87,5 +90,6 @@ func (c *Config) AsBool(dflt bool) bool {
 			return resultBool
 		}
 	}
+	fmt.Printf("Can not convert to bool\n")
 	return dflt
 }
