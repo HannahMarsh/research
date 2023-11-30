@@ -59,17 +59,6 @@ and remote configurations. Cache nodes are simulated using `gocache`, a Go-based
 - Simulates failures in cache nodes to analyze the system's failover mechanisms and resilience.
 - Integrates with Prometheus to track key metrics like read/write operations, cache hits and misses, operation latency, and throughput.
 - Allows adjustment of parameters such as the number of requests, read/write ratios, and cache node details for flexible testing. 
-  
-### Request Generation and Distribution:  
-
-- To mimic real-world scenarios, the system employs various strategies for generating requests:
-  - Zipf Distribution: For simulating access patterns where some keys are "hotter" than others.
-  - Real Traces: Uses actual data to model request patterns.
-- The workload primarily consists of read operations, with an initial warm-up stage to fill the database with data.
-
-## Benchmarking with Trace Files
-- Trace files are located in the `/usr/local/share/datasets/cmu-cache-datasets/alibabaBlock` directory on the `ccl5` remote host and are used by the benchmark module to simulate realistic workload patterns.
-- The benchmark container will run on this remote host and will have the `alibabaBlock` directory mounted to `/app/traces` inside the Docker container.
 
 
 ### Key Components
@@ -83,6 +72,20 @@ and remote configurations. Cache nodes are simulated using `gocache`, a Go-based
   - A routine that periodically triggers failures and recoveries in cache nodes to test the system's resilience.
 - **Throughput Updater:** 
   - A background process that regularly updates the throughput gauge based on the number of successful operations.
+
+  
+### Request Generation and Distribution:
+
+- To mimic real-world scenarios, the system employs various strategies for generating requests:
+    - Zipf Distribution: For simulating access patterns where some keys are "hotter" than others.
+    - Real Traces: Uses actual data to model request patterns.
+- The workload primarily consists of read operations, with an initial warm-up stage to fill the database with data.
+  
+
+### Benchmarking with Trace Files
+- Trace files are located in the `/usr/local/share/datasets/cmu-cache-datasets/alibabaBlock` directory on the `ccl5` remote host and are used by the benchmark module to simulate realistic workload patterns.
+- The benchmark container will run on this remote host and will have the `alibabaBlock` directory mounted to `/app/traces` inside the Docker container.
+  
 
 ### Usage
 
