@@ -41,7 +41,7 @@ var cacheNodesLocal = []cacheNode{
 	{ip: "localhost", port: 1028}, // ccl4.cs.unh.edu
 }
 
-const (
+const ( // todo change this or put it in a config file
 	numRequests    = 1000 // total number of requests to send
 	readPercentage = 0.99 // percentage of read operations
 )
