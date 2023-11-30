@@ -32,7 +32,10 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintf(w, "Set key %s with value %s\n", key, value)
+		_, err = fmt.Fprintf(w, "Set key %s with value %s\n", key, value)
+		if err != nil {
+			log.Printf("Failed to set key %s with value %s: %v\n", key, value, err)
+		}
 	})
 
 	http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +50,11 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintf(w, "Value for key %s: %s\n", key, value)
+		// send the value back to the client
+		_, err = fmt.Fprintf(w, "Value for key %s: %s\n", key, value)
+		if err != nil {
+			log.Printf("Failed to send value: \"%s\" tp client: %v", value, err)
+		}
 	})
 
 	// Start HTTP server
