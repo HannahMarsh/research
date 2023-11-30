@@ -3,11 +3,12 @@ LABEL authors="Hannah Marsh"
 
 WORKDIR /app
 
-EXPOSE 1025
-
 # Copy the Go module files for the cache module and download dependencies
 COPY cache/go.mod cache/go.sum ./
 RUN go mod download
+
+# Copy the shared utilities and config file from the shared directory
+COPY shared/ ./shared/
 
 # Copy the source code of the cache module
 COPY cache/ ./
