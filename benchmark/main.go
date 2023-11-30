@@ -1,38 +1,98 @@
 package benchmark
 
 import (
+	"context"
 	"fmt"
-	"log"
-	"shared"
+	"io"
+	"math/rand"
+	"net/http"
 )
 
-// CMUTrace /*
-type CMUTrace struct {
-	Timestamp       uint32
-	ObjectID        uint64
-	ObjectSize      uint32
-	NextAccessVTime int64 // Use int64 to hold -1
+type cacheNode struct {
+	ip   string
+	port int
 }
 
-func readTraceFile(filePath string) ([]CMUTrace, error) {
-	// open the .zst file
-	// ...
-
-	// create a zstd decompressor
-	// ...
-
-	// read and parse the data into CMUTrace structs
-	// ...
+// List of cache nodes
+var cacheNodes = []cacheNode{
+	{ip: "132.177.10.81", port: 1025}, // ccl1.cs.unh.edu
+	{ip: "132.177.10.82", port: 1025}, // ccl2.cs.unh.edu
+	{ip: "132.177.10.83", port: 1025}, // ccl3.cs.unh.edu
+	{ip: "132.177.10.84", port: 1025}, // ccl4.cs.unh.edu
 }
+
+const (
+	numRequests    = 1000 // Total number of requests to send
+	readPercentage = 0.99 // Percentage of read operations
+)
 
 func main() {
-	config := shared.LoadConfig()
-	// Use the config...
-	fmt.Println(config)
+	ctx := context.Background()
+	readRatio := int(readPercentage * 100)
 
-	// example
-	traces, err := readTraceFile("/app/traces/io_traces.ns0.oracleGeneral.zst")
+	for i := 0; i < numRequests; i++ {
+		// Generate a random key-value pair
+		key := fmt.Sprintf("key-%d", i)
+		value := fmt.Sprintf("value-%d", rand.Intn(1000))
+
+		// Select a random cache node
+		node := cacheNodes[rand.Intn(len(cacheNodes))]
+		cacheNodeURL := fmt.Sprintf("http://%s:%d", node.ip, node.port)
+
+		// Decide whether to perform a read or write operation
+		if rand.Intn(100) < readRatio {
+			// Perform a read operation
+			getValue(ctx, cacheNodeURL, key)
+		} else {
+			// Perform a write operation
+			setValue(ctx, cacheNodeURL, key, value)
+		}
+	}
+
+	// Here you would typically collect and report metrics from Prometheus
+	// Metrics collection code would go here
+}
+
+// getValue simulates a read operation by sending a GET request to the cache node
+func getValue(ctx context.Context, baseURL, key string) {
+	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
+	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("GET error: %s\n", err)
+		return
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("error closing reader: %s", err)
+		}
+	}(resp.Body)
+
+	if resp.StatusCode == http.StatusOK {
+		fmt.Printf("GET successful for key: %s\n", key)
+	} else {
+		fmt.Printf("GET failed for key: %s with status code: %d\n", key, resp.StatusCode)
+	}
+}
+
+// setValue simulates a write operation by sending a POST request to the cache node
+func setValue(ctx context.Context, baseURL, key, value string) {
+	url := fmt.Sprintf("%s/set?key=%s&value=%s", baseURL, key, value)
+	resp, err := http.PostForm(url, nil)
+	if err != nil {
+		fmt.Printf("SET error: %s\n", err)
+		return
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("error closing reader: %s", err)
+		}
+	}(resp.Body)
+
+	if resp.StatusCode == http.StatusOK {
+		fmt.Printf("SET successful for key: %s\n", key)
+	} else {
+		fmt.Printf("SET failed for key: %s with status code: %d\n", key, resp.StatusCode)
 	}
 }

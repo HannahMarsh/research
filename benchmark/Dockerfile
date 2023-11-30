@@ -7,9 +7,6 @@ COPY go.mod .
 
 RUN go mod download
 
-# Copy the shared utilities and config file from the shared directory
-COPY shared/ ./shared/
-
 # Copy the source code of the cache module
 COPY benchmark/ ./
 

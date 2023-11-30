@@ -28,14 +28,28 @@
 
 ## summary of what i need to do
 
-1. Create a distributed cache system that interfaces with Apache Cassandra ([gocql](https://github.com/gocql/gocql)) as a datastore and uses [Gocache](https://github.com/eko/gocache) as the
-caching layer.  
-   - Gocache has an interface-based approach that will allow us to create our own custom store.  
+Create a distributed cache system that interfaces with Apache Cassandra ([gocql](https://github.com/gocql/gocql)) as a datastore and uses [Gocache](https://github.com/eko/gocache) as the
+caching layer.   
+
+1. We will have 4 cache nodes that will each be separate Gocache server instances.
+  - Gocache has an interface-based approach that will allow us to create our own custom store.  
    - Gocache also offers built-in metrics functionality (like Prometheus integration), which we can use to gather and expose metrics about cache hits, misses, and errors. 
      - We have to configure Gocache to use a metrics provider and the benchmark will then query that provider for the necessary data.
 
-2. We will have 4 cache nodes that will each be separate cache instances that we can manage and orchestrate.   
-
+2. Setup Apache Cassandra database on `ccl5.cs.unh.edu`
+   - Install it on the server, if not already done.
+   - Configure it to allow connections from the cache nodes and benchmark:
+     - Locate the cassandra.yaml configuration file, (`/etc/cassandra/` or `/opt/cassandra/conf/`). 
+       - Modify `rpc_address` or `listen_address` to allow connections from other machines, setting it to `132.177.10.85` (or `0.0.0.0` for all interfaces).
+       - Open the necessary ports (default is 9042 for CQL) on the server's firewall to allow incoming connections.
+       - Restart the Cassandra service to apply the changes.
+   - Create the necessary keyspaces and tables:
+     - Access the Cassandra query shell by running `cqlsh` on the command line.
+       - Use a CQL statement to create a keyspace:
+           ```sql
+           CREATE KEYSPACE mykeyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+           ```
+         
 3. The benchmark acts as a client, issuing requests and handling node failures while collecting metrics to evaluate the system's 
 resilience and performance under different failure scenarios.   
 
