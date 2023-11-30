@@ -72,6 +72,12 @@ resilience and performance under different failure scenarios.
 - Write a custom request generator that produces the desired mix of read and write operations.
 
 
+## Simulating Cache Failure
+An endpoint has been added to the cache server so that, when triggered, it makes the server stop responding to 
+regular cache requests. This way, we can simulate a failure without needing to shut down the process.
+- `/fail`: When this endpoint is hit, the server changes its state to a "failed" mode where it does not respond to cache requests.
+- `/recover`: switches the server back to normal operation.
+
 
 -------
 
