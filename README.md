@@ -5,6 +5,7 @@
 
 This project focuses on developing a distributed cache benchmarking system designed to evaluate the performance and 
 resilience of a distributed cache setup.  
+  
 The system is composed of multiple cache nodes, a benchmark tool, and mechanisms for simulating node failures and monitoring performance metrics.
 It interfaces with Apache Cassandra ([gocql](https://github.com/gocql/gocql)) as a datastore and uses [Gocache](https://github.com/eko/gocache) as the
 caching layer.
