@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 )
 
@@ -24,6 +25,8 @@ type config_ struct {
 
 // metrics we want to track
 var (
+	successfulOps int64 = 0 // successful operations used for periodically updating throughput
+
 	readOpsCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "benchmark_read_operations_total",
@@ -52,6 +55,20 @@ var (
 		},
 		[]string{"node"},
 	)
+	opLatencyHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "benchmark_operation_latency_seconds",
+			Help:    "Latency of read/write operations.",
+			Buckets: prometheus.DefBuckets, // default buckets for now
+		},
+		[]string{"operation_type"}, // labels for operation type (read or write)
+	)
+	throughputGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "benchmark_throughput_operations",
+			Help: "Throughput of operations per second.",
+		},
+	)
 )
 
 func init() {
@@ -60,6 +77,8 @@ func init() {
 	prometheus.MustRegister(writeOpsCounter)
 	prometheus.MustRegister(cacheHitsCounter)
 	prometheus.MustRegister(cacheMissesCounter)
+	prometheus.MustRegister(opLatencyHistogram)
+	prometheus.MustRegister(throughputGauge)
 }
 
 func getFlags() (bool, string) {
@@ -131,6 +150,9 @@ func main() {
 	// start failure simulation routine
 	go simulateNodeFailures(config.nodeConfigs, 30*time.Second, 15*time.Second)
 
+	// start throughput updater
+	go updateThroughput()
+
 	// start generating requests
 	for i := 0; i < config.numRequests; i++ {
 
@@ -157,7 +179,8 @@ func main() {
 		}
 	}
 
-	// fetch and print metrics
+	// fetch and print Prometheus metrics
+
 	metricsURL := "http://localhost:9100/metrics"
 	resp, err := http.Get(metricsURL)
 	if err != nil {
@@ -184,18 +207,19 @@ func simulateNodeFailures(nodeConfigs []*bconfig.Config, failDuration, recoverDu
 	for {
 		for _, nodeConfig := range nodeConfigs {
 			// Trigger failure
-			triggerNodeFailure(nodeConfig, true)
+			triggerNodeFailureOrRecovery(nodeConfig, true)
 			time.Sleep(failDuration)
 
 			// Trigger recovery
-			triggerNodeFailure(nodeConfig, false)
+			triggerNodeFailureOrRecovery(nodeConfig, false)
 			time.Sleep(recoverDuration)
 		}
 	}
 }
 
-// triggerNodeFailure sends a request to either fail or recover a node
-func triggerNodeFailure(nodeConfig *bconfig.Config, fail bool) {
+// triggerNodeFailureOrRecovery sends a request to either fail or recover a node
+func triggerNodeFailureOrRecovery(nodeConfig *bconfig.Config, fail bool) {
+	// send an HTTP request to a specific cache node to simulate failure/recovery
 	ip := nodeConfig.Get("ip").AsString("")
 	port := nodeConfig.Get("port").AsString("")
 	endpoint := "/recover"
@@ -212,10 +236,9 @@ func triggerNodeFailure(nodeConfig *bconfig.Config, fail bool) {
 	}
 }
 
-// getNodeHash generates a hash for load balancing
-// We know how many caching servers we have, so we can hash keys into that many "buckets"
+// getNodeHash computes a hash value used for load balancing across cache nodes
 func getNodeHash(key string, config config_) int {
-	// Simple hash function for now
+	// simple hash function to distribute requests across cache nodes
 	// todo ask Aleksey if we need a more complicated hash for selecting which nodes to send requests to
 	var hash int
 	for i := 0; i < len(key); i++ {
@@ -224,8 +247,10 @@ func getNodeHash(key string, config config_) int {
 	return hash
 }
 
-// getValue simulates a read operation by sending a GET request to the cache node
+// getValue simulates a read operation by sending a GET request to the cache node and handle cache hit/miss logic
 func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db *DbWrapper) {
+	start := time.Now() // start time for latency measurement
+
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -269,14 +294,20 @@ func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db *Db
 		}
 		fmt.Printf("GET successful for key: %s\n", key)
 		readOpsCounter.WithLabelValues("success").Inc()
+		// update successful operations
+		atomic.AddInt64(&successfulOps, 1)
 	} else {
 		fmt.Printf("GET failed for key: %s with status code: %d\n", key, resp.StatusCode)
 		readOpsCounter.WithLabelValues("failure").Inc()
 	}
+	elapsed := time.Since(start).Seconds()                      // calculate elapsed time in seconds
+	opLatencyHistogram.WithLabelValues("read").Observe(elapsed) // record the latency
 }
 
-// setValue simulates a write operation by sending a POST request to the cache node
+// setValue simulates a write operation by sending a POST request to the cache node to write a key-value pair
 func setValue(ctx context.Context, baseURL, key, value string) {
+	start := time.Now() // start time for latency measurement
+
 	url := fmt.Sprintf("%s/set?key=%s&value=%s", baseURL, key, value)
 	resp, err := http.PostForm(url, nil)
 	if err != nil {
@@ -290,11 +321,34 @@ func setValue(ctx context.Context, baseURL, key, value string) {
 		}
 	}(resp.Body)
 
+	// update metrics
+
+	elapsed := time.Since(start).Seconds()                       // calculate elapsed time in seconds
+	opLatencyHistogram.WithLabelValues("write").Observe(elapsed) // record the latency
+
 	if resp.StatusCode == http.StatusOK {
 		fmt.Printf("SET successful for key: %s\n", key)
 		writeOpsCounter.WithLabelValues("success").Inc()
+		// update successful operations
+		atomic.AddInt64(&successfulOps, 1)
 	} else {
 		fmt.Printf("SET failed for key: %s with status code: %d\n", key, resp.StatusCode)
 		writeOpsCounter.WithLabelValues("failure").Inc()
+	}
+}
+
+// updateThroughput periodically updates the throughput gauge
+func updateThroughput() {
+	ticker := time.NewTicker(1 * time.Second) // update every second
+	var prevOps int64
+	for range ticker.C {
+		// calculate throughput
+		currentOps := atomic.LoadInt64(&successfulOps)
+		opsThisSecond := currentOps - prevOps
+		throughput := float64(opsThisSecond) // throughput is operations per second
+		throughputGauge.Set(throughput)
+
+		// update previous operation count
+		prevOps = currentOps
 	}
 }
