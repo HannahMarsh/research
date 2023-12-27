@@ -1,11 +1,9 @@
 package benchmark_config
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"os"
 )
 
 type Config struct {
@@ -13,39 +11,30 @@ type Config struct {
 	isEmpty bool
 }
 
-func GetConfig_() *Config {
+//go:embed config.json
+var configFile embed.FS
+
+func GetConfig_() (*Config, error) {
 
 	var result interface{}
 
-	jsonFile, err := os.Open("config.json")
+	fileData, err := configFile.ReadFile("config.json")
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 
-	defer func(jsonFile *os.File) {
-		err := jsonFile.Close()
-		if err != nil {
-			log.Fatalf("Failed to close config file: %s", err)
-		}
-	}(jsonFile)
-
-	byteValue, err := io.ReadAll(jsonFile)
+	err = json.Unmarshal(fileData, &result)
 	if err != nil {
-		log.Fatalf("Failed to read config file: %s", err)
+		return nil, err
 	}
 
-	// Unmarshal the byte value into the interface
-	err = json.Unmarshal(byteValue, &result)
-	if err != nil {
-		fmt.Println(err)
+	// Accessing top level which is a map
+	resultMap, ok := result.(map[string]interface{})
+	if ok {
+		return &Config{value: resultMap, isEmpty: resultMap == nil}, nil
+	} else {
+		return nil, fmt.Errorf("failed to get top level of config map")
 	}
-
-	// Example: Accessing data assuming top level is a map
-	if resultMap, ok := result.(map[string]interface{}); ok {
-		return &Config{value: resultMap, isEmpty: resultMap == nil}
-	}
-	return nil
 }
 
 func (c *Config) Get(key string) *Config {

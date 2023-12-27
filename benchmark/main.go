@@ -21,6 +21,8 @@ type config_ struct {
 	nodeConfigs    []*bconfig.Config
 	numRequests    int     // total number of requests to send
 	readPercentage float64 // percentage of read operations
+	prom_port      string
+	prom_endpoint  string
 }
 
 // metrics we want to track
@@ -102,9 +104,9 @@ func getFlags() (bool, string) {
 }
 
 func getConfigs() config_ {
-	config := bconfig.GetConfig_()
-	if config == nil {
-		fmt.Println("Failed to load config")
+	config, err := bconfig.GetConfig_()
+	if err != nil {
+		fmt.Println("Failed to load config:", err)
 		os.Exit(-1)
 	}
 	_, cr := getFlags()
@@ -126,8 +128,11 @@ func getConfigs() config_ {
 	numRequests := config.Get("numRequests").AsInt(0)
 	readPercentage := config.Get("readPercentage").AsFloat(0.99)
 
+	promEndpoint := config.Get("prom_endpoint").AsString("metrics")
+	promPort := config.Get("prom_port").AsString("9100")
+
 	hosts := []string{databaseConfig.Get("ip").AsString("localhost")}
-	return config_{database: NewDbWrapper(keyspace, hosts...), nodeConfigs: cacheNodes, numRequests: numRequests, readPercentage: readPercentage}
+	return config_{database: NewDbWrapper(keyspace, hosts...), nodeConfigs: cacheNodes, numRequests: numRequests, readPercentage: readPercentage, prom_endpoint: promEndpoint, prom_port: promPort}
 }
 
 func main() {
@@ -138,9 +143,9 @@ func main() {
 	readRatio := int(config.readPercentage * 100)
 
 	// start an HTTP server for Prometheus scraping
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/"+config.prom_endpoint, promhttp.Handler())
 	go func() {
-		if err := http.ListenAndServe(":9100", nil); err != nil {
+		if err := http.ListenAndServe(":"+config.prom_port, nil); err != nil {
 			panic(err)
 		}
 	}()
@@ -166,7 +171,7 @@ func main() {
 		// get node's url
 		ip := node.Get("ip").AsString("")
 		port := node.Get("port").AsString("")
-		cacheNodeURL := fmt.Sprintf("http://%s:%d", ip, port)
+		cacheNodeURL := fmt.Sprintf("http://%s:%s", ip, port)
 
 		// decide whether to perform a read or write operation
 		if rand.Intn(100) < readRatio {
@@ -179,27 +184,29 @@ func main() {
 		}
 	}
 
-	// fetch and print Prometheus metrics
+	metricsURL := "http://localhost:" + config.prom_port + "/" + config.prom_endpoint
 
-	metricsURL := "http://localhost:9100/metrics"
-	resp, err := http.Get(metricsURL)
-	if err != nil {
-		log.Fatalf("Failed to fetch metrics: %v", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Printf("error closing reader: %s", err)
-		}
-	}(resp.Body)
-
-	metricsData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalf("Failed to read metrics response: %v", err)
-	}
-
-	fmt.Println("Metrics Data:")
-	fmt.Println(string(metricsData))
+	Plot(metricsURL)
+	//
+	//resp, err := http.Get(metricsURL)
+	//if err != nil {
+	//	log.Fatalf("Failed to fetch metrics: %v", err)
+	//}
+	//defer func(Body io.ReadCloser) {
+	//	err := Body.Close()
+	//	if err != nil {
+	//		fmt.Printf("error closing reader: %s", err)
+	//	}
+	//}(resp.Body)
+	//
+	//metricsData, err := io.ReadAll(resp.Body)
+	//if err != nil {
+	//	log.Fatalf("Failed to read metrics response: %v", err)
+	//}
+	//
+	//fmt.Println("Metrics Data:")
+	//fmt.Println(string(metricsData))
+	time.Sleep(1000000)
 }
 
 // simulateNodeFailures periodically triggers failure and recovery of cache nodes

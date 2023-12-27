@@ -33,7 +33,7 @@ func main() {
 
 	// Display usage if help flag is set
 	if help == true {
-		fmt.Println("Usage: <program> [-help] -id <cache_id>")
+		fmt.Println("Usage: <program> [-help] -port <port> -id <cache_id>")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
