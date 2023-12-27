@@ -1,18 +1,19 @@
 package main
 
 import (
-	"encoding/json"
+	"bufio"
+	"embed"
 	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"strconv"
-	"time"
-
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/plotutil"
 	"gonum.org/v1/plot/vg"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
 )
 
 // PrometheusResponse represents a response from Prometheus API.
@@ -27,6 +28,52 @@ type PrometheusResponse struct {
 	} `json:"data"`
 }
 
+//go:embed metrics
+var metricsDir embed.FS
+
+func PlotMetric(body io.ReadCloser, metricName string) {
+	scanner := bufio.NewScanner(body)
+	pts := make(plotter.XYs, 0)
+
+	var i int
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, metricName) {
+			parts := strings.Fields(line)
+			if len(parts) != 2 {
+				continue
+			}
+
+			value, err := strconv.ParseFloat(parts[1], 64)
+			if err != nil {
+				log.Fatalf("Error parsing value: %v", err)
+			}
+
+			pts = append(pts, plotter.XY{X: float64(i), Y: value})
+			i++
+		}
+	}
+
+	p := plot.New()
+	if p == nil {
+		log.Fatalf("Error creating plot")
+	}
+
+	p.Title.Text = fmt.Sprintf("Plot for %s", metricName)
+	p.X.Label.Text = "Index"
+	p.Y.Label.Text = "Value"
+
+	err := plotutil.AddLinePoints(p, metricName, pts)
+	if err != nil {
+		log.Fatalf("Error adding line points: %v", err)
+	}
+
+	if err := p.Save(6*vg.Inch, 6*vg.Inch, fmt.Sprintf("metrics/%s.png", metricName)); err != nil {
+		log.Fatalf("Error saving plot: %v", err)
+	}
+	fmt.Printf("Plot for %s saved\n", metricName)
+}
+
 func Plot(url string) {
 	// Query Prometheus for metric data.
 	resp, err := http.Get(url)
@@ -39,57 +86,22 @@ func Plot(url string) {
 			fmt.Printf("error closing reader: %s", err)
 		}
 	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
+	metricsData, err := io.ReadAll(resp.Body)
+	// Open the file in append mode. If it doesn't exist, create it with permissions.
+	f, err := os.OpenFile("metrics/result.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatalf("Failed to read metrics response: %v", err)
+		log.Fatal(err)
 	}
-
-	// Parse the JSON response.
-	var promResp PrometheusResponse
-	err = json.Unmarshal(body, &promResp)
-	if err != nil {
-		log.Fatalf("Error unmarshaling response: %v", err)
-	}
-
-	// Create a new plot.
-	p := plot.New()
-	if p == nil {
-		log.Fatalf("Error creating plot")
-	}
-
-	p.Title.Text = "My Prometheus Metric Plot"
-	p.X.Label.Text = "Time"
-	p.Y.Label.Text = "Value"
-
-	// Prepare the data for plotting.
-	for _, result := range promResp.Data.Result {
-		pts := make(plotter.XYs, len(result.Values))
-		for i, v := range result.Values {
-			timestamp := v[0].(float64)
-			value := v[1].(string)
-
-			// Convert the timestamp to a time.Time object and the value to a float64.
-			t := time.Unix(int64(timestamp), 0)
-			val, err := strconv.ParseFloat(value, 64)
-			if err != nil {
-				log.Fatalf("Error parsing value: %v", err)
-			}
-
-			pts[i].X = float64(t.Unix())
-			pts[i].Y = val
-		}
-
-		// Add the data to the plot.
-		err = plotutil.AddLinePoints(p, result.Metric["__name__"], pts)
+	defer func(file *os.File) {
+		err := f.Close()
 		if err != nil {
-			log.Fatalf("Error adding line points: %v", err)
+			log.Fatal(err)
 		}
+	}(f)
+
+	if _, err := f.WriteString(string(metricsData)); err != nil {
+		log.Fatal(err)
 	}
 
-	// Save the plot to a PNG file.
-	if err := p.Save(8*vg.Inch, 4*vg.Inch, "metric_plot.png"); err != nil {
-		log.Fatalf("Error saving plot: %v", err)
-	}
-	fmt.Println("Plot saved to 'metric_plot.png'")
+	PlotMetric(resp.Body, "benchmark_cache_hits_total")
 }

@@ -1,0 +1,2965 @@
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2445
+benchmark_cache_hits_total{node="node2"} 2515
+benchmark_cache_hits_total{node="node3"} 2448
+benchmark_cache_hits_total{node="node4"} 2491
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9899
+benchmark_operation_latency_seconds_sum{operation_type="read"} 0.609051715999999
+benchmark_operation_latency_seconds_count{operation_type="read"} 9899
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 101
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 101
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.006393211999999997
+benchmark_operation_latency_seconds_count{operation_type="write"} 101
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="success"} 9899
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="success"} 101
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.4166e-05
+go_gc_duration_seconds{quantile="0.25"} 4.9959e-05
+go_gc_duration_seconds{quantile="0.5"} 5.4541e-05
+go_gc_duration_seconds{quantile="0.75"} 6.3166e-05
+go_gc_duration_seconds{quantile="1"} 9.0334e-05
+go_gc_duration_seconds_sum 0.000727126
+go_gc_duration_seconds_count 13
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.042824e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 3.938828e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 573944
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.852168e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.042824e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.071424e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.629056e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 18220
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.646016e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.70048e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703705313390938e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 592164
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 132552
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 162960
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.503839e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 688128
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 688128
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3929488e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2449
+benchmark_cache_hits_total{node="node2"} 2481
+benchmark_cache_hits_total{node="node3"} 2478
+benchmark_cache_hits_total{node="node4"} 2483
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9891
+benchmark_operation_latency_seconds_sum{operation_type="read"} 0.5624050499999981
+benchmark_operation_latency_seconds_count{operation_type="read"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 109
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.007924583000000002
+benchmark_operation_latency_seconds_count{operation_type="write"} 109
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="success"} 9891
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="success"} 109
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.5333e-05
+go_gc_duration_seconds{quantile="0.25"} 4.1376e-05
+go_gc_duration_seconds{quantile="0.5"} 4.6209e-05
+go_gc_duration_seconds{quantile="0.75"} 5.7333e-05
+go_gc_duration_seconds{quantile="1"} 6.9208e-05
+go_gc_duration_seconds_sum 0.000646834
+go_gc_duration_seconds_count 13
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.97312e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 3.9587984e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 562558
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.870696e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.97312e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.244032e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 4.456448e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 31389
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 1.851392e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.70048e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703705342536541e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 593947
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 134232
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 162960
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 961023
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 688128
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 688128
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.34052e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 13
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2458
+benchmark_cache_hits_total{node="node2"} 2568
+benchmark_cache_hits_total{node="node3"} 2391
+benchmark_cache_hits_total{node="node4"} 2480
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9896
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9896
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9896
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9897
+benchmark_operation_latency_seconds_sum{operation_type="read"} 0.6627394610000004
+benchmark_operation_latency_seconds_count{operation_type="read"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 103
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.006349797000000001
+benchmark_operation_latency_seconds_count{operation_type="write"} 103
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="success"} 9897
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="success"} 103
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 4.6124e-05
+go_gc_duration_seconds{quantile="0.25"} 5.6958e-05
+go_gc_duration_seconds{quantile="0.5"} 6.2376e-05
+go_gc_duration_seconds{quantile="0.75"} 6.7333e-05
+go_gc_duration_seconds{quantile="1"} 7.1042e-05
+go_gc_duration_seconds_sum 0.000858707
+go_gc_duration_seconds_count 14
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 778888
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 3.9671776e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 596643
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.839856e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 778888
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.7104e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.022848e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 2428
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.41664e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.733248e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703705622678698e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 599071
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 127848
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 162960
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 991863
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 655360
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 655360
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.34052e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2108
+benchmark_cache_hits_total{node="node2"} 2124
+benchmark_cache_hits_total{node="node3"} 2103
+benchmark_cache_hits_total{node="node4"} 2091
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9912
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9912
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9913
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.0688045579999985
+benchmark_operation_latency_seconds_count{operation_type="read"} 9913
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 87
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 87
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.008143119999999998
+benchmark_operation_latency_seconds_count{operation_type="write"} 87
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1487
+benchmark_read_operations_total{status="success"} 8426
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 7001
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="success"} 87
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 4.7375e-05
+go_gc_duration_seconds{quantile="0.25"} 6.1293e-05
+go_gc_duration_seconds{quantile="0.5"} 6.7708e-05
+go_gc_duration_seconds{quantile="0.75"} 7.5041e-05
+go_gc_duration_seconds{quantile="1"} 9.1167e-05
+go_gc_duration_seconds_sum 0.001424877
+go_gc_duration_seconds_count 21
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 833536
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 5.8353744e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6246
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 718048
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.876816e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 833536
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.562944e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.006464e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 2970
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 1.998848e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.569408e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703706180271978e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 721018
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 151536
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 195552
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.446666e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 819200
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 819200
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3929488e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 14
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2417
+benchmark_cache_hits_total{node="node2"} 2504
+benchmark_cache_hits_total{node="node3"} 2468
+benchmark_cache_hits_total{node="node4"} 2496
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9884
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9885
+benchmark_operation_latency_seconds_sum{operation_type="read"} 0.6103325880000023
+benchmark_operation_latency_seconds_count{operation_type="read"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 115
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 115
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.0072896609999999985
+benchmark_operation_latency_seconds_count{operation_type="write"} 115
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="success"} 9885
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="success"} 115
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.3292e-05
+go_gc_duration_seconds{quantile="0.25"} 4.9833e-05
+go_gc_duration_seconds{quantile="0.5"} 5.5916e-05
+go_gc_duration_seconds{quantile="0.75"} 5.9542e-05
+go_gc_duration_seconds{quantile="1"} 8.8917e-05
+go_gc_duration_seconds_sum 0.000746666
+go_gc_duration_seconds_count 13
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.37768e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 3.9684848e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 571995
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.868648e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.37768e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.678208e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 4.022272e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 23534
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.342912e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.70048e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703706206432287e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 595529
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 126840
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 162960
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.225215e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 688128
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 688128
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3667344e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2537
+benchmark_cache_hits_total{node="node2"} 2519
+benchmark_cache_hits_total{node="node3"} 2487
+benchmark_cache_hits_total{node="node4"} 2360
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9903
+benchmark_operation_latency_seconds_sum{operation_type="read"} 0.6078395499999995
+benchmark_operation_latency_seconds_count{operation_type="read"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 97
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 97
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.005785332999999999
+benchmark_operation_latency_seconds_count{operation_type="write"} 97
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="success"} 9903
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="success"} 97
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.8292e-05
+go_gc_duration_seconds{quantile="0.25"} 4.6749e-05
+go_gc_duration_seconds{quantile="0.5"} 5.9001e-05
+go_gc_duration_seconds{quantile="0.75"} 6.2208e-05
+go_gc_duration_seconds{quantile="1"} 9.4459e-05
+go_gc_duration_seconds_sum 0.000730999
+go_gc_duration_seconds_count 13
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.217808e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 3.9458656e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 572762
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.856288e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.217808e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.981312e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.751936e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 21353
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.326528e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.733248e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.7037062161428149e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 594115
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 128856
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 146664
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.253871e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 655360
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 655360
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3667344e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2450
+benchmark_cache_hits_total{node="node2"} 2401
+benchmark_cache_hits_total{node="node3"} 2463
+benchmark_cache_hits_total{node="node4"} 2597
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9911
+benchmark_operation_latency_seconds_sum{operation_type="read"} 0.5399928810000004
+benchmark_operation_latency_seconds_count{operation_type="read"} 9911
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 89
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 89
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.004941951000000002
+benchmark_operation_latency_seconds_count{operation_type="write"} 89
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="success"} 9911
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="success"} 89
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.0166e-05
+go_gc_duration_seconds{quantile="0.25"} 4.7292e-05
+go_gc_duration_seconds{quantile="0.5"} 5.2708e-05
+go_gc_duration_seconds{quantile="0.75"} 6.2083e-05
+go_gc_duration_seconds{quantile="1"} 9.2958e-05
+go_gc_duration_seconds_sum 0.000739832
+go_gc_duration_seconds_count 13
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.003832e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 3.9284192e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 573601
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.864528e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.003832e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.079616e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.653632e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 18519
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.2528e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.733248e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703706345848737e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 592120
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 122472
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.213039e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 655360
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 655360
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3667344e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 11
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2508
+benchmark_cache_hits_total{node="node2"} 2470
+benchmark_cache_hits_total{node="node3"} 2483
+benchmark_cache_hits_total{node="node4"} 2439
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9900
+benchmark_operation_latency_seconds_sum{operation_type="read"} 0.703357252000004
+benchmark_operation_latency_seconds_count{operation_type="read"} 9900
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 100
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 100
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.0076821699999999995
+benchmark_operation_latency_seconds_count{operation_type="write"} 100
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="success"} 9900
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="success"} 100
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.95e-05
+go_gc_duration_seconds{quantile="0.25"} 5.7958e-05
+go_gc_duration_seconds{quantile="0.5"} 6.4376e-05
+go_gc_duration_seconds{quantile="0.75"} 6.8083e-05
+go_gc_duration_seconds{quantile="1"} 8.7458e-05
+go_gc_duration_seconds_sum 0.000881874
+go_gc_duration_seconds_count 14
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 869608
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 4.0101408e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6246
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 604957
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.839832e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 869608
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.718592e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 2.883584e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 3392
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.572288e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.602176e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703706433591033e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 608349
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 126840
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.499946e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 786432
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 786432
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3929488e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 13
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2390
+benchmark_cache_hits_total{node="node2"} 2426
+benchmark_cache_hits_total{node="node3"} 2544
+benchmark_cache_hits_total{node="node4"} 2532
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9892
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9892
+benchmark_operation_latency_seconds_sum{operation_type="read"} 7.474010904999978
+benchmark_operation_latency_seconds_count{operation_type="read"} 9892
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 108
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 108
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.008142585000000004
+benchmark_operation_latency_seconds_count{operation_type="write"} 108
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="success"} 9892
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 2512
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="success"} 108
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 4.3584e-05
+go_gc_duration_seconds{quantile="0.25"} 5.4959e-05
+go_gc_duration_seconds{quantile="0.5"} 5.6625e-05
+go_gc_duration_seconds{quantile="0.75"} 6.9166e-05
+go_gc_duration_seconds{quantile="1"} 0.000121791
+go_gc_duration_seconds_sum 0.00083154
+go_gc_duration_seconds_count 13
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 3.12864e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 4.007676e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6246
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 569777
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.852168e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 3.12864e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.096576e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 4.538368e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 34152
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.097152e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.634944e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.7037065175438988e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 603929
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 141456
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.48761e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 753664
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 753664
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3929488e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 13
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2024
+benchmark_cache_hits_total{node="node2"} 2000
+benchmark_cache_hits_total{node="node3"} 2037
+benchmark_cache_hits_total{node="node4"} 1960
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9889
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9891
+benchmark_operation_latency_seconds_sum{operation_type="read"} 9.093541831000111
+benchmark_operation_latency_seconds_count{operation_type="read"} 9891
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 109
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 109
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.015087795000000003
+benchmark_operation_latency_seconds_count{operation_type="write"} 109
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1870
+benchmark_read_operations_total{status="success"} 8021
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 6843
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 21
+benchmark_write_operations_total{status="success"} 88
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 4.3041e-05
+go_gc_duration_seconds{quantile="0.25"} 4.9001e-05
+go_gc_duration_seconds{quantile="0.5"} 6.8917e-05
+go_gc_duration_seconds{quantile="0.75"} 7.9667e-05
+go_gc_duration_seconds{quantile="1"} 0.000113083
+go_gc_duration_seconds_sum 0.0014865
+go_gc_duration_seconds_count 22
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 19
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 1.058784e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.3218752e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6246
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 744519
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.883032e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 1.058784e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.440064e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.03104e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 4480
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.37568e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.471104e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703706667617695e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 748999
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 128016
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.71889e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 917504
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 917504
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.4191632e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 13
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 1526
+benchmark_cache_hits_total{node="node2"} 1591
+benchmark_cache_hits_total{node="node3"} 1629
+benchmark_cache_hits_total{node="node4"} 1641
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9903
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9904
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9905
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.6673384700000036
+benchmark_operation_latency_seconds_count{operation_type="read"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 95
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 95
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.017116331000000002
+benchmark_operation_latency_seconds_count{operation_type="write"} 95
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 3518
+benchmark_read_operations_total{status="success"} 6387
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 3238
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 30
+benchmark_write_operations_total{status="success"} 65
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.5833e-05
+go_gc_duration_seconds{quantile="0.25"} 5.7417e-05
+go_gc_duration_seconds{quantile="0.5"} 6.8292e-05
+go_gc_duration_seconds{quantile="0.75"} 7.4625e-05
+go_gc_duration_seconds{quantile="1"} 0.000117791
+go_gc_duration_seconds_sum 0.002027542
+go_gc_duration_seconds_count 30
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 17
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 1.37988e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 8.32886e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6246
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 864453
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.8686e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 1.37988e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.325376e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.178496e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 6650
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.326528e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.503872e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703706908749832e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 871103
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 169680
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 211848
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.70073e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 884736
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 884736
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.4191632e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 14
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 1899
+benchmark_cache_hits_total{node="node2"} 1897
+benchmark_cache_hits_total{node="node3"} 1966
+benchmark_cache_hits_total{node="node4"} 1873
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9905
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9906
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.1706516930000028
+benchmark_operation_latency_seconds_count{operation_type="read"} 9906
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 94
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 94
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.010403254
+benchmark_operation_latency_seconds_count{operation_type="write"} 94
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 2271
+benchmark_read_operations_total{status="success"} 7635
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 15
+benchmark_write_operations_total{status="success"} 79
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.7209e-05
+go_gc_duration_seconds{quantile="0.25"} 4.9625e-05
+go_gc_duration_seconds{quantile="0.5"} 5.7916e-05
+go_gc_duration_seconds{quantile="0.75"} 6.7875e-05
+go_gc_duration_seconds{quantile="1"} 8.6084e-05
+go_gc_duration_seconds_sum 0.001335709
+go_gc_duration_seconds_count 23
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 23
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.244992e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.7350632e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 747761
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.883008e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.244992e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.710976e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.8912e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 15791
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.53952e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.602176e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.7037079470485399e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 763552
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 136248
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 162960
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.210855e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 786432
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 786432
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3667344e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2086
+benchmark_cache_hits_total{node="node2"} 2128
+benchmark_cache_hits_total{node="node3"} 2075
+benchmark_cache_hits_total{node="node4"} 1986
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9898
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.1342293800000016
+benchmark_operation_latency_seconds_count{operation_type="read"} 9898
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 102
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 102
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.011081536000000001
+benchmark_operation_latency_seconds_count{operation_type="write"} 102
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1623
+benchmark_read_operations_total{status="success"} 8275
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 8
+benchmark_write_operations_total{status="success"} 94
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.9917e-05
+go_gc_duration_seconds{quantile="0.25"} 5.4083e-05
+go_gc_duration_seconds{quantile="0.5"} 6.8875e-05
+go_gc_duration_seconds{quantile="0.75"} 7.4042e-05
+go_gc_duration_seconds{quantile="1"} 0.000101458
+go_gc_duration_seconds_sum 0.001377043
+go_gc_duration_seconds_count 21
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 29
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 897936
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.0193128e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6246
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 728299
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.887128e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 897936
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.571136e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 2.932736e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 3447
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.260992e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.503872e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.7037079929872909e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 731746
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 129696
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.45265e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 884736
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 884736
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3929488e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2001
+benchmark_cache_hits_total{node="node2"} 2022
+benchmark_cache_hits_total{node="node3"} 1987
+benchmark_cache_hits_total{node="node4"} 2087
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9908
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9909
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.2207304399999996
+benchmark_operation_latency_seconds_count{operation_type="read"} 9909
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 91
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 91
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.012466290000000003
+benchmark_operation_latency_seconds_count{operation_type="write"} 91
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1812
+benchmark_read_operations_total{status="success"} 8097
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 13
+benchmark_write_operations_total{status="success"} 78
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.3834e-05
+go_gc_duration_seconds{quantile="0.25"} 5.4167e-05
+go_gc_duration_seconds{quantile="0.5"} 6.5417e-05
+go_gc_duration_seconds{quantile="0.75"} 7.0417e-05
+go_gc_duration_seconds{quantile="1"} 0.00012525
+go_gc_duration_seconds_sum 0.001422584
+go_gc_duration_seconds_count 22
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 29
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 1.049136e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.2355088e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6246
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 738778
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.88508e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 1.049136e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.472832e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.03104e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 5217
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.301952e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.503872e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.7037081185029151e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 743995
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 116592
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 162960
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 946706
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 884736
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 884736
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.34052e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 13
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2000
+benchmark_cache_hits_total{node="node2"} 1986
+benchmark_cache_hits_total{node="node3"} 1985
+benchmark_cache_hits_total{node="node4"} 2001
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9918
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9919
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.224348938000001
+benchmark_operation_latency_seconds_count{operation_type="read"} 9919
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 81
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 81
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.010772170999999999
+benchmark_operation_latency_seconds_count{operation_type="write"} 81
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1947
+benchmark_read_operations_total{status="success"} 7972
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 11
+benchmark_write_operations_total{status="success"} 70
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.4458e-05
+go_gc_duration_seconds{quantile="0.25"} 5.675e-05
+go_gc_duration_seconds{quantile="0.5"} 6.8126e-05
+go_gc_duration_seconds{quantile="0.75"} 7.3542e-05
+go_gc_duration_seconds{quantile="1"} 8.8666e-05
+go_gc_duration_seconds_sum 0.001437166
+go_gc_duration_seconds_count 22
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 28
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.546984e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.37392e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6246
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 723613
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.870672e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.546984e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.227648e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 4.17792e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 25698
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.187264e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.405568e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703708549530176e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 749311
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 144648
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.206962e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 983040
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 983040
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3667344e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 13
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2022
+benchmark_cache_hits_total{node="node2"} 1989
+benchmark_cache_hits_total{node="node3"} 2097
+benchmark_cache_hits_total{node="node4"} 2016
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9902
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.0576581220000059
+benchmark_operation_latency_seconds_count{operation_type="read"} 9902
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 98
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 98
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.010670039
+benchmark_operation_latency_seconds_count{operation_type="write"} 98
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1778
+benchmark_read_operations_total{status="success"} 8124
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 12
+benchmark_write_operations_total{status="success"} 86
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.5126e-05
+go_gc_duration_seconds{quantile="0.25"} 5.0291e-05
+go_gc_duration_seconds{quantile="0.5"} 6.2417e-05
+go_gc_duration_seconds{quantile="0.75"} 7.25e-05
+go_gc_duration_seconds{quantile="1"} 0.000175334
+go_gc_duration_seconds_sum 0.00136396
+go_gc_duration_seconds_count 21
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 26
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 1.622176e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.141404e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 719594
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.870696e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 1.622176e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.186112e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.448832e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 9002
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.506752e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.634944e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703708736902721e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 728596
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 126168
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 162960
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.223167e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 753664
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 753664
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3667344e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2045
+benchmark_cache_hits_total{node="node2"} 2111
+benchmark_cache_hits_total{node="node3"} 1984
+benchmark_cache_hits_total{node="node4"} 2035
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9889
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9889
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9890
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.0608448619999964
+benchmark_operation_latency_seconds_count{operation_type="read"} 9890
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 110
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 110
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.013337541999999994
+benchmark_operation_latency_seconds_count{operation_type="write"} 110
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1715
+benchmark_read_operations_total{status="success"} 8175
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 14
+benchmark_write_operations_total{status="success"} 96
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.8624e-05
+go_gc_duration_seconds{quantile="0.25"} 4.5375e-05
+go_gc_duration_seconds{quantile="0.5"} 5.3416e-05
+go_gc_duration_seconds{quantile="0.75"} 6.3666e-05
+go_gc_duration_seconds{quantile="1"} 8.5542e-05
+go_gc_duration_seconds_sum 0.001176499
+go_gc_duration_seconds_count 21
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 28
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.22212e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.081048e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 703849
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.88508e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.22212e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.833856e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.801088e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 19855
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.400256e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.634944e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.70370930952799e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 723704
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 144984
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.716775e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 753664
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 753664
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.4191632e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 13
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2075
+benchmark_cache_hits_total{node="node2"} 2054
+benchmark_cache_hits_total{node="node3"} 1996
+benchmark_cache_hits_total{node="node4"} 2097
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9892
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9894
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9895
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.0683314199999994
+benchmark_operation_latency_seconds_count{operation_type="read"} 9895
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 105
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 105
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.011657122
+benchmark_operation_latency_seconds_count{operation_type="write"} 105
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1673
+benchmark_read_operations_total{status="success"} 8222
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 15
+benchmark_write_operations_total{status="success"} 90
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 4.0834e-05
+go_gc_duration_seconds{quantile="0.25"} 4.8917e-05
+go_gc_duration_seconds{quantile="0.5"} 5.5708e-05
+go_gc_duration_seconds{quantile="0.75"} 6.7958e-05
+go_gc_duration_seconds{quantile="1"} 0.000201874
+go_gc_duration_seconds_sum 0.001327421
+go_gc_duration_seconds_count 21
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 29
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 1.011624e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.032708e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 719846
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.889176e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 1.011624e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 4.726784e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 2.973696e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 4604
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.424832e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.70048e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703709371370486e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 724450
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 145992
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.712679e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 688128
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 688128
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.4191632e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 1980
+benchmark_cache_hits_total{node="node2"} 2031
+benchmark_cache_hits_total{node="node3"} 1945
+benchmark_cache_hits_total{node="node4"} 2022
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9885
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9887
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9888
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.1169430390000017
+benchmark_operation_latency_seconds_count{operation_type="read"} 9888
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 112
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 112
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.013347579000000004
+benchmark_operation_latency_seconds_count{operation_type="write"} 112
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1910
+benchmark_read_operations_total{status="success"} 7978
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 17
+benchmark_write_operations_total{status="success"} 95
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.8333e-05
+go_gc_duration_seconds{quantile="0.25"} 4.4376e-05
+go_gc_duration_seconds{quantile="0.5"} 5.6333e-05
+go_gc_duration_seconds{quantile="0.75"} 6.6374e-05
+go_gc_duration_seconds{quantile="1"} 9.5e-05
+go_gc_duration_seconds_sum 0.001244667
+go_gc_duration_seconds_count 22
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 28
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 1.891408e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.329348e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 724630
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.889152e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 1.891408e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.981312e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.653632e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 15458
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.260992e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.634944e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703709715130334e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 740088
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 134904
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.450559e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 753664
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 753664
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3929488e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2034
+benchmark_cache_hits_total{node="node2"} 2066
+benchmark_cache_hits_total{node="node3"} 2011
+benchmark_cache_hits_total{node="node4"} 2025
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9873
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9874
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.0795253570000003
+benchmark_operation_latency_seconds_count{operation_type="read"} 9874
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 126
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 126
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.014587581999999998
+benchmark_operation_latency_seconds_count{operation_type="write"} 126
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1738
+benchmark_read_operations_total{status="success"} 8136
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 17
+benchmark_write_operations_total{status="success"} 109
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 4.6875e-05
+go_gc_duration_seconds{quantile="0.25"} 5.4459e-05
+go_gc_duration_seconds{quantile="0.5"} 5.9083e-05
+go_gc_duration_seconds{quantile="0.75"} 6.5042e-05
+go_gc_duration_seconds{quantile="1"} 0.000100667
+go_gc_duration_seconds_sum 0.001304957
+go_gc_duration_seconds_count 21
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 28
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.143832e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.1348136e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 709964
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.88508e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.143832e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.997696e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.702784e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 18842
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.564096e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.70048e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703710073207649e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 728806
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 139944
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 179256
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.454631e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 688128
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 688128
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3929488e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 12
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP benchmark_cache_hits_total Total number of cache hits.
+# TYPE benchmark_cache_hits_total counter
+benchmark_cache_hits_total{node="node1"} 2019
+benchmark_cache_hits_total{node="node2"} 1994
+benchmark_cache_hits_total{node="node3"} 2038
+benchmark_cache_hits_total{node="node4"} 2035
+# HELP benchmark_operation_latency_seconds Latency of read/write operations.
+# TYPE benchmark_operation_latency_seconds histogram
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.005"} 9894
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.01"} 9894
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.025"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.05"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.1"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.25"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="0.5"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="1"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="2.5"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="5"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="10"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="read",le="+Inf"} 9897
+benchmark_operation_latency_seconds_sum{operation_type="read"} 1.128828847999997
+benchmark_operation_latency_seconds_count{operation_type="read"} 9897
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.005"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.01"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.025"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.05"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.1"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.25"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="0.5"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="1"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="2.5"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="5"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="10"} 103
+benchmark_operation_latency_seconds_bucket{operation_type="write",le="+Inf"} 103
+benchmark_operation_latency_seconds_sum{operation_type="write"} 0.011410291999999999
+benchmark_operation_latency_seconds_count{operation_type="write"} 103
+# HELP benchmark_read_operations_total Total number of read operations.
+# TYPE benchmark_read_operations_total counter
+benchmark_read_operations_total{status="failure"} 1811
+benchmark_read_operations_total{status="success"} 8086
+# HELP benchmark_throughput_operations Throughput of operations per second.
+# TYPE benchmark_throughput_operations gauge
+benchmark_throughput_operations 0
+# HELP benchmark_write_operations_total Total number of write operations.
+# TYPE benchmark_write_operations_total counter
+benchmark_write_operations_total{status="failure"} 12
+benchmark_write_operations_total{status="success"} 91
+# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 3.2542e-05
+go_gc_duration_seconds{quantile="0.25"} 4.6584e-05
+go_gc_duration_seconds{quantile="0.5"} 5.7666e-05
+go_gc_duration_seconds{quantile="0.75"} 6.1958e-05
+go_gc_duration_seconds{quantile="1"} 7.6542e-05
+go_gc_duration_seconds_sum 0.001194793
+go_gc_duration_seconds_count 21
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 29
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.21.2"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 2.30072e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated, even if freed.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 6.1960584e+07
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 6313
+# HELP go_memstats_frees_total Total number of frees.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 710854
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.891224e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 2.30072e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 3.940352e+06
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use.
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 3.792896e+06
+# HELP go_memstats_heap_objects Number of allocated objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 22747
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 2.531328e+06
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 7.733248e+06
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.703711015906123e+09
+# HELP go_memstats_lookups_total Total number of pointer lookups.
+# TYPE go_memstats_lookups_total counter
+go_memstats_lookups_total 0
+# HELP go_memstats_mallocs_total Total number of mallocs.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 733601
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14400
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15600
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 121968
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 162960
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 4.194304e+06
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 1.202639e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes in use by the stack allocator.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 655360
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 655360
+# HELP go_memstats_sys_bytes Number of bytes obtained from system.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 1.3667344e+07
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 11
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 0
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0

@@ -139,8 +139,11 @@ func main() {
 
 	config := getConfigs()
 
-	ctx := context.Background()
-	readRatio := int(config.readPercentage * 100)
+	// Define a duration for how long the program should run
+	runDuration := 30 * time.Second // e.g., 30 seconds
+	// Create a context that will be cancelled after `runDuration`
+	ctx, cancel := context.WithTimeout(context.Background(), runDuration)
+	defer cancel()
 
 	// start an HTTP server for Prometheus scraping
 	http.Handle("/"+config.prom_endpoint, promhttp.Handler())
@@ -150,16 +153,36 @@ func main() {
 		}
 	}()
 
-	zipf := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(len(config.nodeConfigs)))
-
 	// start failure simulation routine
-	go simulateNodeFailures(config.nodeConfigs, 30*time.Second, 15*time.Second)
+	//go simulateNodeFailures(ctx, config.nodeConfigs, 1*time.Second, 1*time.Second)
 
 	// start throughput updater
-	go updateThroughput()
+	go updateThroughput(ctx)
 
 	// start generating requests
+	go generateRequests(ctx, config)
+
+	// Wait for the context to be cancelled (i.e., timeout)
+	<-ctx.Done()
+	fmt.Println("Program finished, cleaning up...")
+
+	//metricsURL := "http://localhost:" + config.prom_port + "/" + config.prom_endpoint
+
+	//Plot(metricsURL)
+
+	// Prevent main goroutine from exiting
+	select {}
+}
+
+func generateRequests(ctx context.Context, config config_) {
+	readRatio := int(config.readPercentage * 100)
+	zipf := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(len(config.nodeConfigs)))
 	for i := 0; i < config.numRequests; i++ {
+
+		// Check if context is done before generating each request
+		if ctx.Err() != nil {
+			return // Exit if context is cancelled
+		}
 
 		key := fmt.Sprintf("key-%d", zipf.Uint64())
 		value := fmt.Sprintf("value-%d", rand.Intn(1000))
@@ -183,43 +206,24 @@ func main() {
 			setValue(ctx, cacheNodeURL, key, value)
 		}
 	}
-
-	metricsURL := "http://localhost:" + config.prom_port + "/" + config.prom_endpoint
-
-	Plot(metricsURL)
-	//
-	//resp, err := http.Get(metricsURL)
-	//if err != nil {
-	//	log.Fatalf("Failed to fetch metrics: %v", err)
-	//}
-	//defer func(Body io.ReadCloser) {
-	//	err := Body.Close()
-	//	if err != nil {
-	//		fmt.Printf("error closing reader: %s", err)
-	//	}
-	//}(resp.Body)
-	//
-	//metricsData, err := io.ReadAll(resp.Body)
-	//if err != nil {
-	//	log.Fatalf("Failed to read metrics response: %v", err)
-	//}
-	//
-	//fmt.Println("Metrics Data:")
-	//fmt.Println(string(metricsData))
-	time.Sleep(1000000)
 }
 
 // simulateNodeFailures periodically triggers failure and recovery of cache nodes
-func simulateNodeFailures(nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
+func simulateNodeFailures(ctx context.Context, nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
 	for {
-		for _, nodeConfig := range nodeConfigs {
-			// trigger failure
-			triggerNodeFailureOrRecovery(nodeConfig, true)
-			time.Sleep(failDuration)
+		select {
+		case <-ctx.Done():
+			return // Exit if context is cancelled
+		default:
+			for _, nodeConfig := range nodeConfigs {
+				// trigger failure
+				triggerNodeFailureOrRecovery(nodeConfig, true)
+				time.Sleep(failDuration)
 
-			// trigger recovery
-			triggerNodeFailureOrRecovery(nodeConfig, false)
-			time.Sleep(recoverDuration)
+				// trigger recovery
+				triggerNodeFailureOrRecovery(nodeConfig, false)
+				time.Sleep(recoverDuration)
+			}
 		}
 	}
 }
@@ -233,7 +237,7 @@ func triggerNodeFailureOrRecovery(nodeConfig *bconfig.Config, fail bool) {
 	if fail {
 		endpoint = "/fail"
 	}
-	url := fmt.Sprintf("http://%s:%d%s", ip, port, endpoint)
+	url := fmt.Sprintf("http://%s:%s%s", ip, port, endpoint)
 
 	_, err := http.Get(url)
 	if err != nil {
@@ -345,17 +349,23 @@ func setValue(ctx context.Context, baseURL, key, value string) {
 }
 
 // updateThroughput periodically updates the throughput gauge
-func updateThroughput() {
-	ticker := time.NewTicker(1 * time.Second) // update every second
+func updateThroughput(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
 	var prevOps int64
 	for range ticker.C {
-		// calculate throughput
-		currentOps := atomic.LoadInt64(&successfulOps)
-		opsThisSecond := currentOps - prevOps
-		throughput := float64(opsThisSecond) // throughput is operations per second
-		throughputGauge.Set(throughput)
+		select {
+		case <-ctx.Done():
+			return // Exit if context is cancelled
+		case <-ticker.C:
+			// calculate throughput
+			currentOps := atomic.LoadInt64(&successfulOps)
+			opsThisSecond := currentOps - prevOps
+			throughput := float64(opsThisSecond) // throughput is operations per second
+			throughputGauge.Set(throughput)
 
-		// update previous operation count
-		prevOps = currentOps
+			// update previous operation count
+			prevOps = currentOps
+		}
 	}
 }

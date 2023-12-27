@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 type Config struct {
@@ -53,6 +54,8 @@ func (c *Config) AsString(dflt string) string {
 	if !c.isEmpty {
 		if resultString, ok := c.value.(string); ok {
 			return resultString
+		} else if resultString, ok := c.value.(float64); ok {
+			return strconv.Itoa(int(resultString))
 		}
 	}
 	fmt.Printf("Can not convert to string\n")

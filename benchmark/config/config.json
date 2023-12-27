@@ -2,7 +2,7 @@
   "numRequests": 10000,
   "readPercentage": 0.99,
   "prom_endpoint": "metrics",
-  "prom_port": 9100,
+  "prom_port": 9090,
   "cacheNodes": {
     "1": {
       "local": {
