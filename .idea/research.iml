@@ -2,8 +2,12 @@
 <module type="WEB_MODULE" version="4">
   <component name="Go" enabled="true" />
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$/benchmark" />
-    <content url="file://$MODULE_DIR$/cache" />
+    <content url="file://$MODULE_DIR$/benchmark">
+      <excludeFolder url="file://$MODULE_DIR$/benchmark/bin" />
+    </content>
+    <content url="file://$MODULE_DIR$/cache">
+      <excludeFolder url="file://$MODULE_DIR$/cache/bin" />
+    </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="viewer-static" level="application" />
