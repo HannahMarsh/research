@@ -1,5 +1,5 @@
 {
-  "numRequests": 10000,
+  "numRequests": 1000,
   "readPercentage": 0.99,
   "prom_endpoint": "metrics",
   "prom_port": 9090,

@@ -140,7 +140,7 @@ func main() {
 	config := getConfigs()
 
 	// Define a duration for how long the program should run
-	runDuration := 30 * time.Second // e.g., 30 seconds
+	runDuration := 30 * time.Second
 	// Create a context that will be cancelled after `runDuration`
 	ctx, cancel := context.WithTimeout(context.Background(), runDuration)
 	defer cancel()
@@ -160,10 +160,11 @@ func main() {
 	go updateThroughput(ctx)
 
 	// start generating requests
-	go generateRequests(ctx, config)
+	go generateRequests(ctx, config, runDuration)
 
 	// Wait for the context to be cancelled (i.e., timeout)
 	<-ctx.Done()
+	time.Sleep(5 * time.Second)
 	fmt.Println("Program finished, cleaning up...")
 
 	//metricsURL := "http://localhost:" + config.prom_port + "/" + config.prom_endpoint
@@ -174,15 +175,17 @@ func main() {
 	select {}
 }
 
-func generateRequests(ctx context.Context, config config_) {
+func generateRequests(ctx context.Context, config config_, runDuration time.Duration) {
 	readRatio := int(config.readPercentage * 100)
-	zipf := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(len(config.nodeConfigs)))
+	wait := time.Duration((runDuration.Seconds() / float64(config.numRequests)) * float64(time.Second))
+	zipf := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(config.numRequests))
 	for i := 0; i < config.numRequests; i++ {
 
 		// Check if context is done before generating each request
 		if ctx.Err() != nil {
 			return // Exit if context is cancelled
 		}
+		time.Sleep(wait)
 
 		key := fmt.Sprintf("key-%d", zipf.Uint64())
 		value := fmt.Sprintf("value-%d", rand.Intn(1000))
@@ -350,7 +353,7 @@ func setValue(ctx context.Context, baseURL, key, value string) {
 
 // updateThroughput periodically updates the throughput gauge
 func updateThroughput(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(1 * time.Millisecond)
 	defer ticker.Stop()
 	var prevOps int64
 	for range ticker.C {
