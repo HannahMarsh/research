@@ -16,18 +16,6 @@ import (
 	"strings"
 )
 
-// PrometheusResponse represents a response from Prometheus API.
-type PrometheusResponse struct {
-	Status string `json:"status"`
-	Data   struct {
-		ResultType string `json:"resultType"`
-		Result     []struct {
-			Metric map[string]string `json:"metric"`
-			Values [][]interface{}   `json:"values"`
-		} `json:"result"`
-	} `json:"data"`
-}
-
 //go:embed metrics
 var metricsDir embed.FS
 
