@@ -149,7 +149,7 @@ func getConfigs() config_ {
 		numRequests:    numRequests,
 		readPercentage: readPercentage,
 		promEndpoint:   promEndpoint,
-		maxDuration:    time.Duration(maxDuration),
+		maxDuration:    time.Duration(maxDuration) * time.Second,
 		promPort:       promPort}
 }
 
@@ -285,55 +285,82 @@ func startPrometheusListener(config config_) {
 }
 
 func generateRequests(ctx context.Context, config config_, runDuration time.Duration) {
-	readRatio := int(config.readPercentage * 100)
-	wait := time.Duration((runDuration.Seconds() / float64(config.numRequests)) * float64(time.Second))
-	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(config.numRequests)/5)
+
+	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(config.numRequests)/100)
 	fmt.Printf("\n")
+	start := time.Now()
 
 	for i := 0; i < config.numRequests; i++ {
 
-		fmt.Printf("\r%d/%d of requests done.", i+1, config.numRequests)
+		fmt.Printf("\r%-2d seconds elapsed - %d/%d of requests done.", int(math.Round(float64(time.Since(start).Seconds()))), i+1, config.numRequests)
 		// Check if context is done before generating each request
 		if ctx.Err() != nil {
 			return // Exit if context is cancelled
 		}
-		time.Sleep(wait)
 
 		key := fmt.Sprintf("%d", zip.Uint64())
 		value := fmt.Sprintf("value-%d", zip.Uint64())
 
-		// select a cache node based on load-balancing hash
-		nodeIndex := getNodeHash(key, config)
-		node := config.nodeConfigs[nodeIndex]
+		go executeRequest(config, ctx, key, value)
 
-		// get node's url
-		ip := node.Get("ip").AsString("")
-		port := node.Get("port").AsString("")
-		cacheNodeURL := fmt.Sprintf("http://%s:%s", ip, port)
-
-		nodeId := rand.Intn(len(config.nodeConfigs)) + 1
-		for i := 0; i < len(config.nodeConfigs); i++ {
-			nodeLabel := fmt.Sprintf("node%d", nodeId) // "node1", "node2", etc.
-			nodeIsUp := false
-			// decide whether to perform a read or write operation
-			if rand.Intn(100) < readRatio {
-				// 99% of the time, perform a read operation
-				nodeIsUp = getValue(ctx, cacheNodeURL, key, nodeLabel, config.database)
-			} else {
-				// 1% of the time perform a write operation
-				nodeIsUp = setValue(ctx, cacheNodeURL, key, value)
-			}
-			if nodeIsUp {
-				atomic.AddInt64(&throughput, 1)
-				break
-			} else { // the node has failed, try another one
-				// choose another node at random (not the same as the current one)
-				nodeId = (((nodeId - 1) + rand.Intn(len(config.nodeConfigs)-1)) % len(config.nodeConfigs)) + 1
-			}
+		dif := config.maxDuration.Microseconds() - time.Since(start).Microseconds()
+		interval := float64(dif) / float64(config.numRequests-i)
+		variance := int(math.Round(interval)) + 1 // 2x interval in mu
+		if variance > 10 {
+			ms := float64(rand.Intn(variance*2)) - 1
+			wait := time.Duration(time.Duration(ms) * time.Microsecond)
+			time.Sleep(wait)
 		}
 	}
 	fmt.Printf("\nDone.\n")
 	return
+}
+
+func executeRequest(config config_, ctx context.Context, key string, value string) {
+
+	get := true // 99% of the time, perform a read operation
+	if rand.Intn(100) >= int(config.readPercentage*100) {
+		get = false // 1% of the time perform a write operation
+	}
+
+	// select a cache node based on load-balancing hash
+	nodeId := getNodeHash(key, config)
+
+	for i := 0; i < 100; i++ {
+		// get node info
+		node := config.nodeConfigs[nodeId]
+		ip := node.Get("ip").AsString("")
+		port := node.Get("port").AsString("")
+		cacheNodeURL := fmt.Sprintf("http://%s:%s", ip, port)
+		nodeLabel := fmt.Sprintf("node%d", nodeId+1) // "node1", "node2", etc.
+
+		nodeIsUp := false
+
+		if get {
+			nodeIsUp = getValue(ctx, cacheNodeURL, key, nodeLabel, config.database)
+			if nodeIsUp {
+				readOpsCounter.WithLabelValues("success").Inc()
+				atomic.AddInt64(&throughput, 1)
+				return
+			} else {
+				readOpsCounter.WithLabelValues("failure").Inc()
+			}
+		} else {
+			nodeIsUp = setValue(ctx, cacheNodeURL, key, value)
+			if nodeIsUp {
+				writeOpsCounter.WithLabelValues("success").Inc()
+				atomic.AddInt64(&throughput, 1)
+				return
+			} else {
+				writeOpsCounter.WithLabelValues("failure").Inc()
+			}
+		}
+		// the node has failed, try another one
+		// choose another node at random (not the same as the current one)
+		nodeId = (nodeId + rand.Intn(len(config.nodeConfigs)-1)) % len(config.nodeConfigs)
+		//fmt.Printf("%d\n", nodeId)
+	}
+	log.Printf("Could not perfrom operation")
 }
 
 // simulateNodeFailures periodically triggers failure and recovery of cache nodes
@@ -393,7 +420,6 @@ func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db *Db
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("GET error: %s\n", err)
-		readOpsCounter.WithLabelValues("failure").Inc()
 		return false
 	}
 	defer func(Body io.ReadCloser) {
@@ -408,7 +434,6 @@ func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db *Db
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			log.Printf("error reading response body: %s", err)
-			readOpsCounter.WithLabelValues("failure").Inc()
 			return false
 		}
 		bodyString := string(bodyBytes)
@@ -433,12 +458,12 @@ func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db *Db
 			cacheHitsCounter.WithLabelValues(nodeLabel).Inc()
 		}
 		//log.Printf("GET successful for key: %s\n", key)
-		readOpsCounter.WithLabelValues("success").Inc()
+
 		// update successful operations
 		atomic.AddInt64(&goodput, 1)
 	} else {
 		//log.Printf("GET failed for key: %s with status code: %d\n", key, resp.StatusCode)
-		readOpsCounter.WithLabelValues("failure").Inc()
+		return false
 	}
 	elapsed := time.Since(start).Seconds()                      // calculate elapsed time in seconds
 	opLatencyHistogram.WithLabelValues("read").Observe(elapsed) // record the latency
@@ -469,15 +494,12 @@ func setValue(ctx context.Context, baseURL, key, value string) bool {
 
 	if resp.StatusCode == http.StatusOK {
 		//log.Printf("SET successful for key: %s\n", key)
-		writeOpsCounter.WithLabelValues("success").Inc()
 		// update successful operations
 		atomic.AddInt64(&goodput, 1)
 		return true
-	} else {
-		//log.Printf("SET failed for key: %s with status code: %d\n", key, resp.StatusCode)
-		writeOpsCounter.WithLabelValues("failure").Inc()
-		return false
 	}
+	//log.Printf("SET failed for key: %s with status code: %d\n", key, resp.StatusCode)
+	return false
 }
 
 // updateThroughput periodically updates the throughput gauge
