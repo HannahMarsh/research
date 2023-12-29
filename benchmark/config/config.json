@@ -2,8 +2,8 @@
   "numRequests": 1000,
   "readPercentage": 0.99,
   "maxDuration": 30,
-  "prom_endpoint": "metrics/api/v1",
-  "prom_port": 9100,
+  "prom_endpoint": "metrics",
+  "prom_port": 9090,
   "cacheNodes": {
     "1": {
       "local": {
