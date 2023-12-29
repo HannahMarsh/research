@@ -2,8 +2,8 @@
   "numRequests": 1000,
   "readPercentage": 0.99,
   "maxDuration": 30,
-  "prom_endpoint": "metrics",
-  "prom_port": 2112,
+  "prom_endpoint": "metrics/api/v1",
+  "prom_port": 9100,
   "cacheNodes": {
     "1": {
       "local": {
@@ -58,14 +58,16 @@
     "local": {
       "name": "local database",
       "ip": "localhost",
-      "create_keyspace": false,
-      "keyspace": "mykeyspace"
+      "create_keyspace": true,
+      "keyspace": "mykeyspace",
+      "tableName": "mytable"
     },
     "remote": {
       "name": "ccl4.cs.unh.edu",
       "ip": "132.177.10.85",
       "create_keyspace": false,
-      "keyspace": "mykeyspace"
+      "keyspace": "mykeyspace",
+      "tableName": "mytable"
     }
   }
 }

@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/eko/gocache/lib/v4/cache"
+	"github.com/eko/gocache/lib/v4/store"
 	gocachestore "github.com/eko/gocache/store/go_cache/v4"
 	gocache "github.com/patrickmn/go-cache"
 	"log"
@@ -108,6 +110,11 @@ func get_(w http.ResponseWriter, r *http.Request) {
 
 	value, err := cacheManager.Get(context.Background(), key)
 	if err != nil {
+		var notFoundError *store.NotFound
+		if errors.As(err, &notFoundError) { // Check if the error is a cache miss
+			http.Error(w, "Cache miss: "+err.Error(), http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

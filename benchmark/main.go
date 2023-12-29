@@ -70,6 +70,13 @@ var (
 		},
 		[]string{"operation_type"}, // labels for operation type (read or write)
 	)
+	databaseRequestCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "benchmark_database_requests",
+			Help: "Number of requests to the database.",
+		},
+		[]string{"operation_type"}, // labels for operation type (read or write)
+	)
 	goodputGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "benchmark_goodput",
@@ -82,17 +89,26 @@ var (
 			Help: "Throughput (total operations per second).",
 		},
 	)
+	nodeStatus = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "benchmark_node_up_status",
+			Help: "Indicates whether a node is up (1) or down (0).",
+		},
+		[]string{"node"},
+	)
 )
 
-func init() {
+func init_() {
 	// register metrics with Prometheus
 	prometheus.MustRegister(readOpsCounter)
 	prometheus.MustRegister(writeOpsCounter)
 	prometheus.MustRegister(cacheHitsCounter)
 	prometheus.MustRegister(cacheMissesCounter)
 	prometheus.MustRegister(opLatencyHistogram)
+	prometheus.MustRegister(databaseRequestCounter)
 	prometheus.MustRegister(throughputGauge)
 	prometheus.MustRegister(goodputGauge)
+	prometheus.MustRegister(nodeStatus)
 }
 
 func getFlags() (bool, string) {
@@ -133,9 +149,11 @@ func getConfigs() config_ {
 
 	databaseConfig := config.Get("database").Get(cr)
 	var keyspace = ""
+	var tableName = ""
 
 	if databaseConfig.Get("create_keyspace").AsBool(false) {
 		keyspace = databaseConfig.Get("keyspace").AsString("")
+		tableName = databaseConfig.Get("tableName").AsString("")
 	}
 	numRequests := config.Get("numRequests").AsInt(0)
 	readPercentage := config.Get("readPercentage").AsFloat(0.99)
@@ -144,7 +162,7 @@ func getConfigs() config_ {
 	maxDuration := config.Get("maxDuration").AsInt(30)
 
 	hosts := []string{databaseConfig.Get("ip").AsString("localhost")}
-	return config_{database: NewDbWrapper(keyspace, hosts...),
+	return config_{database: NewDbWrapper(keyspace, tableName, hosts...),
 		nodeConfigs:    cacheNodes,
 		numRequests:    numRequests,
 		readPercentage: readPercentage,
@@ -156,6 +174,7 @@ func getConfigs() config_ {
 func main() {
 
 	config := getConfigs()
+	init_()
 
 	// Create a context that will be cancelled after `runDuration`
 	//ctx, cancel := context.WithTimeout(context.Background(), config.maxDuration)
@@ -168,8 +187,17 @@ func main() {
 	http.Handle("/"+config.promEndpoint, promhttp.Handler())
 	go startPrometheusListener(config)
 
+	time.Sleep(1 * time.Second)
+
+	// initialize the status of all nodes as "up"
+	for i := 0; i < len(config.nodeConfigs); i++ {
+		nodeLabel := fmt.Sprintf("node%d", i+1) // "node1", "node2", etc.
+		// To set the status of a node as up:
+		nodeStatus.WithLabelValues(nodeLabel).Set(1)
+	}
+
 	// start failure simulation routine
-	//go simulateNodeFailures(ctx, config.nodeConfigs, 1*time.Second, 1*time.Second)
+	go simulateNodeFailures(config, ctx, config.nodeConfigs, 4*time.Second, 5*time.Second)
 
 	// start throughput updater
 	go updateThroughput(ctx)
@@ -216,23 +244,33 @@ func displaySummaryStats(config config_) {
 	totalWriteOps := successfulWriteOps + unsuccessfulWriteOps
 	writePercentage := int(math.Round(100 * float64(successfulWriteOps) / float64(totalWriteOps)))
 
+	databaseWriteOps := getCounterValue(databaseRequestCounter, "write")
+	databaseReadOps := getCounterValue(databaseRequestCounter, "read")
+
 	rs := func(length int) string {
 		return strings.Repeat("_", length)
 	}
 
-	fmt.Printf(" %s\n", rs(38))
-	fmt.Printf("| %-10s | %-10s | %-10s |\n", "Operation", "Completed", "Successful")
-	fmt.Printf("|%s|%s|%s|\n", rs(12), rs(12), rs(12))
-	fmt.Printf("| %-10s | %-10d | %-10s |\n", "Read", totalReadOps, fmt.Sprintf("%d%%", readPercentage))
-	fmt.Printf("| %-10s | %-10d | %-10s |\n", "Write", totalWriteOps, fmt.Sprintf("%d%%", writePercentage))
+	rsd := func(length int) string {
+		if length%2 == 0 {
+			return strings.Repeat("- ", length/2)
+		}
+		return strings.Repeat("- ", length/2) + "-"
+	}
+
+	fmt.Printf(" %s\n", rs(58))
+	fmt.Printf("| %-10s | %-10s | %-10s | %-17s |\n", "Operation", "Completed", "Successful", "Database Requests")
+	fmt.Printf("|%s|%s|%s|%s|\n", rs(12), rs(12), rs(12), rs(19))
+	fmt.Printf("| %-10s | %-10d | %-10s | %-17d |\n", "Read", totalReadOps, fmt.Sprintf("%d%%", readPercentage), databaseReadOps)
+	fmt.Printf("| %-10s | %-10d | %-10s | %-17d |\n", "Write", totalWriteOps, fmt.Sprintf("%d%%", writePercentage), databaseWriteOps)
 	totalPercentage := int(math.Round(100 * float64(successfulWriteOps+successfulReadOps) / float64(totalWriteOps+totalReadOps)))
+	fmt.Printf("|%s|%s|%s|%s|\n", rsd(12), rsd(12), rsd(12), rsd(19))
+	fmt.Printf("| %-10s | %-10d | %-10s | %-17d |\n", "Total", totalWriteOps+totalReadOps, fmt.Sprintf("%d%%", totalPercentage), databaseWriteOps+databaseReadOps)
+	fmt.Printf("|%s|%s|%s|%s|\n", rs(12), rs(12), rs(12), rs(19))
 
-	fmt.Printf("| %-10s | %-10d | %-10s |\n", "Total", totalWriteOps+totalReadOps, fmt.Sprintf("%d%%", totalPercentage))
-	fmt.Printf("|%s|%s|%s|\n", rs(12), rs(12), rs(12))
-
-	fmt.Printf("\n %s\n", rs(48))
-	fmt.Printf("| %-5s | %-10s | %-12s | %-10s |\n", "Node", "Cache Hits", "Cache Misses", "Total")
-	fmt.Printf("|%s|%s|%s|%s|\n", rs(7), rs(12), rs(14), rs(12))
+	fmt.Printf("\n %s\n", rs(56))
+	fmt.Printf("| %-5s | %-10s | %-14s | %-15s |\n", "Node", "Cache Hits", "Total Requests", "Cache Hit ratio")
+	fmt.Printf("|%s|%s|%s|%s|\n", rs(7), rs(12), rs(16), rs(17))
 	hitsTotal := 0
 	missesTotal := 0
 	for i := 1; i <= len(config.nodeConfigs); i++ {
@@ -242,10 +280,12 @@ func displaySummaryStats(config config_) {
 		hitsTotal += hits
 		missesTotal += misses
 		total := hits + misses
-		fmt.Printf("| %-5d | %-10d | %-12d | %-10d |\n", i, hits, misses, total)
+		ratio := int(math.Round(100 * float64(hits) / float64(total)))
+		fmt.Printf("| %-5d | %-10d | %-14d | %-15s |\n", i, hits, total, fmt.Sprintf("%d%%", ratio))
 	}
-	fmt.Printf("| %-5s | %-10d | %-12d | %-10d |\n", "Total", hitsTotal, missesTotal, hitsTotal+missesTotal)
-	fmt.Printf("|%s|%s|%s|%s|\n", rs(7), rs(12), rs(14), rs(12))
+	fmt.Printf("|%s|%s|%s|%s|\n", rsd(7), rsd(12), rsd(16), rsd(17))
+	fmt.Printf("| %-5s | %-10d | %-14d | %-15s |\n", "Total", hitsTotal, hitsTotal+missesTotal, fmt.Sprintf("%d%%", int(math.Round(100*float64(hitsTotal)/float64(hitsTotal+missesTotal)))))
+	fmt.Printf("|%s|%s|%s|%s|\n", rs(7), rs(12), rs(16), rs(17))
 }
 
 func queryPrometheusMetric(promPort string, promEndpoint string) {
@@ -318,68 +358,97 @@ func generateRequests(ctx context.Context, config config_, runDuration time.Dura
 
 func executeRequest(config config_, ctx context.Context, key string, value string) {
 
-	get := true // 99% of the time, perform a read operation
-	if rand.Intn(100) >= int(config.readPercentage*100) {
-		get = false // 1% of the time perform a write operation
-	}
-
 	// select a cache node based on load-balancing hash
 	nodeId := getNodeHash(key, config)
 
-	for i := 0; i < 100; i++ {
-		// get node info
-		node := config.nodeConfigs[nodeId]
-		ip := node.Get("ip").AsString("")
-		port := node.Get("port").AsString("")
-		cacheNodeURL := fmt.Sprintf("http://%s:%s", ip, port)
-		nodeLabel := fmt.Sprintf("node%d", nodeId+1) // "node1", "node2", etc.
+	// get node info
+	node := config.nodeConfigs[nodeId]
+	ip := node.Get("ip").AsString("")
+	port := node.Get("port").AsString("")
+	cacheNodeURL := fmt.Sprintf("http://%s:%s", ip, port)
+	nodeLabel := fmt.Sprintf("node%d", nodeId+1) // "node1", "node2", etc.
 
-		nodeIsUp := false
-
-		if get {
-			nodeIsUp = getValue(ctx, cacheNodeURL, key, nodeLabel, config.database)
-			if nodeIsUp {
-				readOpsCounter.WithLabelValues("success").Inc()
-				atomic.AddInt64(&throughput, 1)
-				return
-			} else {
-				readOpsCounter.WithLabelValues("failure").Inc()
-			}
+	// 99% of the time, perform a read operation
+	if rand.Intn(100) < int(config.readPercentage*100) {
+		if getValue(cacheNodeURL, key, nodeLabel, config.database) {
+			readOpsCounter.WithLabelValues("success").Inc()
+			atomic.AddInt64(&throughput, 1)
+			return
 		} else {
-			nodeIsUp = setValue(ctx, cacheNodeURL, key, value)
-			if nodeIsUp {
-				writeOpsCounter.WithLabelValues("success").Inc()
-				atomic.AddInt64(&throughput, 1)
-				return
-			} else {
-				writeOpsCounter.WithLabelValues("failure").Inc()
-			}
+			readOpsCounter.WithLabelValues("failure").Inc()
 		}
-		// the node has failed, try another one
-		// choose another node at random (not the same as the current one)
-		nodeId = (nodeId + rand.Intn(len(config.nodeConfigs)-1)) % len(config.nodeConfigs)
-		//fmt.Printf("%d\n", nodeId)
+	} else {
+		// 1% of the time perform a write operation
+		if setValue(cacheNodeURL, key, value, config.database) {
+			writeOpsCounter.WithLabelValues("success").Inc()
+			atomic.AddInt64(&throughput, 1)
+			return
+		} else {
+			writeOpsCounter.WithLabelValues("failure").Inc()
+		}
 	}
-	log.Printf("Could not perfrom operation")
+
 }
 
 // simulateNodeFailures periodically triggers failure and recovery of cache nodes
-func simulateNodeFailures(ctx context.Context, nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
-	for {
-		select {
-		case <-ctx.Done():
-			return // Exit if context is cancelled
-		default:
-			for _, nodeConfig := range nodeConfigs {
-				// trigger failure
-				triggerNodeFailureOrRecovery(nodeConfig, true)
-				time.Sleep(failDuration)
+//func simulateNodeFailures(config config_, ctx context.Context, nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
+//	for {
+//		select {
+//		case <-ctx.Done():
+//			return // Exit if context is cancelled
+//		default:
+//			for _, nodeConfig := range nodeConfigs {
+//				select {
+//				case <-ctx.Done():
+//					return // Exit if context is cancelled
+//				default:
+//					go func(nodeConfig *bconfig.Config) { // trigger failure
+//						triggerNodeFailureOrRecovery(nodeConfig, true)
+//						time.Sleep(failDuration)
+//
+//						// trigger recovery
+//						triggerNodeFailureOrRecovery(nodeConfig, false)
+//					}(nodeConfig)
+//					time.Sleep(time.Duration(float64(config.maxDuration.Microseconds())/float64(2*len(nodeConfigs))) * time.Microsecond)
+//				}
+//			}
+//		}
+//	}
+//}
 
-				// trigger recovery
-				triggerNodeFailureOrRecovery(nodeConfig, false)
-				time.Sleep(recoverDuration)
+func simulateNodeFailures(config config_, ctx context.Context, nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
+	for _, nodeConfig := range nodeConfigs {
+		go func(nodeConfig *bconfig.Config) {
+			for {
+				select {
+				case <-ctx.Done():
+					// Context is cancelled, stop the goroutine
+					return
+				case <-time.After(failDuration):
+					// Trigger node failure
+					triggerNodeFailureOrRecovery(nodeConfig, true)
+				}
+
+				select {
+				case <-ctx.Done():
+					// Context is cancelled, stop the goroutine
+					return
+				case <-time.After(recoverDuration):
+					// Trigger node recovery
+					triggerNodeFailureOrRecovery(nodeConfig, false)
+				}
+
+				// Wait for a random amount of time before repeating the process
+				waitDuration := time.Duration(float64(config.maxDuration.Microseconds())/float64(2*len(nodeConfigs))) * time.Microsecond
+				select {
+				case <-ctx.Done():
+					// Context is cancelled, stop the goroutine
+					return
+				case <-time.After(waitDuration):
+					// Wait is over, repeat the loop
+				}
 			}
-		}
+		}(nodeConfig)
 	}
 }
 
@@ -388,6 +457,7 @@ func triggerNodeFailureOrRecovery(nodeConfig *bconfig.Config, fail bool) {
 	// send an HTTP request to a specific cache node to simulate failure/recovery
 	ip := nodeConfig.Get("ip").AsString("")
 	port := nodeConfig.Get("port").AsString("")
+	label := nodeConfig.Get("name").AsString("")
 	endpoint := "/recover"
 	if fail {
 		endpoint = "/fail"
@@ -396,9 +466,14 @@ func triggerNodeFailureOrRecovery(nodeConfig *bconfig.Config, fail bool) {
 
 	_, err := http.Get(url)
 	if err != nil {
-		log.Printf("Failed to send %s request to %s: %v", endpoint, url, err)
+		//log.Printf("Failed to send %s request to %s: %v", endpoint, url, err)
 	} else {
-		log.Printf("Sent %s request to %s", endpoint, url)
+		//log.Printf("Sent %s request to %s", endpoint, url)
+		status := 1
+		if fail {
+			status = 0
+		}
+		nodeStatus.WithLabelValues(label).Set(float64(status))
 	}
 }
 
@@ -413,7 +488,7 @@ func getNodeHash(key string, config config_) int {
 }
 
 // getValue simulates a read operation by sending a GET request to the cache node and handle cache hit/miss logic
-func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db *DbWrapper) bool {
+func getValue(baseURL, key, nodeLabel string, db *DbWrapper) bool {
 	start := time.Now() // start time for latency measurement
 
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
@@ -429,50 +504,45 @@ func getValue(ctx context.Context, baseURL, key string, nodeLabel string, db *Db
 		}
 	}(resp.Body)
 
-	if resp.StatusCode == http.StatusOK {
-		// read the response body to determine if it was a hit or miss
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			log.Printf("error reading response body: %s", err)
-			return false
+	// if it was a cache miss
+	if resp.StatusCode == http.StatusNotFound {
+		cacheMissesCounter.WithLabelValues(nodeLabel).Inc()
+
+		// retrieve value from the database
+		valueFromDB, keyExists := db.Get(key)
+		databaseRequestCounter.WithLabelValues("read").Inc()
+		if !keyExists {
+			valueFromDB = "null"
 		}
-		bodyString := string(bodyBytes)
-
-		// todo how do we know if we get a miss?
-		// for example, if the body contains "null" or "not found", consider it a miss
-		if bodyString == "" || bodyString == "null" || bodyString == "not found" { // todo replace this later
-			log.Printf("Cache miss for key: %s\n", key)
-			cacheMissesCounter.WithLabelValues(nodeLabel).Inc()
-
-			// retrieve value from the database
-			valueFromDB, keyExists := db.Get(key)
-
-			if keyExists {
-				// write the value to the cache
-				setValue(ctx, baseURL, key, valueFromDB)
-			} else {
-				setValue(ctx, baseURL, key, "null") // overwrite value
-			}
-		} else {
-			//log.Printf("Cache hit for key: %s\n", key)
+		if setValue(baseURL, key, valueFromDB, db) {
+			// record the latency
+			opLatencyHistogram.WithLabelValues("read").Observe(float64(time.Since(start).Microseconds()))
+			return true
+		}
+		// else cache hit
+	} else if resp.StatusCode == http.StatusOK {
+		_, err := io.ReadAll(resp.Body)
+		if err == nil {
 			cacheHitsCounter.WithLabelValues(nodeLabel).Inc()
+			atomic.AddInt64(&goodput, 1)
+			opLatencyHistogram.WithLabelValues("read").Observe(float64(time.Since(start).Microseconds()))
+			return true
+		} else {
+			log.Printf("error reading response body: %s", err)
 		}
-		//log.Printf("GET successful for key: %s\n", key)
-
-		// update successful operations
-		atomic.AddInt64(&goodput, 1)
 	} else {
-		//log.Printf("GET failed for key: %s with status code: %d\n", key, resp.StatusCode)
-		return false
+		//log.Printf("%d: %s\n", resp.StatusCode, resp.Status)
 	}
-	elapsed := time.Since(start).Seconds()                      // calculate elapsed time in seconds
-	opLatencyHistogram.WithLabelValues("read").Observe(elapsed) // record the latency
-	return true
+	return false
 }
 
 // setValue simulates a write operation by sending a POST request to the cache node to write a key-value pair
-func setValue(ctx context.Context, baseURL, key, value string) bool {
+func setValue(baseURL, key, value string, db *DbWrapper) bool {
 	start := time.Now() // start time for latency measurement
+
+	db.Put(key, value)
+
+	databaseRequestCounter.WithLabelValues("write").Inc()
 
 	url := fmt.Sprintf("%s/set?key=%s&value=%s", baseURL, key, value)
 	resp, err := http.PostForm(url, nil)
@@ -487,15 +557,13 @@ func setValue(ctx context.Context, baseURL, key, value string) bool {
 		}
 	}(resp.Body)
 
-	// update metrics
-
-	elapsed := time.Since(start).Seconds()                       // calculate elapsed time in seconds
-	opLatencyHistogram.WithLabelValues("write").Observe(elapsed) // record the latency
-
 	if resp.StatusCode == http.StatusOK {
 		//log.Printf("SET successful for key: %s\n", key)
 		// update successful operations
 		atomic.AddInt64(&goodput, 1)
+
+		// record the latency
+		opLatencyHistogram.WithLabelValues("write").Observe(float64(time.Since(start).Microseconds()))
 		return true
 	}
 	//log.Printf("SET failed for key: %s with status code: %d\n", key, resp.StatusCode)

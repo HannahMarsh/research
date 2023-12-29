@@ -8,28 +8,34 @@ import (
 )
 
 type DbWrapper struct {
-	session *gocql.Session
+	session   *gocql.Session
+	keyspace  string
+	tableName string
 }
 
-func NewDbWrapper(keyspace string, hosts ...string) *DbWrapper {
+func NewDbWrapper(keyspace string, tableName string, hosts ...string) *DbWrapper {
 	cluster := gocql.NewCluster(hosts...)
-	cluster.Keyspace = keyspace
 	cluster.Consistency = gocql.Quorum
 	session, err := cluster.CreateSession()
 	if err != nil {
 		log.Printf("Failed to connect to Cassandra: %v", err)
-		return nil
+		//return nil
 	}
 
-	kv := &DbWrapper{session: session}
-	if keyspace != "" {
-		err = kv.CreateKeyspace(keyspace, "SimpleStrategy", 1)
-		if err != nil {
-			log.Printf("Failed to create keyspace: %v", err)
-			return nil
-		}
+	kv := &DbWrapper{session: session, keyspace: keyspace, tableName: tableName}
+	// Create keyspace and table
+	if err := kv.CreateKeyspace(keyspace, "SimpleStrategy", 1); err != nil {
+		log.Fatalf("Failed to create keyspace: %v", err)
+	}
+	if err := kv.CreateTable(tableName); err != nil {
+		log.Fatalf("Failed to create table: %v", err)
 	}
 	return kv
+}
+
+func (k *DbWrapper) CreateTable(tableName string) error {
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s (key text PRIMARY KEY, value text);", k.keyspace, tableName)
+	return k.session.Query(query).Exec()
 }
 
 func (k *DbWrapper) CreateKeyspace(keyspaceName string, replicationStrategy string, replicationFactor int) error {
@@ -44,16 +50,18 @@ func (k *DbWrapper) CreateKeyspace(keyspaceName string, replicationStrategy stri
 }
 
 func (k *DbWrapper) Put(key, value string) {
-	if err := k.session.Query(`INSERT INTO my_table (key, value) VALUES (?, ?)`,
-		key, value).Exec(); err != nil {
+	query := fmt.Sprintf("INSERT INTO %s.%s (key, value) VALUES (?, ?);", k.keyspace, k.tableName)
+
+	if err := k.session.Query(query, key, value).Exec(); err != nil {
 		log.Printf("Failed to put key: %v", err)
 	}
 }
 
 func (k *DbWrapper) Get(key string) (string, bool) {
 	var value string
-	if err := k.session.Query(`SELECT value FROM my_table WHERE key = ? LIMIT 1`,
-		key).Consistency(gocql.One).Scan(&value); err != nil {
+	query := fmt.Sprintf("SELECT value FROM %s.%s WHERE key = ? LIMIT 1;", k.keyspace, k.tableName)
+
+	if err := k.session.Query(query, key).Consistency(gocql.One).Scan(&value); err != nil {
 		if !errors.Is(gocql.ErrNotFound, err) {
 			log.Printf("Failed to get key: %v", err)
 		}
@@ -62,12 +70,12 @@ func (k *DbWrapper) Get(key string) (string, bool) {
 	return value, true
 }
 
-func (k *DbWrapper) Delete(key string) {
-	if err := k.session.Query(`DELETE FROM my_table WHERE key = ?`,
-		key).Exec(); err != nil {
-		log.Printf("Failed to delete key: %v", err)
-	}
-}
+//func (k *DbWrapper) Delete(key string) {
+//	if err := k.session.Query(`DELETE FROM my_table WHERE key = ?`,
+//		key).Exec(); err != nil {
+//		log.Printf("Failed to delete key: %v", err)
+//	}
+//}
 
 func (k *DbWrapper) Close() {
 	k.session.Close()
