@@ -8,6 +8,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 	"io"
 	"log"
 	"math"
@@ -173,6 +176,8 @@ func getConfigs() config_ {
 
 func main() {
 
+	start := time.Now()
+
 	config := getConfigs()
 	init_()
 
@@ -197,7 +202,7 @@ func main() {
 	}
 
 	// start failure simulation routine
-	//go simulateNodeFailures(config, ctx, config.nodeConfigs, 4*time.Second, 5*time.Second)
+	go simulateNodeFailures(config, ctx, config.nodeConfigs, 4*time.Second, 5*time.Second)
 
 	// start throughput updater
 	go updateThroughput(ctx)
@@ -210,12 +215,79 @@ func main() {
 	// Wait for the context to be cancelled (i.e., timeout)
 	<-ctx.Done()
 	time.Sleep(2 * time.Second)
+
+	end := time.Now()
+
+	disp(start, end)
+
 	fmt.Println("Program finished, cleaning up...")
 	//queryPrometheusMetric(config.promPort, config.promEndpoint)
 	displaySummaryStats(config)
 
 	// Prevent main goroutine from exiting
 	select {}
+}
+
+type PrometheusResponse struct {
+	Status string `json:"status"`
+	Data   struct {
+		ResultType string `json:"resultType"`
+		Result     []struct {
+			Metric struct {
+				Node string `json:"node"`
+			} `json:"metric"`
+			Values [][]interface{} `json:"values"`
+		} `json:"result"`
+	} `json:"data"`
+}
+
+func queryPrometheus(query string) (*PrometheusResponse, error) {
+	url := "http://localhost:9090/api/v1/query_range?" + query
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("error closing reader: %s", err)
+		}
+	}(resp.Body)
+	metricsData, err := io.ReadAll(resp.Body)
+	fmt.Printf("%s", metricsData)
+	return nil, nil
+
+}
+
+func disp(start time.Time, end time.Time) {
+	query := "query=benchmark_node_up_status&start=" + start.Format(time.RFC3339) + "&end=" + end.Format(time.RFC3339) + "&step=60s"
+
+	data, err := queryPrometheus(query)
+	if err != nil {
+		log.Fatalf("Error querying Prometheus: %v", err)
+	}
+
+	p := plot.New()
+
+	for _, result := range data.Data.Result {
+		pts := make(plotter.XYs, len(result.Values))
+		for i, v := range result.Values {
+			timestamp, _ := v[0].(float64)
+			value, _ := v[1].(float64)
+			pts[i].X = timestamp
+			pts[i].Y = value
+		}
+
+		line, err := plotter.NewLine(pts)
+		if err != nil {
+			log.Fatalf("Error creating line plotter: %v", err)
+		}
+		p.Add(line)
+		p.Legend.Add(result.Metric.Node, line)
+	}
+
+	p.Save(10*vg.Inch, 4*vg.Inch, "node_status_plot.png")
+
 }
 
 func getCounterValue(counter *prometheus.CounterVec, label string) int {
