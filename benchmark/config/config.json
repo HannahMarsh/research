@@ -1,5 +1,5 @@
 {
-  "numRequests": 1000,
+  "numRequests": 10000,
   "readPercentage": 0.99,
   "maxDuration": 30,
   "prom_endpoint": "metrics",

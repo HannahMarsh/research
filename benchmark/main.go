@@ -197,7 +197,7 @@ func main() {
 	}
 
 	// start failure simulation routine
-	go simulateNodeFailures(config, ctx, config.nodeConfigs, 4*time.Second, 5*time.Second)
+	//go simulateNodeFailures(config, ctx, config.nodeConfigs, 4*time.Second, 5*time.Second)
 
 	// start throughput updater
 	go updateThroughput(ctx)
@@ -346,7 +346,7 @@ func generateRequests(ctx context.Context, config config_, runDuration time.Dura
 		dif := config.maxDuration.Microseconds() - time.Since(start).Microseconds()
 		interval := float64(dif) / float64(config.numRequests-i)
 		variance := int(math.Round(interval)) + 1 // 2x interval in mu
-		if variance > 10 {
+		if variance > 100 {
 			ms := float64(rand.Intn(variance*2)) - 1
 			wait := time.Duration(time.Duration(ms) * time.Microsecond)
 			time.Sleep(wait)
@@ -417,6 +417,7 @@ func executeRequest(config config_, ctx context.Context, key string, value strin
 //}
 
 func simulateNodeFailures(config config_, ctx context.Context, nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
+	// todo only one node fails
 	for _, nodeConfig := range nodeConfigs {
 		go func(nodeConfig *bconfig.Config) {
 			for {
