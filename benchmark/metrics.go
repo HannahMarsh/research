@@ -1,95 +1,137 @@
 package main
 
 import (
-	"bufio"
-	"embed"
-	"fmt"
-	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/plotutil"
-	"gonum.org/v1/plot/vg"
-	"io"
-	"log"
-	"net/http"
-	"os"
-	"strconv"
-	"strings"
+	"sort"
+	"sync"
+	"time"
 )
 
-//go:embed metrics
-var metricsDir embed.FS
-
-func PlotMetric(body io.ReadCloser, metricName string) {
-	scanner := bufio.NewScanner(body)
-	pts := make(plotter.XYs, 0)
-
-	var i int
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.Contains(line, metricName) {
-			parts := strings.Fields(line)
-			if len(parts) != 2 {
-				continue
-			}
-
-			value, err := strconv.ParseFloat(parts[1], 64)
-			if err != nil {
-				log.Fatalf("Error parsing value: %v", err)
-			}
-
-			pts = append(pts, plotter.XY{X: float64(i), Y: value})
-			i++
-		}
-	}
-
-	p := plot.New()
-	if p == nil {
-		log.Fatalf("Error creating plot")
-	}
-
-	p.Title.Text = fmt.Sprintf("Plot for %s", metricName)
-	p.X.Label.Text = "Index"
-	p.Y.Label.Text = "Value"
-
-	err := plotutil.AddLinePoints(p, metricName, pts)
-	if err != nil {
-		log.Fatalf("Error adding line points: %v", err)
-	}
-
-	if err := p.Save(6*vg.Inch, 6*vg.Inch, fmt.Sprintf("metrics/%s.png", metricName)); err != nil {
-		log.Fatalf("Error saving plot: %v", err)
-	}
-	fmt.Printf("Plot for %s saved\n", metricName)
+type Metrics struct {
+	config           config_
+	start            time.Time
+	end              time.Time
+	nodeFailures     []ThreadSafeSortedIntervals
+	databaseRequests ThreadSafeSortedMetrics
+	allRequests      ThreadSafeSortedMetrics
+	cacheHits        ThreadSafeSortedMetrics
 }
 
-func Plot(url string) {
-	// Query Prometheus for metric data.
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Fatalf("Error querying Prometheus: %v", err)
+func NewMetrics(start time.Time, end time.Time, config config_) *Metrics {
+	return &Metrics{
+		config:           config,
+		start:            start,
+		end:              end,
+		nodeFailures:     make([]ThreadSafeSortedIntervals, len(config.nodeConfigs)),
+		databaseRequests: ThreadSafeSortedMetrics{},
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			fmt.Printf("error closing reader: %s", err)
-		}
-	}(resp.Body)
-	metricsData, err := io.ReadAll(resp.Body)
-	// Open the file in append mode. If it doesn't exist, create it with permissions.
-	f, err := os.OpenFile("metrics/result.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func(file *os.File) {
-		err := f.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}(f)
+}
 
-	if _, err := f.WriteString(string(metricsData)); err != nil {
-		log.Fatal(err)
-	}
+type ThreadSafeSortedIntervals struct {
+	mu        sync.Mutex
+	intervals []MetricInterval
+}
 
-	PlotMetric(resp.Body, "benchmark_cache_hits_total")
+type ThreadSafeSortedMetrics struct {
+	mu      sync.Mutex
+	metrics []Metric
+}
+
+type Metric struct {
+	metricType string
+	timestamp  time.Time
+	label      string
+	value      float64
+}
+
+type MetricInterval struct {
+	metricType string
+	start      time.Time
+	end        time.Time
+	label      string
+	value      float64
+}
+
+func (m *Metrics) AddDatabaseRequest(timestamp time.Time) {
+	go m.databaseRequests.InsertTimestampWithLabel(timestamp, "databaseRequest", "", 0.0)
+}
+
+func (m *Metrics) AddCacheHit(timestamp time.Time, nodeIndex int) {
+	go m.cacheHits.InsertTimestampWithLabel(timestamp, "cacheHit", "node index", float64(nodeIndex))
+}
+
+func (m *Metrics) GetCacheHits() []Metric {
+	return m.cacheHits.GetMetrics()
+}
+
+func (m *Metrics) GetDatabaseRequests() []Metric {
+	return m.databaseRequests.GetMetrics()
+}
+
+func (m *Metrics) AddRequest(timestamp time.Time, operationType string, nodeIndex int) {
+	go m.databaseRequests.InsertTimestampWithLabel(timestamp, "request", operationType, float64(nodeIndex))
+}
+
+func (m *Metrics) GetAllRequests() []Metric {
+	return m.databaseRequests.GetMetrics()
+}
+
+func (m *Metrics) GetFailureIntervals() [][]MetricInterval {
+	intervals := make([][]MetricInterval, len(m.nodeFailures))
+
+	for i := range m.nodeFailures {
+		t := m.nodeFailures[i].GetIntervals()
+		for _, interval := range t {
+			intervals[i] = append(intervals[i], interval)
+		}
+	}
+	return intervals
+}
+
+func (m *Metrics) AddNodeFailureInterval(nodeIndex int, start time.Time, end time.Time) {
+	go m.nodeFailures[nodeIndex].InsertFailureInterval(start, end)
+}
+
+// InsertTimestampWithLabel safely inserts a new timestamp into the slice in sorted order
+func (ts *ThreadSafeSortedMetrics) InsertTimestampWithLabel(newTimestamp time.Time, name string, label string, value float64) {
+	ts.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
+	defer ts.mu.Unlock() // Unlock the mutex when the function returns
+
+	// Append and sort - todo not the most efficient for large slices
+	ts.metrics = append(ts.metrics, Metric{timestamp: newTimestamp, metricType: name, label: label, value: value})
+	sort.Slice(ts.metrics, func(i, j int) bool {
+		return ts.metrics[i].timestamp.Before(ts.metrics[j].timestamp)
+	})
+}
+
+func (tsi *ThreadSafeSortedIntervals) InsertFailureInterval(start time.Time, end time.Time) {
+	go func() {
+		tsi.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
+		defer tsi.mu.Unlock() // Unlock the mutex when the function returns
+
+		// Append and sort - todo not the most efficient for large slices
+		tsi.intervals = append(tsi.intervals, MetricInterval{start: start, end: end})
+		sort.Slice(tsi.intervals, func(i, j int) bool {
+			return tsi.intervals[i].start.Before(tsi.intervals[j].start)
+		})
+	}()
+}
+
+// GetMetrics safely returns a copy of the list of metrics
+func (ts *ThreadSafeSortedMetrics) GetMetrics() []Metric {
+	ts.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
+	defer ts.mu.Unlock() // Unlock the mutex when the function returns
+	// Return a copy of the metrics slice to avoid race conditions
+	copiedTimestamps := make([]Metric, len(ts.metrics))
+	copy(copiedTimestamps, ts.metrics)
+	return copiedTimestamps
+}
+
+func (tsi *ThreadSafeSortedIntervals) GetIntervals() []MetricInterval {
+	tsi.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
+	defer tsi.mu.Unlock() // Unlock the mutex when the function returns
+
+	// Return a copy of the metrics slice to avoid race conditions
+	copiedIntervals := make([]MetricInterval, len(tsi.intervals))
+	copy(copiedIntervals, tsi.intervals)
+	return copiedIntervals
 }
