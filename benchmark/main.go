@@ -9,8 +9,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
+	"image/color"
 	"io"
 	"log"
 	"math"
@@ -21,6 +22,13 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+type metrics struct {
+	nodeFailures [][]struct {
+		start time.Time
+		end   time.Time
+	}
+}
 
 type config_ struct {
 	database       *DbWrapper
@@ -34,6 +42,7 @@ type config_ struct {
 
 // metrics we want to collect
 var (
+	m          metrics
 	goodput    int64 = 0 // successful operations used for periodically updating throughput
 	throughput int64 = 0
 
@@ -181,6 +190,13 @@ func main() {
 	config := getConfigs()
 	init_()
 
+	m = metrics{
+		nodeFailures: make([][]struct {
+			start time.Time
+			end   time.Time
+		}, len(config.nodeConfigs)),
+	}
+
 	// Create a context that will be cancelled after `runDuration`
 	//ctx, cancel := context.WithTimeout(context.Background(), config.maxDuration)
 	//defer cancel()
@@ -259,34 +275,80 @@ func queryPrometheus(query string) (*PrometheusResponse, error) {
 
 }
 
+type Rectangle struct {
+	XMin, YMin, Width, Height float64
+}
+
+func (r2 Rectangle) RGBA() (r, g, b, a uint32) {
+	return 196, 128, 128, 255 // Example RGBA color value
+}
+
+func (r Rectangle) Plot(c draw.Canvas, plt *plot.Plot) {
+	xmin, ymin := plt.X.Norm(r.XMin), plt.Y.Norm(r.YMin)
+	xmax, ymax := plt.X.Norm(r.XMin+r.Width), plt.Y.Norm(r.YMin+r.Height)
+
+	if xmin == xmax || ymin == ymax {
+		// Rectangle has no area, skip drawing
+		return
+	}
+
+	pts := []vg.Point{
+		{X: vg.Length(xmin), Y: vg.Length(ymin)},
+		{X: vg.Length(xmax), Y: vg.Length(ymin)},
+		{X: vg.Length(xmax), Y: vg.Length(ymax)},
+		{X: vg.Length(xmin), Y: vg.Length(ymax)},
+	}
+
+	// Example color - modify as needed
+	clr := color.RGBA{R: 196, G: 128, B: 128, A: 255}
+	c.FillPolygon(clr, pts)
+}
+
+func (r Rectangle) DataRange() (xmin, xmax, ymin, ymax float64) {
+	return r.XMin, r.XMin + r.Width, r.YMin, r.YMin + r.Height
+}
+
 func disp(start time.Time, end time.Time) {
-	query := "query=benchmark_node_up_status&start=" + start.Format(time.RFC3339) + "&end=" + end.Format(time.RFC3339) + "&step=60s"
-
-	data, err := queryPrometheus(query)
-	if err != nil {
-		log.Fatalf("Error querying Prometheus: %v", err)
-	}
-
+	// Create a new plot.
 	p := plot.New()
+	p.Title.Text = "Node Status Over Time"
+	p.X.Label.Text = "Time"
+	p.Y.Label.Text = "Node"
 
-	for _, result := range data.Data.Result {
-		pts := make(plotter.XYs, len(result.Values))
-		for i, v := range result.Values {
-			timestamp, _ := v[0].(float64)
-			value, _ := v[1].(float64)
-			pts[i].X = timestamp
-			pts[i].Y = value
+	// To create bars for each interval.
+	// To create bars for each interval.
+	for i := 0; i < len(m.nodeFailures); i++ {
+		node := m.nodeFailures[i]
+		for j := 0; j < len(node); j++ {
+			iv := node[j]
+			i_start := iv.start.Sub(start).Seconds()
+			i_end := iv.end.Sub(start).Seconds()
+			// Calculate the position and length of the bar based on the interval
+			r := Rectangle{
+				XMin:   float64(i_start),
+				YMin:   float64(i) * 1.5, // Multiply by a factor to space out the bars
+				Width:  i_end - i_start,
+				Height: 1,
+			}
+			p.Add(&r)
 		}
-
-		line, err := plotter.NewLine(pts)
-		if err != nil {
-			log.Fatalf("Error creating line plotter: %v", err)
-		}
-		p.Add(line)
-		p.Legend.Add(result.Metric.Node, line)
 	}
 
-	p.Save(10*vg.Inch, 4*vg.Inch, "node_status_plot.png")
+	// Set X-axis range from 0 to 30
+	p.X.Min = 0
+	p.X.Max = 30
+
+	p.Y.Tick.Marker = plot.ConstantTicks([]plot.Tick{
+		{Value: 0, Label: "Node 1"},
+		{Value: 1.5, Label: "Node 2"},
+		{Value: 3, Label: "Node 3"},
+		{Value: 4.5, Label: "Node 4"},
+	})
+
+	// Save the plot to a PNG file.
+	if err := p.Save(10*vg.Inch, 4*vg.Inch, "node_status.png"); err != nil {
+		log.Fatal(err)
+	}
 
 }
 
@@ -462,35 +524,11 @@ func executeRequest(config config_, ctx context.Context, key string, value strin
 
 }
 
-// simulateNodeFailures periodically triggers failure and recovery of cache nodes
-//func simulateNodeFailures(config config_, ctx context.Context, nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
-//	for {
-//		select {
-//		case <-ctx.Done():
-//			return // Exit if context is cancelled
-//		default:
-//			for _, nodeConfig := range nodeConfigs {
-//				select {
-//				case <-ctx.Done():
-//					return // Exit if context is cancelled
-//				default:
-//					go func(nodeConfig *bconfig.Config) { // trigger failure
-//						triggerNodeFailureOrRecovery(nodeConfig, true)
-//						time.Sleep(failDuration)
-//
-//						// trigger recovery
-//						triggerNodeFailureOrRecovery(nodeConfig, false)
-//					}(nodeConfig)
-//					time.Sleep(time.Duration(float64(config.maxDuration.Microseconds())/float64(2*len(nodeConfigs))) * time.Microsecond)
-//				}
-//			}
-//		}
-//	}
-//}
-
 func simulateNodeFailures(config config_, ctx context.Context, nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
 	// todo only one node fails
-	for _, nodeConfig := range nodeConfigs {
+	for i := 0; i < len(nodeConfigs); i++ {
+		nodeConfig := nodeConfigs[i]
+		i := i
 		go func(nodeConfig *bconfig.Config) {
 			for {
 				select {
@@ -499,7 +537,7 @@ func simulateNodeFailures(config config_, ctx context.Context, nodeConfigs []*bc
 					return
 				case <-time.After(failDuration):
 					// Trigger node failure
-					triggerNodeFailureOrRecovery(nodeConfig, true)
+					triggerNodeFailureOrRecovery(i, nodeConfig, true)
 				}
 
 				select {
@@ -508,11 +546,12 @@ func simulateNodeFailures(config config_, ctx context.Context, nodeConfigs []*bc
 					return
 				case <-time.After(recoverDuration):
 					// Trigger node recovery
-					triggerNodeFailureOrRecovery(nodeConfig, false)
+					triggerNodeFailureOrRecovery(i, nodeConfig, false)
 				}
 
 				// Wait for a random amount of time before repeating the process
 				waitDuration := time.Duration(float64(config.maxDuration.Microseconds())/float64(2*len(nodeConfigs))) * time.Microsecond
+
 				select {
 				case <-ctx.Done():
 					// Context is cancelled, stop the goroutine
@@ -526,7 +565,7 @@ func simulateNodeFailures(config config_, ctx context.Context, nodeConfigs []*bc
 }
 
 // triggerNodeFailureOrRecovery sends a request to either fail or recover a node
-func triggerNodeFailureOrRecovery(nodeConfig *bconfig.Config, fail bool) {
+func triggerNodeFailureOrRecovery(nodeIndex int, nodeConfig *bconfig.Config, fail bool) {
 	// send an HTTP request to a specific cache node to simulate failure/recovery
 	ip := nodeConfig.Get("ip").AsString("")
 	port := nodeConfig.Get("port").AsString("")
@@ -545,6 +584,14 @@ func triggerNodeFailureOrRecovery(nodeConfig *bconfig.Config, fail bool) {
 		status := 1
 		if fail {
 			status = 0
+			// Record the failure interval for node 1
+			m.nodeFailures[nodeIndex] = append(m.nodeFailures[nodeIndex], struct {
+				start time.Time
+				end   time.Time
+			}{start: time.Now(), end: time.Now()})
+		} else {
+			nfail := m.nodeFailures[nodeIndex]
+			m.nodeFailures[nodeIndex][len(nfail)-1].end = time.Now()
 		}
 		nodeStatus.WithLabelValues(label).Set(float64(status))
 	}
