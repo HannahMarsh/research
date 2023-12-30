@@ -1,7 +1,7 @@
 {
-  "numRequests": 1000,
+  "numRequests": 10000,
   "readPercentage": 0.99,
-  "maxDuration": 10,
+  "maxDuration": 30,
   "prom_endpoint": "metrics",
   "prom_port": 9090,
   "cacheNodes": {

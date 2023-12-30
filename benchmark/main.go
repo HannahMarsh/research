@@ -9,8 +9,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
-	"gonum.org/v1/plot/vg/draw"
 	"image/color"
 	"io"
 	"log"
@@ -18,16 +18,48 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
+
+// ThreadSafeTimestamps provides a thread-safe way to store timestamps
+type ThreadSafeTimestamps struct {
+	mu         sync.Mutex
+	timestamps []time.Time
+}
+
+// InsertTimestamp safely inserts a new timestamp into the slice in sorted order
+func (ts *ThreadSafeTimestamps) InsertTimestamp(newTimestamp time.Time) {
+	ts.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
+	defer ts.mu.Unlock() // Unlock the mutex when the function returns
+
+	// Append and sort - simple but not the most efficient for large slices
+	ts.timestamps = append(ts.timestamps, newTimestamp)
+	sort.Slice(ts.timestamps, func(i, j int) bool {
+		return ts.timestamps[i].Before(ts.timestamps[j])
+	})
+}
+
+// GetTimestamps safely returns a copy of the list of timestamps
+func (ts *ThreadSafeTimestamps) GetTimestamps() []time.Time {
+	ts.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
+	defer ts.mu.Unlock() // Unlock the mutex when the function returns
+
+	// Return a copy of the timestamps slice to avoid race conditions
+	copiedTimestamps := make([]time.Time, len(ts.timestamps))
+	copy(copiedTimestamps, ts.timestamps)
+	return copiedTimestamps
+}
 
 type metrics struct {
 	nodeFailures [][]struct {
 		start time.Time
 		end   time.Time
 	}
+	databaseRequests ThreadSafeTimestamps
 }
 
 type config_ struct {
@@ -42,6 +74,8 @@ type config_ struct {
 
 // metrics we want to collect
 var (
+	start      time.Time
+	end        time.Time
 	m          metrics
 	goodput    int64 = 0 // successful operations used for periodically updating throughput
 	throughput int64 = 0
@@ -185,7 +219,10 @@ func getConfigs() config_ {
 
 func main() {
 
-	start := time.Now()
+	// Use a WaitGroup to wait for all goroutines to finish
+	var wg sync.WaitGroup
+
+	start = time.Now()
 
 	config := getConfigs()
 	init_()
@@ -195,6 +232,7 @@ func main() {
 			start time.Time
 			end   time.Time
 		}, len(config.nodeConfigs)),
+		databaseRequests: ThreadSafeTimestamps{},
 	}
 
 	// Create a context that will be cancelled after `runDuration`
@@ -218,7 +256,7 @@ func main() {
 	}
 
 	// start failure simulation routine
-	go simulateNodeFailures(config, ctx, config.nodeConfigs, 4*time.Second, 5*time.Second)
+	go simulateNodeFailures(config, ctx)
 
 	// start throughput updater
 	go updateThroughput(ctx)
@@ -230,18 +268,32 @@ func main() {
 
 	// Wait for the context to be cancelled (i.e., timeout)
 	<-ctx.Done()
-	time.Sleep(2 * time.Second)
 
-	end := time.Now()
+	end = time.Now()
 
-	disp(start, end)
+	time.Sleep(1 * time.Second)
+	wg.Wait() // Wait for all goroutines to finish
+
+	disp(config)
 
 	fmt.Println("Program finished, cleaning up...")
 	//queryPrometheusMetric(config.promPort, config.promEndpoint)
 	displaySummaryStats(config)
 
-	// Prevent main goroutine from exiting
-	select {}
+}
+
+func plot_(p *plot.Plot, width float64, height float64, bottomLeftX float64, bottomLeftY float64) {
+	rect, _ := plotter.NewPolygon(plotter.XYs{
+		{X: bottomLeftX, Y: bottomLeftY},
+		{X: bottomLeftX + width, Y: bottomLeftY},
+		{X: bottomLeftX + width, Y: bottomLeftY + height},
+		{X: bottomLeftX, Y: bottomLeftY + height},
+	})
+	rect.Color = color.RGBA{R: 255, G: 0, B: 0, A: 255} // Red color
+
+	// Add the rectangle to the plot
+	p.Add(rect)
+
 }
 
 type PrometheusResponse struct {
@@ -275,68 +327,16 @@ func queryPrometheus(query string) (*PrometheusResponse, error) {
 
 }
 
-type Rectangle struct {
-	XMin, YMin, Width, Height float64
-}
-
-func (r2 Rectangle) RGBA() (r, g, b, a uint32) {
-	return 196, 128, 128, 255 // Example RGBA color value
-}
-
-func (r Rectangle) Plot(c draw.Canvas, plt *plot.Plot) {
-	xmin, ymin := plt.X.Norm(r.XMin), plt.Y.Norm(r.YMin)
-	xmax, ymax := plt.X.Norm(r.XMin+r.Width), plt.Y.Norm(r.YMin+r.Height)
-
-	if xmin == xmax || ymin == ymax {
-		// Rectangle has no area, skip drawing
-		return
-	}
-
-	pts := []vg.Point{
-		{X: vg.Length(xmin), Y: vg.Length(ymin)},
-		{X: vg.Length(xmax), Y: vg.Length(ymin)},
-		{X: vg.Length(xmax), Y: vg.Length(ymax)},
-		{X: vg.Length(xmin), Y: vg.Length(ymax)},
-	}
-
-	// Example color - modify as needed
-	clr := color.RGBA{R: 196, G: 128, B: 128, A: 255}
-	c.FillPolygon(clr, pts)
-}
-
-func (r Rectangle) DataRange() (xmin, xmax, ymin, ymax float64) {
-	return r.XMin, r.XMin + r.Width, r.YMin, r.YMin + r.Height
-}
-
-func disp(start time.Time, end time.Time) {
+func disp(config config_) {
 	// Create a new plot.
 	p := plot.New()
 	p.Title.Text = "Node Status Over Time"
 	p.X.Label.Text = "Time"
 	p.Y.Label.Text = "Node"
 
-	// To create bars for each interval.
-	// To create bars for each interval.
-	for i := 0; i < len(m.nodeFailures); i++ {
-		node := m.nodeFailures[i]
-		for j := 0; j < len(node); j++ {
-			iv := node[j]
-			i_start := iv.start.Sub(start).Seconds()
-			i_end := iv.end.Sub(start).Seconds()
-			// Calculate the position and length of the bar based on the interval
-			r := Rectangle{
-				XMin:   float64(i_start),
-				YMin:   float64(i) * 1.5, // Multiply by a factor to space out the bars
-				Width:  i_end - i_start,
-				Height: 1,
-			}
-			p.Add(&r)
-		}
-	}
-
 	// Set X-axis range from 0 to 30
 	p.X.Min = 0
-	p.X.Max = 30
+	p.X.Max = end.Sub(start).Seconds()
 
 	p.Y.Tick.Marker = plot.ConstantTicks([]plot.Tick{
 		{Value: 0, Label: "Node 1"},
@@ -345,11 +345,94 @@ func disp(start time.Time, end time.Time) {
 		{Value: 4.5, Label: "Node 4"},
 	})
 
+	// To create bars for each interval.
+	// To create bars for each interval.
+	for i := 0; i < len(m.nodeFailures); i++ {
+		node := m.nodeFailures[i]
+		for j := 0; j < len(node); j++ {
+			iv := node[j]
+			iStart := iv.start.Sub(start).Seconds()
+			iEnd := iv.end.Sub(start).Seconds()
+			plot_(p, iEnd-iStart, 1, iStart, float64(i)*1.5)
+		}
+	}
+
+	for i := 0; i < len(m.nodeFailures); i++ {
+		node := m.nodeFailures[i]
+		for j := 0; j < len(node); j++ {
+			iv := node[j]
+			iStart := iv.start.Sub(start).Seconds()
+			iEnd := iv.end.Sub(start).Seconds()
+			fmt.Printf("node%d failed from %d to %d\n", i+1, int(math.Round(iStart)), int(math.Round(iEnd)))
+		}
+	}
+
 	// Save the plot to a PNG file.
 	if err := p.Save(10*vg.Inch, 4*vg.Inch, "node_status.png"); err != nil {
 		log.Fatal(err)
 	}
 
+	// now do requests per second
+
+	// Define the resolution and calculate timeSlice
+	resolution := int(math.Round(config.maxDuration.Seconds()))
+	timeSlice := time.Duration(float64(config.maxDuration.Nanoseconds()) / float64(resolution))
+
+	// Aggregate timestamps into buckets based on the timeSlice
+	requestCountsPerSlice := make(map[int64]int)
+	for _, timestamp := range m.databaseRequests.GetTimestamps() {
+		bucket := int64(math.Floor(float64(timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+		requestCountsPerSlice[bucket]++
+	}
+
+	// Create a plotter.XYs to hold the request counts
+	pts := make(plotter.XYs, resolution)
+	maxReqPerSecond := 0.0
+
+	// Fill the pts with the request counts
+	for i := 0; i < resolution; i++ {
+		if count, ok := requestCountsPerSlice[int64(i)]; ok {
+			reqPerSecond := float64(count) / timeSlice.Seconds()
+			maxReqPerSecond = math.Max(maxReqPerSecond, reqPerSecond)
+			pts[i].Y = reqPerSecond
+		}
+		pts[i].X = float64(i) * timeSlice.Seconds()
+	}
+
+	// Create the plot
+	p = plot.New()
+
+	p.Title.Text = "Requests per Second Over Time"
+	p.X.Label.Text = "Time (s)"
+	p.Y.Label.Text = "Requests per second"
+	p.X.Min = 0.0
+	p.X.Max = end.Sub(start).Seconds()
+	p.Y.Min = 0.0
+	p.Y.Max = maxReqPerSecond * 1.2
+
+	// Create a line chart
+	line, err := plotter.NewLine(pts)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	p.Add(line)
+
+	// Save the plot to a PNG file
+	if err := p.Save(8*vg.Inch, 4*vg.Inch, "requests_per_second.png"); err != nil {
+		log.Panic(err)
+	}
+
+}
+
+// makeTicks creates a slice of string labels for the x-axis
+func makeTicks(minSecond, maxSecond int) []string {
+	ticks := make([]string, maxSecond-minSecond+1)
+	for i := range ticks {
+		t := time.Unix(int64(minSecond+i), 0)
+		ticks[i] = t.Format("15:04:05") // HH:MM:SS format
+	}
+	return ticks
 }
 
 func getCounterValue(counter *prometheus.CounterVec, label string) int {
@@ -524,44 +607,70 @@ func executeRequest(config config_, ctx context.Context, key string, value strin
 
 }
 
-func simulateNodeFailures(config config_, ctx context.Context, nodeConfigs []*bconfig.Config, failDuration, recoverDuration time.Duration) {
-	// todo only one node fails
-	for i := 0; i < len(nodeConfigs); i++ {
-		nodeConfig := nodeConfigs[i]
-		i := i
-		go func(nodeConfig *bconfig.Config) {
-			for {
-				select {
-				case <-ctx.Done():
-					// Context is cancelled, stop the goroutine
-					return
-				case <-time.After(failDuration):
-					// Trigger node failure
-					triggerNodeFailureOrRecovery(i, nodeConfig, true)
-				}
+func simulateNodeFailures(config config_, ctx context.Context) {
 
-				select {
-				case <-ctx.Done():
-					// Context is cancelled, stop the goroutine
-					return
-				case <-time.After(recoverDuration):
-					// Trigger node recovery
-					triggerNodeFailureOrRecovery(i, nodeConfig, false)
-				}
-
-				// Wait for a random amount of time before repeating the process
-				waitDuration := time.Duration(float64(config.maxDuration.Microseconds())/float64(2*len(nodeConfigs))) * time.Microsecond
-
-				select {
-				case <-ctx.Done():
-					// Context is cancelled, stop the goroutine
-					return
-				case <-time.After(waitDuration):
-					// Wait is over, repeat the loop
-				}
-			}
-		}(nodeConfig)
+	// first make sure all nodes are up
+	for i := 0; i < len(config.nodeConfigs); i++ {
+		go triggerNodeFailureOrRecovery(i, config.nodeConfigs[i], false)
 	}
+
+	timeToFail := start.Add(config.maxDuration / 2)
+	failureDuration := config.maxDuration / 6
+	timeToRecover := timeToFail.Add(failureDuration)
+
+	failTimer := time.NewTimer(time.Until(timeToFail))
+	recoverTimer := time.NewTimer(time.Until(timeToRecover))
+
+	for {
+		select {
+		case <-ctx.Done(): // Context is cancelled, stop the goroutine
+			return
+		case <-failTimer.C:
+			go triggerNodeFailureOrRecovery(0, config.nodeConfigs[0], true)
+			failTimer.Stop() // Stop the fail timer if it's no longer needed
+		case <-recoverTimer.C:
+			go triggerNodeFailureOrRecovery(0, config.nodeConfigs[0], false)
+			return // end the function after recovery
+		}
+	}
+	//
+	//// todo only one node fails
+	//for i := 0; i < len(nodeConfigs); i++ {
+	//	nodeConfig := nodeConfigs[i]
+	//	i := i
+	//	go func(nodeConfig *bconfig.Config) {
+	//		for {
+	//			select {
+	//			case <-ctx.Done():
+	//				// Context is cancelled, stop the goroutine
+	//				return
+	//			case <-time.After(failDuration):
+	//				// Trigger node failure
+	//				triggerNodeFailureOrRecovery(i, nodeConfig, true)
+	//			}
+	//
+	//			select {
+	//			case <-ctx.Done():
+	//				// Context is cancelled, stop the goroutine
+	//				return
+	//			case <-time.After(recoverDuration):
+	//				// Trigger node recovery
+	//				triggerNodeFailureOrRecovery(i, nodeConfig, false)
+	//			}
+	//
+	//			// Wait for a random amount of time before repeating the process
+	//			waitDuration := time.Duration(float64(config.maxDuration.Microseconds())/float64(2*len(nodeConfigs))) * time.Microsecond
+	//
+	//			select {
+	//			case <-ctx.Done():
+	//				// Context is cancelled, stop the goroutine
+	//				return
+	//			case <-time.After(waitDuration):
+	//				// Wait is over, repeat the loop
+	//			}
+	//		}
+	//	}(nodeConfig)
+	// }
 }
 
 // triggerNodeFailureOrRecovery sends a request to either fail or recover a node
@@ -591,7 +700,9 @@ func triggerNodeFailureOrRecovery(nodeIndex int, nodeConfig *bconfig.Config, fai
 			}{start: time.Now(), end: time.Now()})
 		} else {
 			nfail := m.nodeFailures[nodeIndex]
-			m.nodeFailures[nodeIndex][len(nfail)-1].end = time.Now()
+			if nfail != nil {
+				m.nodeFailures[nodeIndex][len(nfail)-1].end = time.Now()
+			}
 		}
 		nodeStatus.WithLabelValues(label).Set(float64(status))
 	}
@@ -631,6 +742,7 @@ func getValue(baseURL, key, nodeLabel string, db *DbWrapper) bool {
 		// retrieve value from the database
 		valueFromDB, keyExists := db.Get(key)
 		databaseRequestCounter.WithLabelValues("read").Inc()
+		m.databaseRequests.InsertTimestamp(time.Now())
 		if !keyExists {
 			valueFromDB = "null"
 		}
