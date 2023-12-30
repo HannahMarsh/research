@@ -28,19 +28,20 @@ var (
 )
 
 type Plotter_ struct {
-	m          *Metrics
-	dbRequests *plot.Plot
+	m           *Metrics
+	dbRequests  *plot.Plot
+	allRequests *plot.Plot
 }
 
 func NewPlotter(m *Metrics) *Plotter_ {
-	return &Plotter_{m: m, dbRequests: plot.New()}
+	return &Plotter_{m: m, dbRequests: plot.New(), allRequests: plot.New()}
 }
 
 func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
 	start := plt.m.start
 	end := plt.m.end
 	p := plt.dbRequests
-	p.Title.Text = "Requests per Second Over Time"
+	p.Title.Text = "Database Requests per Second as a Function of Time"
 	p.X.Label.Text = "Time (s)"
 	p.Y.Label.Text = "Requests per second"
 	p.X.Min = 0.0
@@ -53,7 +54,7 @@ func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
 
 	// Aggregate metrics into buckets based on the timeSlice
 	requestCountsPerSlice := make(map[int64]int)
-	metrics := m.databaseRequests.GetMetrics()
+	metrics := plt.m.GetDatabaseRequests()
 	for _, metric := range metrics {
 		bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
 		requestCountsPerSlice[bucket]++
@@ -90,8 +91,8 @@ func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
 			interval := node[j]
 			iStart := interval.start.Sub(start).Seconds()
 			iEnd := interval.end.Sub(start).Seconds()
-			addLine(p, iStart, fmt.Sprintf("node%d failed", i), DARK_COLORS[i])
-			addLine(p, iEnd, fmt.Sprintf("node%d recovered", i), LIGHT_COLORS[i])
+			addVerticalLine(p, iStart, fmt.Sprintf("node%d failed", i), DARK_COLORS[i])
+			addVerticalLine(p, iEnd, fmt.Sprintf("node%d recovered", i), LIGHT_COLORS[i])
 			fmt.Printf("node%d failed from %d to %d\n", i+1, int(math.Round(iStart)), int(math.Round(iEnd)))
 		}
 	}
@@ -102,8 +103,82 @@ func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
 	}
 }
 
-func addLine(p *plot.Plot, xValue float64, label string, clr color.RGBA) {
+func (plt *Plotter_) PlotAllRequests(fileName string) {
+	start := plt.m.start
+	end := plt.m.end
+	p := plt.allRequests
+	p.Title.Text = "Workload (User Requests per Second) As a Function of Time"
+	p.X.Label.Text = "Time (s)"
+	p.Y.Label.Text = "Requests per second"
+	p.X.Min = 0.0
+	p.X.Max = end.Sub(start).Seconds()
+	p.Y.Min = 0.0
+
+	// Define the resolution and calculate timeSlice
+	resolution := int(math.Round(plt.m.config.maxDuration.Seconds()))
+	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
+
+	// Aggregate metrics into buckets based on the timeSlice
+	requestCountsPerSlice := make(map[int64]int)
+	metrics := plt.m.GetAllRequests()
+	for _, metric := range metrics {
+		bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+		requestCountsPerSlice[bucket]++
+	}
+
+	// Create a plotter.XYs to hold the request counts
+	pts := make(plotter.XYs, resolution)
+	maxReqPerSecond := 0.0
+	sumReqPerSecond := 0.0
+	countSecs := 0
+
+	// Fill the pts with the request counts
+	for i := 0; i < resolution; i++ {
+		if count, ok := requestCountsPerSlice[int64(i)]; ok {
+			reqPerSecond := float64(count) / timeSlice.Seconds()
+			maxReqPerSecond = math.Max(maxReqPerSecond, reqPerSecond)
+			sumReqPerSecond += reqPerSecond
+			countSecs++
+			pts[i].Y = reqPerSecond
+		}
+		pts[i].X = float64(i) * timeSlice.Seconds()
+	}
+	p.Y.Max = maxReqPerSecond * 1.2
+
+	// Create a line chart
+	line, err := plotter.NewLine(pts)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	p.Add(line)
+
+	mean := sumReqPerSecond / float64(countSecs)
+	addHorizontalLine(p, mean, "mean requests per second", DARK_BLUE)
+
+	// Save the plot to a PNG file
+	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
+		log.Panic(err)
+	}
+}
+
+func addVerticalLine(p *plot.Plot, xValue float64, label string, clr color.RGBA) {
 	verticalLine, err := plotter.NewLine(plotter.XYs{{X: xValue, Y: p.Y.Min}, {X: xValue, Y: p.Y.Max}})
+	if err != nil {
+		panic(err)
+	}
+	verticalLine.Color = clr
+	verticalLine.Dashes = []vg.Length{vg.Points(5), vg.Points(5)} // Dashed line
+
+	// Add the vertical line to the plot
+	p.Add(verticalLine)
+
+	// Add a legend for the line
+	p.Legend.Add(label, verticalLine)
+}
+
+func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGBA) {
+	verticalLine, err := plotter.NewLine(plotter.XYs{{X: p.X.Min, Y: yValue}, {X: p.X.Max, Y: yValue}})
 	if err != nil {
 		panic(err)
 	}

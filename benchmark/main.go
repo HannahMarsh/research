@@ -37,7 +37,6 @@ type config_ struct {
 var (
 	start      time.Time
 	m          *Metrics
-	p          *Plotter_
 	goodput    int64 = 0 // successful operations used for periodically updating throughput
 	throughput int64 = 0
 
@@ -189,7 +188,7 @@ func main() {
 	init_()
 
 	m = NewMetrics(start, start.Add(config.maxDuration), config)
-	p = NewPlotter(m)
+	p := NewPlotter(m)
 
 	// Create a context that will be cancelled after `runDuration`
 	//ctx, cancel := context.WithTimeout(context.Background(), config.maxDuration)
@@ -229,6 +228,7 @@ func main() {
 	wg.Wait() // Wait for all goroutines to finish
 
 	p.PlotDatabaseRequests("requests_per_second.png")
+	p.PlotAllRequests("all_requests_per_second.png")
 
 	fmt.Println("Program finished, cleaning up...")
 	//queryPrometheusMetric(config.promPort, config.promEndpoint)
