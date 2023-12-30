@@ -8,12 +8,13 @@ import (
 )
 
 type DbWrapper struct {
-	session   *gocql.Session
-	keyspace  string
-	tableName string
+	session     *gocql.Session
+	keyspace    string
+	tableName   string
+	concurrency chan struct{}
 }
 
-func NewDbWrapper(keyspace string, tableName string, hosts ...string) *DbWrapper {
+func NewDbWrapper(keyspace string, tableName string, maxConcurrency int, hosts ...string) *DbWrapper {
 	cluster := gocql.NewCluster(hosts...)
 	cluster.Consistency = gocql.Quorum
 	session, err := cluster.CreateSession()
@@ -22,7 +23,7 @@ func NewDbWrapper(keyspace string, tableName string, hosts ...string) *DbWrapper
 		//return nil
 	}
 
-	kv := &DbWrapper{session: session, keyspace: keyspace, tableName: tableName}
+	kv := &DbWrapper{session: session, keyspace: keyspace, tableName: tableName, concurrency: make(chan struct{}, maxConcurrency)}
 	// Create keyspace and table
 	if err := kv.CreateKeyspace(keyspace, "SimpleStrategy", 1); err != nil {
 		log.Fatalf("Failed to create keyspace: %v", err)
@@ -50,6 +51,9 @@ func (k *DbWrapper) CreateKeyspace(keyspaceName string, replicationStrategy stri
 }
 
 func (k *DbWrapper) Put(key, value string) {
+	k.concurrency <- struct{}{}        // Wait for permission to proceed
+	defer func() { <-k.concurrency }() // Release the slot when done
+
 	query := fmt.Sprintf("INSERT INTO %s.%s (key, value) VALUES (?, ?);", k.keyspace, k.tableName)
 
 	if err := k.session.Query(query, key, value).Exec(); err != nil {
@@ -58,6 +62,9 @@ func (k *DbWrapper) Put(key, value string) {
 }
 
 func (k *DbWrapper) Get(key string) (string, bool) {
+	k.concurrency <- struct{}{}        // Wait for permission to proceed
+	defer func() { <-k.concurrency }() // Release the slot when done
+
 	var value string
 	query := fmt.Sprintf("SELECT value FROM %s.%s WHERE key = ? LIMIT 1;", k.keyspace, k.tableName)
 

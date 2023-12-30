@@ -1,7 +1,8 @@
 {
-  "numRequests": 50000,
+  "numRequests": 10000,
   "readPercentage": 0.99,
   "maxDuration": 30,
+  "databaseMaxConcurrency": 5,
   "prom_endpoint": "metrics",
   "prom_port": 9090,
   "failures": {

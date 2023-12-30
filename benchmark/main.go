@@ -32,6 +32,7 @@ type config_ struct {
 	promPort       string        // prometheus local server port
 	promEndpoint   string        // prometheus local endpoint
 	failures       []*bconfig.Config
+	maxConcurrency int
 }
 
 // Metrics we want to collect
@@ -173,9 +174,10 @@ func getConfigs() config_ {
 		failuresConfig.Get("0"),
 		failuresConfig.Get("1"),
 	}
+	maxConcurrency := config.Get("databaseMaxConcurrency").AsInt(0.0)
 
 	hosts := []string{databaseConfig.Get("ip").AsString("localhost")}
-	return config_{database: NewDbWrapper(keyspace, tableName, hosts...),
+	return config_{database: NewDbWrapper(keyspace, tableName, maxConcurrency, hosts...),
 		nodeConfigs:    cacheNodes,
 		numRequests:    numRequests,
 		readPercentage: readPercentage,
@@ -183,6 +185,7 @@ func getConfigs() config_ {
 		maxDuration:    time.Duration(maxDuration) * time.Second,
 		promPort:       promPort,
 		failures:       failures,
+		maxConcurrency: maxConcurrency,
 	}
 }
 
@@ -227,7 +230,7 @@ func main() {
 
 	// start generating requests
 	log.Printf("Starting generating requests...")
-	generateRequests(ctx, config, config.maxDuration)
+	generateRequests(ctx, config)
 	cancel()
 
 	// Wait for the context to be cancelled (i.e., timeout)
@@ -239,6 +242,7 @@ func main() {
 	p.PlotDatabaseRequests("requests_per_second.png")
 	p.PlotAllRequests("all_requests_per_second.png")
 	p.PlotCacheHits("cache_hit_ratio.png")
+	p.PlotLatency("latency.png")
 
 	fmt.Println("Program finished, cleaning up...")
 	//queryPrometheusMetric(config.promPort, config.promEndpoint)
@@ -397,7 +401,7 @@ func startPrometheusListener(config config_) {
 	}
 }
 
-func generateRequests(ctx context.Context, config config_, runDuration time.Duration) {
+func generateRequests(ctx context.Context, config config_) {
 
 	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(config.numRequests)/100)
 	fmt.Printf("\n")
@@ -441,12 +445,16 @@ func executeRequest(config config_, key string, value string) {
 	cacheNodeURL := fmt.Sprintf("http://%s:%s", ip, port)
 	nodeLabel := fmt.Sprintf("node%d", nodeId+1) // "node1", "node2", etc.
 
+	metricStart := time.Now()
+
 	// 99% of the time, perform a read operation
 	if rand.Intn(100) < int(config.readPercentage*100) {
 		m.AddRequest(time.Now(), "read", nodeId)
 		if getValue(cacheNodeURL, key, nodeId, nodeLabel, config.database) {
 			readOpsCounter.WithLabelValues("success").Inc()
 			atomic.AddInt64(&throughput, 1)
+
+			m.AddLatency(time.Now(), time.Since(metricStart))
 
 			return
 		} else {
@@ -458,6 +466,8 @@ func executeRequest(config config_, key string, value string) {
 		if setValue(cacheNodeURL, key, value, config.database) {
 			writeOpsCounter.WithLabelValues("success").Inc()
 			atomic.AddInt64(&throughput, 1)
+
+			m.AddLatency(time.Now(), time.Since(metricStart))
 			return
 		} else {
 			writeOpsCounter.WithLabelValues("failure").Inc()

@@ -33,10 +33,11 @@ type Plotter_ struct {
 	dbRequests  *plot.Plot
 	allRequests *plot.Plot
 	cacheHits   *plot.Plot
+	latency     *plot.Plot
 }
 
 func NewPlotter(m *Metrics) *Plotter_ {
-	return &Plotter_{m: m, dbRequests: plot.New(), allRequests: plot.New(), cacheHits: plot.New()}
+	return &Plotter_{m: m, dbRequests: plot.New(), allRequests: plot.New(), cacheHits: plot.New(), latency: plot.New()}
 }
 
 func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
@@ -180,6 +181,88 @@ func (plt *Plotter_) PlotAllRequests(fileName string) {
 	}
 }
 
+func (plt *Plotter_) PlotLatency(fileName string) {
+	start := plt.m.start
+	end := plt.m.end
+	p := plt.latency
+	p.Title.Text = "Request Latency As a Function of Time"
+	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
+	p.Title.TextStyle.Font.Size = 15
+	p.X.Label.Text = "Time (s)"
+	p.Y.Label.Text = "Average Latency (ms)"
+	p.X.Min = 0.0
+	p.X.Max = end.Sub(start).Seconds()
+	p.Y.Min = 0.0
+
+	// Adjust legend position
+	p.Legend.Top = true            // Position the legend at the top of the plot
+	p.Legend.Left = true           // Position the legend to the left side of the plot
+	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
+	p.Legend.YOffs = vg.Points(30) // Move the legend up
+
+	// Define the resolution and calculate timeSlice
+	resolution := 35
+	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
+
+	// Aggregate metrics into buckets based on the timeSlice
+	totalLatencyPerSlice := make(map[int64]float64)
+	countPerSlice := make(map[int64]int)
+	metrics := plt.m.GetLatency()
+	for _, metric := range metrics {
+		bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+		totalLatencyPerSlice[bucket] += metric.value
+		countPerSlice[bucket]++
+	}
+
+	averageLatencyPerSlice := make(map[int64]float64)
+
+	for i := 0; i < resolution; i++ {
+		if countPerSlice[int64(i)] > 0 {
+			averageLatencyPerSlice[int64(i)] = 1000 * totalLatencyPerSlice[int64(i)] / float64(countPerSlice[int64(i)])
+		} else {
+			averageLatencyPerSlice[int64(i)] = 0.0
+		}
+	}
+
+	// Create a plotter.XYs to hold the request counts
+	pts := make(plotter.XYs, resolution)
+	maxLatency := 0.0
+	sumLatency := 0.0
+	countLatency := 0
+
+	// Fill the pts with the request counts
+	for i := 0; i < resolution; i++ {
+		if latency, ok := averageLatencyPerSlice[int64(i)]; ok {
+			maxLatency = math.Max(maxLatency, latency)
+			sumLatency += latency
+			countLatency++
+			pts[i].Y = latency
+		} else {
+			pts[i].Y = 0.0
+		}
+		pts[i].X = float64(i) * timeSlice.Seconds()
+	}
+	p.Y.Max = maxLatency * 1.2
+
+	// Create a line chart
+	line, err := plotter.NewLine(pts)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	p.Add(line)
+
+	mean := sumLatency / float64(countLatency)
+	addHorizontalLine(p, mean, fmt.Sprintf(" mean\n (%.2f ms)", mean), DARK_BLUE)
+
+	plt.plotNodeFailures(p)
+
+	// Save the plot to a PNG file
+	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
+		log.Panic(err)
+	}
+}
+
 func (plt *Plotter_) PlotCacheHits(fileName string) {
 	start := plt.m.start
 	end := plt.m.end
@@ -252,6 +335,16 @@ func (plt *Plotter_) PlotCacheHits(fileName string) {
 		plt.PlotCacheHitsForNode(p, i)
 	}
 
+	plt.plotNodeFailures(p)
+
+	// Save the plot to a PNG file
+	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
+		log.Panic(err)
+	}
+}
+
+func (plt *Plotter_) plotNodeFailures(p *plot.Plot) {
+
 	nodeFailures := plt.m.GetFailureIntervals()
 
 	for i := 0; i < len(nodeFailures); i++ {
@@ -264,11 +357,6 @@ func (plt *Plotter_) PlotCacheHits(fileName string) {
 			addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered", i+1), LIGHT_COLORS[i])
 			fmt.Printf("node%d\nfailed from %d to %d\n", i+1, int(math.Round(iStart)), int(math.Round(iEnd)))
 		}
-	}
-
-	// Save the plot to a PNG file
-	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
-		log.Panic(err)
 	}
 }
 
@@ -331,9 +419,6 @@ func addVerticalLine(p *plot.Plot, xValue float64, label string, clr color.RGBA)
 	verticalLine.Color = clr
 	verticalLine.Dashes = []vg.Length{vg.Points(5), vg.Points(5)} // Dashed line
 
-	// Add the vertical line to the plot
-	p.Add(verticalLine)
-
 	// Add a legend for the line
 	labels, _ := plotter.NewLabels(plotter.XYLabels{
 		XYs: []plotter.XY{
@@ -344,21 +429,32 @@ func addVerticalLine(p *plot.Plot, xValue float64, label string, clr color.RGBA)
 	labels.TextStyle[0].Color = clr           // Set the label color
 	labels.TextStyle[0].YAlign = text.YBottom // Align the label above the line
 	labels.TextStyle[0].XAlign = text.XCenter // Align the label above the line
+	labels.TextStyle[0].Font.Size = 11
+	labels.TextStyle[0].Rotation = 45
 
-	p.Add(labels, verticalLine)
+	p.Add(verticalLine)
+	p.Add(labels)
 }
 
 func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGBA) {
-	verticalLine, err := plotter.NewLine(plotter.XYs{{X: p.X.Min, Y: yValue}, {X: p.X.Max, Y: yValue}})
+	horizontalLine, err := plotter.NewLine(plotter.XYs{{X: p.X.Min, Y: yValue}, {X: p.X.Max, Y: yValue}})
 	if err != nil {
 		panic(err)
 	}
-	verticalLine.Color = clr
-	verticalLine.Dashes = []vg.Length{vg.Points(5), vg.Points(5)} // Dashed line
-
-	// Add the vertical line to the plot
-	p.Add(verticalLine)
+	horizontalLine.Color = clr
+	horizontalLine.Dashes = []vg.Length{vg.Points(5), vg.Points(5)} // Dashed line
 
 	// Add a legend for the line
-	p.Legend.Add(label, verticalLine)
+	labels, _ := plotter.NewLabels(plotter.XYLabels{
+		XYs: []plotter.XY{
+			{X: p.X.Max, Y: yValue},
+		},
+		Labels: []string{label},
+	})
+	labels.TextStyle[0].Color = clr           // Set the label color
+	labels.TextStyle[0].YAlign = text.YCenter // Align the label above the line
+	labels.TextStyle[0].XAlign = text.XLeft   // Align the label right of the line
+
+	p.Add(horizontalLine)
+	p.Add(labels)
 }
