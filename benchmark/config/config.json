@@ -1,9 +1,21 @@
 {
-  "numRequests": 10000,
+  "numRequests": 50000,
   "readPercentage": 0.99,
   "maxDuration": 30,
   "prom_endpoint": "metrics",
   "prom_port": 9090,
+  "failures": {
+    "0": {
+      "nodeId": 0,
+      "timeToFail": 0.3,
+      "failureDuration": 0.2
+    },
+    "1": {
+      "nodeId": 1,
+      "timeToFail": 0.4,
+      "failureDuration": 0.4
+    }
+},
   "cacheNodes": {
     "1": {
       "local": {

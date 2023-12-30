@@ -31,6 +31,7 @@ type config_ struct {
 	maxDuration    time.Duration // max duration in seconds
 	promPort       string        // prometheus local server port
 	promEndpoint   string        // prometheus local endpoint
+	failures       []*bconfig.Config
 }
 
 // Metrics we want to collect
@@ -167,6 +168,12 @@ func getConfigs() config_ {
 	promPort := config.Get("prom_port").AsString("9100")            // default port is 9100
 	maxDuration := config.Get("maxDuration").AsInt(30)
 
+	failuresConfig := config.Get("failures")
+	failures := []*bconfig.Config{
+		failuresConfig.Get("0"),
+		failuresConfig.Get("1"),
+	}
+
 	hosts := []string{databaseConfig.Get("ip").AsString("localhost")}
 	return config_{database: NewDbWrapper(keyspace, tableName, hosts...),
 		nodeConfigs:    cacheNodes,
@@ -174,7 +181,9 @@ func getConfigs() config_ {
 		readPercentage: readPercentage,
 		promEndpoint:   promEndpoint,
 		maxDuration:    time.Duration(maxDuration) * time.Second,
-		promPort:       promPort}
+		promPort:       promPort,
+		failures:       failures,
+	}
 }
 
 func main() {
@@ -229,6 +238,7 @@ func main() {
 
 	p.PlotDatabaseRequests("requests_per_second.png")
 	p.PlotAllRequests("all_requests_per_second.png")
+	p.PlotCacheHits("cache_hit_ratio.png")
 
 	fmt.Println("Program finished, cleaning up...")
 	//queryPrometheusMetric(config.promPort, config.promEndpoint)
@@ -463,8 +473,23 @@ func simulateNodeFailures(config config_, ctx context.Context) {
 		go triggerNodeFailureOrRecovery(i, config.nodeConfigs[i], false)
 	}
 
-	timeToFail := start.Add(config.maxDuration / 2)
-	failureDuration := config.maxDuration / 6
+	for i := 0; i < len(config.failures); i++ {
+		failureConfig := config.failures[i]
+		nodeId := failureConfig.Get("nodeId").AsInt(0)
+		timeToFail := failureConfig.Get("timeToFail").AsFloat(0.0)
+		ttf := start.Add(time.Duration(float64(config.maxDuration.Nanoseconds())*timeToFail) * time.Nanosecond)
+		failureDuration := failureConfig.Get("failureDuration").AsFloat(0.0)
+		fd := time.Duration(float64(config.maxDuration.Nanoseconds())*failureDuration) * time.Nanosecond
+		go simulateNodeFailure(config, ctx, nodeId, ttf, fd)
+	}
+
+	//go simulateNodeFailure(config, ctx, 0, start.Add(config.maxDuration/2), config.maxDuration/3)
+	//
+	//go simulateNodeFailure(config, ctx, 1, start.Add(config.maxDuration/2).Add(config.maxDuration/12), config.maxDuration/6)
+}
+
+func simulateNodeFailure(config config_, ctx context.Context, nodeIndex int, timeToFail time.Time, failureDuration time.Duration) {
+
 	timeToRecover := timeToFail.Add(failureDuration)
 
 	failTimer := time.NewTimer(time.Until(timeToFail))
@@ -475,11 +500,11 @@ func simulateNodeFailures(config config_, ctx context.Context) {
 		case <-ctx.Done(): // Context is cancelled, stop the goroutine
 			return
 		case <-failTimer.C:
-			m.AddNodeFailureInterval(0, time.Now(), timeToRecover)
-			go triggerNodeFailureOrRecovery(0, config.nodeConfigs[0], true)
+			m.AddNodeFailureInterval(nodeIndex, time.Now(), timeToRecover)
+			go triggerNodeFailureOrRecovery(nodeIndex, config.nodeConfigs[nodeIndex], true)
 			failTimer.Stop() // Stop the fail timer if it's no longer needed
 		case <-recoverTimer.C:
-			go triggerNodeFailureOrRecovery(0, config.nodeConfigs[0], false)
+			go triggerNodeFailureOrRecovery(nodeIndex, config.nodeConfigs[nodeIndex], false)
 			return // end the function after recovery
 		}
 	}
