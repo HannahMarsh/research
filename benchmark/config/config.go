@@ -8,7 +8,7 @@ import (
 )
 
 type Config struct {
-	value   interface{}
+	Value   interface{}
 	isEmpty bool
 }
 
@@ -32,7 +32,7 @@ func GetConfig_() (*Config, error) {
 	// Accessing top level which is a map
 	resultMap, ok := result.(map[string]interface{})
 	if ok {
-		return &Config{value: resultMap, isEmpty: resultMap == nil}, nil
+		return &Config{Value: resultMap, isEmpty: resultMap == nil}, nil
 	} else {
 		return nil, fmt.Errorf("failed to get top level of config map")
 	}
@@ -42,19 +42,19 @@ func (c *Config) Get(key string) *Config {
 	if c.isEmpty {
 		return c
 	}
-	if resultMap, ok := c.value.(map[string]interface{}); ok {
-		return &Config{value: resultMap[key], isEmpty: resultMap[key] == nil}
+	if resultMap, ok := c.Value.(map[string]interface{}); ok {
+		return &Config{Value: resultMap[key], isEmpty: resultMap[key] == nil}
 	} else {
 		fmt.Printf("Did not find key %s in config file\n\n", key)
-		return &Config{value: nil, isEmpty: true}
+		return &Config{Value: nil, isEmpty: true}
 	}
 }
 
 func (c *Config) AsString(dflt string) string {
 	if !c.isEmpty {
-		if resultString, ok := c.value.(string); ok {
+		if resultString, ok := c.Value.(string); ok {
 			return resultString
-		} else if resultString, ok := c.value.(float64); ok {
+		} else if resultString, ok := c.Value.(float64); ok {
 			return strconv.Itoa(int(resultString))
 		}
 	}
@@ -68,7 +68,7 @@ func (c *Config) AsInt(dflt int) int {
 
 func (c *Config) AsFloat(dflt float64) float64 {
 	if !c.isEmpty {
-		if resultFloat, ok := c.value.(float64); ok {
+		if resultFloat, ok := c.Value.(float64); ok {
 			return resultFloat
 		}
 	}
@@ -78,7 +78,7 @@ func (c *Config) AsFloat(dflt float64) float64 {
 
 func (c *Config) AsBool(dflt bool) bool {
 	if !c.isEmpty {
-		if resultBool, ok := c.value.(bool); ok {
+		if resultBool, ok := c.Value.(bool); ok {
 			return resultBool
 		}
 	}

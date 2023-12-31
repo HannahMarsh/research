@@ -6,26 +6,33 @@ import (
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/text"
 	"gonum.org/v1/plot/vg"
+	"image"
 	"image/color"
+	"image/draw"
+	"image/png"
 	"log"
 	"math"
+	"os"
 	"time"
 )
 
 var (
 	DARK_RED     = color.RGBA{R: 139, G: 0, B: 0, A: 255}     // Dark red
 	LIGHT_RED    = color.RGBA{R: 255, G: 50, B: 50, A: 255}   // Light red
+	DARK_PINK    = color.RGBA{R: 200, G: 40, B: 75, A: 255}   // Dark red
+	LIGHT_PINK   = color.RGBA{R: 255, G: 50, B: 150, A: 255}  // Light red
 	DARK_YELLOW  = color.RGBA{R: 200, G: 200, B: 0, A: 255}   // Yellow
 	LIGHT_YELLOW = color.RGBA{R: 255, G: 255, B: 50, A: 255}  // Lemon (lighter yellow)
 	DARK_GREEN   = color.RGBA{R: 0, G: 128, B: 0, A: 255}     // Green
 	LIGHT_GREEN  = color.RGBA{R: 20, G: 200, B: 50, A: 255}   // Light Green
 	DARK_BLUE    = color.RGBA{R: 0, G: 0, B: 255, A: 255}     // Blue
-	LIGHT_BLUE   = color.RGBA{R: 135, G: 206, B: 235, A: 255} // Sky Blue (lighter blue)
-	DARK_PURPLE  = color.RGBA{R: 200, G: 0, B: 200, A: 255}   // Teal
-	LIGHT_PURPLE = color.RGBA{R: 255, G: 50, B: 255, A: 255}  // Light Teal
+	LIGHT_BLUE   = color.RGBA{R: 100, G: 170, B: 235, A: 255} // Sky Blue (lighter blue)
+	DARK_PURPLE  = color.RGBA{R: 170, G: 0, B: 200, A: 255}   // Teal
+	LIGHT_PURPLE = color.RGBA{R: 180, G: 50, B: 200, A: 255}  // Light Teal
+	GREY         = color.RGBA{R: 120, G: 120, B: 150, A: 255} // Light Teal
 
-	DARK_COLORS  = []color.RGBA{DARK_RED, DARK_GREEN, DARK_BLUE, DARK_PURPLE, DARK_YELLOW}
-	LIGHT_COLORS = []color.RGBA{LIGHT_RED, LIGHT_GREEN, LIGHT_BLUE, LIGHT_PURPLE, LIGHT_YELLOW}
+	DARK_COLORS  = []color.RGBA{DARK_PINK, DARK_PURPLE, DARK_BLUE, DARK_GREEN, DARK_YELLOW, DARK_RED}
+	LIGHT_COLORS = []color.RGBA{LIGHT_PINK, LIGHT_PURPLE, LIGHT_BLUE, LIGHT_GREEN, LIGHT_YELLOW, LIGHT_RED}
 )
 
 type Plotter_ struct {
@@ -38,6 +45,82 @@ type Plotter_ struct {
 
 func NewPlotter(m *Metrics) *Plotter_ {
 	return &Plotter_{m: m, dbRequests: plot.New(), allRequests: plot.New(), cacheHits: plot.New(), latency: plot.New()}
+}
+
+func (plt *Plotter_) TilePlots(fileName string) {
+	// Open the image files.
+	img1, err := openImage("requests_per_second.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	img2, err := openImage("all_requests_per_second.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	img3, err := openImage("cache_hit_ratio.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	img4, err := openImage("latency.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Assuming all images are the same size.
+	imgWidth := img1.Bounds().Dx()
+	imgHeight := img1.Bounds().Dy()
+
+	// Define padding between images.
+	padding := 20 // pixels
+
+	// Create a new blank image with twice the width and height of the original images plus padding.
+	tiledImg := image.NewRGBA(image.Rect(0, 0, imgWidth*2+padding*3, imgHeight*2+padding*3))
+
+	// Set the background to white.
+	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	draw.Draw(tiledImg, tiledImg.Bounds(), &image.Uniform{C: white}, image.Point{}, draw.Src)
+
+	// Calculate the starting points for each image considering the padding.
+	startPoints := []image.Point{
+		{X: padding, Y: padding},                            // Image 1 starting point
+		{X: imgWidth + padding*2, Y: padding},               // Image 2 starting point
+		{X: padding, Y: imgHeight + padding*2},              // Image 3 starting point
+		{X: imgWidth + padding*2, Y: imgHeight + padding*2}, // Image 4 starting point
+	}
+
+	// Draw the images onto the tiled image with padding.
+	for i, img := range []image.Image{img1, img2, img3, img4} {
+		sp := startPoints[i]
+		rect := image.Rect(sp.X, sp.Y, sp.X+imgWidth, sp.Y+imgHeight)
+		draw.Draw(tiledImg, rect, img, image.Point{}, draw.Src)
+	}
+
+	// Save the tiled image to a new PNG file.
+	outFile, err := os.Create("tiled.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer outFile.Close()
+	err = png.Encode(outFile, tiledImg)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// openImage is a helper function to open and decode an image file.
+func openImage(filename string) (image.Image, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(file)
+	img, _, err := image.Decode(file)
+	return img, err
 }
 
 func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
@@ -67,7 +150,7 @@ func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
 	requestCountsPerSlice := make(map[int64]int)
 	metrics := plt.m.GetDatabaseRequests()
 	for _, metric := range metrics {
-		bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
 		requestCountsPerSlice[bucket]++
 	}
 
@@ -141,7 +224,7 @@ func (plt *Plotter_) PlotAllRequests(fileName string) {
 	requestCountsPerSlice := make(map[int64]int)
 	metrics := plt.m.GetAllRequests()
 	for _, metric := range metrics {
-		bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
 		requestCountsPerSlice[bucket]++
 	}
 
@@ -173,7 +256,7 @@ func (plt *Plotter_) PlotAllRequests(fileName string) {
 	p.Add(line)
 
 	mean := sumReqPerSecond / float64(countSecs)
-	addHorizontalLine(p, mean, "mean requests per second", DARK_BLUE)
+	addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), GREY)
 
 	// Save the plot to a PNG file
 	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
@@ -209,7 +292,7 @@ func (plt *Plotter_) PlotLatency(fileName string) {
 	countPerSlice := make(map[int64]int)
 	metrics := plt.m.GetLatency()
 	for _, metric := range metrics {
-		bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Seconds() / float64(timeSlice.Seconds()))))
 		totalLatencyPerSlice[bucket] += metric.value
 		countPerSlice[bucket]++
 	}
@@ -253,7 +336,7 @@ func (plt *Plotter_) PlotLatency(fileName string) {
 	p.Add(line)
 
 	mean := sumLatency / float64(countLatency)
-	addHorizontalLine(p, mean, fmt.Sprintf(" mean\n (%.2f ms)", mean), DARK_BLUE)
+	addHorizontalLine(p, mean, fmt.Sprintf(" mean\n (%.2f ms)", mean), GREY)
 
 	plt.plotNodeFailures(p)
 
@@ -298,11 +381,11 @@ func (plt *Plotter_) PlotCacheHits(fileName string) {
 	metrics := plt.m.GetCacheHits()
 	requests := plt.m.GetAllRequests()
 	for _, metric := range metrics {
-		bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
 		cacheHitsPerSlice[bucket]++
 	}
 	for _, metric := range requests {
-		bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
 		requestsPerSlice[bucket]++
 	}
 
@@ -374,13 +457,15 @@ func (plt *Plotter_) PlotCacheHitsForNode(p *plot.Plot, nodeIndex int) {
 	requests := plt.m.GetAllRequests()
 	for _, metric := range metrics {
 		if int(metric.value) == nodeIndex {
-			bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
 			cacheHitsPerSlice[bucket]++
 		}
 	}
 	for _, metric := range requests {
-		bucket := int64(math.Floor(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
-		requestsPerSlice[bucket]++
+		if int(metric.value) == nodeIndex {
+			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+			requestsPerSlice[bucket]++
+		}
 	}
 
 	// Create a plotter.XYs to hold the request counts
@@ -430,7 +515,7 @@ func addVerticalLine(p *plot.Plot, xValue float64, label string, clr color.RGBA)
 	labels.TextStyle[0].YAlign = text.YBottom // Align the label above the line
 	labels.TextStyle[0].XAlign = text.XCenter // Align the label above the line
 	labels.TextStyle[0].Font.Size = 11
-	labels.TextStyle[0].Rotation = 45
+	labels.TextStyle[0].Rotation = 0.9
 
 	p.Add(verticalLine)
 	p.Add(labels)
@@ -454,6 +539,7 @@ func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGB
 	labels.TextStyle[0].Color = clr           // Set the label color
 	labels.TextStyle[0].YAlign = text.YCenter // Align the label above the line
 	labels.TextStyle[0].XAlign = text.XLeft   // Align the label right of the line
+	labels.Offset = vg.Point{X: 3, Y: 0}      // Adjust the X offset to move label closer to the line
 
 	p.Add(horizontalLine)
 	p.Add(labels)

@@ -19,7 +19,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -170,9 +169,9 @@ func getConfigs() config_ {
 	maxDuration := config.Get("maxDuration").AsInt(30)
 
 	failuresConfig := config.Get("failures")
-	failures := []*bconfig.Config{
-		failuresConfig.Get("0"),
-		failuresConfig.Get("1"),
+	failures := []*bconfig.Config{}
+	for i := 0; i < len(failuresConfig.Value.(map[string]interface{})); i++ {
+		failures = append(failures, failuresConfig.Get(fmt.Sprintf("%d", i)))
 	}
 	maxConcurrency := config.Get("databaseMaxConcurrency").AsInt(0.0)
 
@@ -236,13 +235,15 @@ func main() {
 	// Wait for the context to be cancelled (i.e., timeout)
 	<-ctx.Done()
 
-	time.Sleep(1 * time.Second)
 	wg.Wait() // Wait for all goroutines to finish
+
+	time.Sleep(2 * time.Second)
 
 	p.PlotDatabaseRequests("requests_per_second.png")
 	p.PlotAllRequests("all_requests_per_second.png")
 	p.PlotCacheHits("cache_hit_ratio.png")
 	p.PlotLatency("latency.png")
+	p.TilePlots("tiled.png")
 
 	fmt.Println("Program finished, cleaning up...")
 	//queryPrometheusMetric(config.promPort, config.promEndpoint)
@@ -451,26 +452,26 @@ func executeRequest(config config_, key string, value string) {
 	if rand.Intn(100) < int(config.readPercentage*100) {
 		m.AddRequest(time.Now(), "read", nodeId)
 		if getValue(cacheNodeURL, key, nodeId, nodeLabel, config.database) {
-			readOpsCounter.WithLabelValues("success").Inc()
-			atomic.AddInt64(&throughput, 1)
+			//readOpsCounter.WithLabelValues("success").Inc()
+			//atomic.AddInt64(&throughput, 1)
 
-			m.AddLatency(time.Now(), time.Since(metricStart))
+			m.AddLatency(metricStart, time.Since(metricStart))
 
 			return
 		} else {
-			readOpsCounter.WithLabelValues("failure").Inc()
+			//readOpsCounter.WithLabelValues("failure").Inc()
 		}
 	} else {
 		m.AddRequest(time.Now(), "write", nodeId)
 		// 1% of the time perform a write operation
-		if setValue(cacheNodeURL, key, value, config.database) {
-			writeOpsCounter.WithLabelValues("success").Inc()
-			atomic.AddInt64(&throughput, 1)
+		if setValue(cacheNodeURL, key, value, config.database, true) {
+			//writeOpsCounter.WithLabelValues("success").Inc()
+			//atomic.AddInt64(&throughput, 1)
 
-			m.AddLatency(time.Now(), time.Since(metricStart))
+			m.AddLatency(metricStart, time.Since(metricStart))
 			return
 		} else {
-			writeOpsCounter.WithLabelValues("failure").Inc()
+			//writeOpsCounter.WithLabelValues("failure").Inc()
 		}
 	}
 
@@ -557,7 +558,7 @@ func getNodeHash(key string, config config_) int {
 
 // getValue simulates a read operation by sending a GET request to the cache node and handle cache hit/miss logic
 func getValue(baseURL string, key string, nodeIndex int, nodeLabel string, db *DbWrapper) bool {
-	start := time.Now() // start time for latency measurement
+	//start := time.Now() // start time for latency measurement
 
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
 	resp, err := http.Get(url)
@@ -573,20 +574,20 @@ func getValue(baseURL string, key string, nodeIndex int, nodeLabel string, db *D
 	}(resp.Body)
 
 	// if it was a cache miss
-	if resp.StatusCode == http.StatusNotFound {
-		cacheMissesCounter.WithLabelValues(nodeLabel).Inc()
+	if resp.StatusCode != http.StatusOK {
+		//cacheMissesCounter.WithLabelValues(nodeLabel).Inc()
 
 		// retrieve value from the database
 		m.AddDatabaseRequest(time.Now())
 		valueFromDB, keyExists := db.Get(key)
-		databaseRequestCounter.WithLabelValues("read").Inc()
+		//databaseRequestCounter.WithLabelValues("read").Inc()
 
 		if !keyExists {
 			valueFromDB = "null"
 		}
-		if setValue(baseURL, key, valueFromDB, db) {
+		if setValue(baseURL, key, valueFromDB, db, false) {
 			// record the latency
-			opLatencyHistogram.WithLabelValues("read").Observe(float64(time.Since(start).Microseconds()))
+			//opLatencyHistogram.WithLabelValues("read").Observe(float64(time.Since(start).Microseconds()))
 			return true
 		}
 		// else cache hit
@@ -594,9 +595,9 @@ func getValue(baseURL string, key string, nodeIndex int, nodeLabel string, db *D
 		_, err := io.ReadAll(resp.Body)
 		if err == nil {
 			m.AddCacheHit(time.Now(), nodeIndex)
-			cacheHitsCounter.WithLabelValues(nodeLabel).Inc()
-			atomic.AddInt64(&goodput, 1)
-			opLatencyHistogram.WithLabelValues("read").Observe(float64(time.Since(start).Microseconds()))
+			//cacheHitsCounter.WithLabelValues(nodeLabel).Inc()
+			//atomic.AddInt64(&goodput, 1)
+			//opLatencyHistogram.WithLabelValues("read").Observe(float64(time.Since(start).Microseconds()))
 			return true
 		} else {
 			log.Printf("error reading response body: %s", err)
@@ -608,12 +609,15 @@ func getValue(baseURL string, key string, nodeIndex int, nodeLabel string, db *D
 }
 
 // setValue simulates a write operation by sending a POST request to the cache node to write a key-value pair
-func setValue(baseURL, key, value string, db *DbWrapper) bool {
-	start := time.Now() // start time for latency measurement
+func setValue(baseURL, key, value string, db *DbWrapper, writeToDb bool) bool {
+	//start := time.Now() // start time for latency measurement
 
-	db.Put(key, value)
+	if writeToDb {
+		m.AddDatabaseRequest(time.Now())
+		db.Put(key, value)
+	}
 
-	databaseRequestCounter.WithLabelValues("write").Inc()
+	//databaseRequestCounter.WithLabelValues("write").Inc()
 
 	url := fmt.Sprintf("%s/set?key=%s&value=%s", baseURL, key, value)
 	resp, err := http.PostForm(url, nil)
@@ -631,10 +635,10 @@ func setValue(baseURL, key, value string, db *DbWrapper) bool {
 	if resp.StatusCode == http.StatusOK {
 		//log.Printf("SET successful for key: %s\n", key)
 		// update successful operations
-		atomic.AddInt64(&goodput, 1)
+		//atomic.AddInt64(&goodput, 1)
 
 		// record the latency
-		opLatencyHistogram.WithLabelValues("write").Observe(float64(time.Since(start).Microseconds()))
+		//opLatencyHistogram.WithLabelValues("write").Observe(float64(time.Since(start).Microseconds()))
 		return true
 	}
 	//log.Printf("SET failed for key: %s with status code: %d\n", key, resp.StatusCode)
@@ -643,30 +647,30 @@ func setValue(baseURL, key, value string, db *DbWrapper) bool {
 
 // updateThroughput periodically updates the throughput gauge
 func updateThroughput(ctx context.Context) {
-	msInterval := 100
-	multiplier := 1000.0 / float64(msInterval) // used to convert operations per msInterval to operations per second
-	ticker := time.NewTicker(time.Duration(msInterval) * time.Millisecond)
-	defer ticker.Stop()
-	var prevGoodput int64
-	var prevThroughput int64
-	for range ticker.C {
-		select {
-		case <-ctx.Done():
-			return // Exit if context is cancelled
-		case <-ticker.C:
-			// calculate goodput
-			curGoodput := atomic.LoadInt64(&goodput)
-			curThroughput := atomic.LoadInt64(&throughput)
-			goodputPer100Ms := curGoodput - prevGoodput            // operations per msInterval
-			throughputPer100Ms := curThroughput - prevThroughput   // operations per msInterval
-			goodput := float64(goodputPer100Ms) * multiplier       // operations per second
-			throughput := float64(throughputPer100Ms) * multiplier // operations per second
-			goodputGauge.Set(goodput)
-			throughputGauge.Set(throughput)
-
-			// update previous operation count
-			prevGoodput = curGoodput
-			prevThroughput = curThroughput
-		}
-	}
+	//msInterval := 100
+	//multiplier := 1000.0 / float64(msInterval) // used to convert operations per msInterval to operations per second
+	//ticker := time.NewTicker(time.Duration(msInterval) * time.Millisecond)
+	//defer ticker.Stop()
+	//var prevGoodput int64
+	//var prevThroughput int64
+	//for range ticker.C {
+	//	select {
+	//	case <-ctx.Done():
+	//		return // Exit if context is cancelled
+	//	case <-ticker.C:
+	//		// calculate goodput
+	//		curGoodput := atomic.LoadInt64(&goodput)
+	//		curThroughput := atomic.LoadInt64(&throughput)
+	//		goodputPer100Ms := curGoodput - prevGoodput            // operations per msInterval
+	//		throughputPer100Ms := curThroughput - prevThroughput   // operations per msInterval
+	//		goodput := float64(goodputPer100Ms) * multiplier       // operations per second
+	//		throughput := float64(throughputPer100Ms) * multiplier // operations per second
+	//		goodputGauge.Set(goodput)
+	//		throughputGauge.Set(throughput)
+	//
+	//		// update previous operation count
+	//		prevGoodput = curGoodput
+	//		prevThroughput = curThroughput
+	//	}
+	//}
 }

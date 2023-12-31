@@ -79,11 +79,11 @@ func (m *Metrics) GetDatabaseRequests() []Metric {
 }
 
 func (m *Metrics) AddRequest(timestamp time.Time, operationType string, nodeIndex int) {
-	go m.databaseRequests.InsertTimestampWithLabel(timestamp, "request", operationType, float64(nodeIndex))
+	go m.allRequests.InsertTimestampWithLabel(timestamp, "request", operationType, float64(nodeIndex))
 }
 
 func (m *Metrics) GetAllRequests() []Metric {
-	return m.databaseRequests.GetMetrics()
+	return m.allRequests.GetMetrics()
 }
 
 func (m *Metrics) GetFailureIntervals() [][]MetricInterval {

@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// Initialize Gocache in-memory store
-	geocacheClient := gocache.New(5*time.Second, 10*time.Second)
+	geocacheClient := gocache.New(2*time.Second, 5*time.Second)
 	geocacheStore := gocachestore.NewGoCache(geocacheClient)
 
 	// create new cache manager
