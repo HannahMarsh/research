@@ -61,59 +61,66 @@ func (plt *Plotter_) MakePlots() {
 	plt.PlotCacheHits(cacheHits)
 	plt.PlotLatency(latency)
 	plt.PlotKeyspacePopularities(keyspace)
-	plt.TilePlots(tiled, dbRequests, allRequests, cacheHits, latency, keyspace)
+	plt.TilePlots(tiled, [][]string{
+		{allRequests, keyspace},
+		{dbRequests, latency},
+		{cacheHits},
+	})
 }
 
-func (plt *Plotter_) TilePlots(tiled string, fileName1 string, fileName2 string, fileName3 string, fileName4 string, fileName5 string) {
-	// Open the image files.
-	img1, err := openImage(fileName1)
-	if err != nil {
-		log.Fatal(err)
-	}
-	img2, err := openImage(fileName2)
-	if err != nil {
-		log.Fatal(err)
-	}
-	img3, err := openImage(fileName3)
-	if err != nil {
-		log.Fatal(err)
-	}
-	img4, err := openImage(fileName4)
-	if err != nil {
-		log.Fatal(err)
-	}
-	img5, err := openImage(fileName5)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Assuming all images are the same size.
-	imgWidth := img1.Bounds().Dx()
-	imgHeight := img1.Bounds().Dy()
+func (plt *Plotter_) TilePlots(tiled string, fileNames [][]string) {
 
 	// Define padding between images.
 	padding := 20 // pixels
 
-	// Create a new blank image with twice the width and height of the original images plus padding.
-	tiledImg := image.NewRGBA(image.Rect(0, 0, imgWidth*2+padding*3, imgHeight*2+padding*3))
+	// Load all the images and find out the max width and height.
+	// Store nil for blanks to be filled in later.
+	imgs := make([][]image.Image, len(fileNames))
+	var maxWidth, maxHeight, maxRowLength int
+	for i, row := range fileNames {
+		imgs[i] = make([]image.Image, len(row))
+		if len(row) > maxRowLength {
+			maxRowLength = len(row) // Track the max row length to handle blanks.
+		}
+		for j, fileName := range row {
+			if fileName == "" {
+				imgs[i][j] = nil // If there's no filename, we'll insert a blank later.
+				continue
+			}
+			img, err := openImage(fileName)
+			if err != nil {
+				log.Fatal(err)
+			}
+			imgs[i][j] = img
+			if img.Bounds().Dx() > maxWidth {
+				maxWidth = img.Bounds().Dx()
+			}
+			if img.Bounds().Dy() > maxHeight {
+				maxHeight = img.Bounds().Dy()
+			}
+		}
+	}
+
+	// Create a new blank image with the total width and height based on the images and padding.
+	tiledImg := image.NewRGBA(image.Rect(0, 0, maxWidth*maxRowLength+padding*(maxRowLength+1), maxHeight*len(fileNames)+padding*(len(fileNames)+1)))
 
 	// Set the background to white.
 	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 	draw.Draw(tiledImg, tiledImg.Bounds(), &image.Uniform{C: white}, image.Point{}, draw.Src)
 
-	// Calculate the starting points for each image considering the padding.
-	startPoints := []image.Point{
-		{X: padding, Y: padding},                            // Image 1 starting point
-		{X: imgWidth + padding*2, Y: padding},               // Image 2 starting point
-		{X: padding, Y: imgHeight + padding*2},              // Image 3 starting point
-		{X: imgWidth + padding*2, Y: imgHeight + padding*2}, // Image 4 starting point
-	}
-
-	// Draw the images onto the tiled image with padding.
-	for i, img := range []image.Image{img1, img2, img3, img4} {
-		sp := startPoints[i]
-		rect := image.Rect(sp.X, sp.Y, sp.X+imgWidth, sp.Y+imgHeight)
-		draw.Draw(tiledImg, rect, img, image.Point{}, draw.Src)
+	// Draw the images onto the tiled image.
+	for i, row := range imgs {
+		for j := 0; j < maxRowLength; j++ { // Iterate up to the maximum row length.
+			sp := image.Point{X: j*maxWidth + (j+1)*padding, Y: i*maxHeight + (i+1)*padding}
+			rect := image.Rect(sp.X, sp.Y, sp.X+maxWidth, sp.Y+maxHeight)
+			if j < len(row) && row[j] != nil {
+				// Draw the actual image if it exists.
+				draw.Draw(tiledImg, rect, row[j], image.Point{}, draw.Src)
+			} else {
+				// Fill in a blank rectangle otherwise.
+				draw.Draw(tiledImg, rect, &image.Uniform{C: white}, image.Point{}, draw.Src)
+			}
+		}
 	}
 
 	// Save the tiled image to a new PNG file.
