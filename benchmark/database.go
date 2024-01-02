@@ -14,24 +14,23 @@ type DbWrapper struct {
 	concurrency chan struct{}
 }
 
-func NewDbWrapper(keyspace string, tableName string, maxConcurrency int, hosts ...string) *DbWrapper {
+func NewDbWrapper(keyspace string, tableName string, maxConcurrency int, hosts ...string) (*DbWrapper, error) {
 	cluster := gocql.NewCluster(hosts...)
 	cluster.Consistency = gocql.Quorum
 	session, err := cluster.CreateSession()
 	if err != nil {
-		log.Printf("Failed to connect to Cassandra: %v", err)
-		//return nil
+		return nil, err
 	}
 
 	kv := &DbWrapper{session: session, keyspace: keyspace, tableName: tableName, concurrency: make(chan struct{}, maxConcurrency)}
 	// Create keyspace and table
 	if err := kv.CreateKeyspace(keyspace, "SimpleStrategy", 1); err != nil {
-		log.Fatalf("Failed to create keyspace: %v", err)
+		return kv, err
 	}
 	if err := kv.CreateTable(tableName); err != nil {
-		log.Fatalf("Failed to create table: %v", err)
+		return kv, err
 	}
-	return kv
+	return kv, nil
 }
 
 func (k *DbWrapper) CreateTable(tableName string) error {

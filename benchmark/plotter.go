@@ -191,19 +191,7 @@ func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
 
 	p.Add(line)
 
-	nodeFailures := plt.m.GetFailureIntervals()
-
-	for i := 0; i < len(nodeFailures); i++ {
-		node := nodeFailures[i]
-		for j := 0; j < len(node); j++ {
-			interval := node[j]
-			iStart := interval.start.Sub(start).Seconds()
-			iEnd := interval.end.Sub(start).Seconds()
-			addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed", i+1), LIGHT_COLORS[i])
-			addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered", i+1), LIGHT_COLORS[i])
-			fmt.Printf("node%d\nfailed from %d to %d\n", i+1, int(math.Round(iStart)), int(math.Round(iEnd)))
-		}
-	}
+	plt.plotNodeFailures(p)
 
 	// Save the plot to a PNG file
 	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
@@ -452,7 +440,7 @@ func (plt *Plotter_) plotNodeFailures(p *plot.Plot) {
 			iEnd := interval.end.Sub(start).Seconds()
 			addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed", i+1), LIGHT_COLORS[i])
 			addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered", i+1), LIGHT_COLORS[i])
-			fmt.Printf("node%d\nfailed from %d to %d\n", i+1, int(math.Round(iStart)), int(math.Round(iEnd)))
+			//fmt.Printf("node%d\nfailed from %d to %d\n", i+1, int(math.Round(iStart)), int(math.Round(iEnd)))
 		}
 	}
 }
