@@ -47,21 +47,35 @@ func NewPlotter(m *Metrics) *Plotter_ {
 	return &Plotter_{m: m, dbRequests: plot.New(), allRequests: plot.New(), cacheHits: plot.New(), latency: plot.New()}
 }
 
-func (plt *Plotter_) TilePlots(fileName string) {
+func (plt *Plotter_) MakePlots() {
+	var path = "metrics/"
+	var dbRequests = path + "requests_per_second.png"
+	var allRequests = path + "all_requests_per_second.png"
+	var cacheHits = path + "cache_hit_ratio.png"
+	var latency = path + "latency.png"
+	var tiled = path + "tiled.png"
+	plt.PlotDatabaseRequests(dbRequests)
+	plt.PlotAllRequests(allRequests)
+	plt.PlotCacheHits(cacheHits)
+	plt.PlotLatency(latency)
+	plt.TilePlots(tiled, dbRequests, allRequests, cacheHits, latency)
+}
+
+func (plt *Plotter_) TilePlots(tiled string, fileName1 string, fileName2 string, fileName3 string, fileName4 string) {
 	// Open the image files.
-	img1, err := openImage("requests_per_second.png")
+	img1, err := openImage(fileName1)
 	if err != nil {
 		log.Fatal(err)
 	}
-	img2, err := openImage("all_requests_per_second.png")
+	img2, err := openImage(fileName2)
 	if err != nil {
 		log.Fatal(err)
 	}
-	img3, err := openImage("cache_hit_ratio.png")
+	img3, err := openImage(fileName3)
 	if err != nil {
 		log.Fatal(err)
 	}
-	img4, err := openImage("latency.png")
+	img4, err := openImage(fileName4)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,7 +110,7 @@ func (plt *Plotter_) TilePlots(fileName string) {
 	}
 
 	// Save the tiled image to a new PNG file.
-	outFile, err := os.Create("tiled.png")
+	outFile, err := os.Create(tiled)
 	if err != nil {
 		log.Fatal(err)
 	}

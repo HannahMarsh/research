@@ -10,6 +10,11 @@
       "nodeId": 0,
       "timeToFail": 0.4,
       "failureDuration": 0.4
+    },
+    "1": {
+      "nodeId": 1,
+      "timeToFail": 0.5,
+      "failureDuration": 0.4
     }
 },
   "cacheNodes": {

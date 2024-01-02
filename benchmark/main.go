@@ -239,11 +239,7 @@ func main() {
 
 	time.Sleep(2 * time.Second)
 
-	p.PlotDatabaseRequests("requests_per_second.png")
-	p.PlotAllRequests("all_requests_per_second.png")
-	p.PlotCacheHits("cache_hit_ratio.png")
-	p.PlotLatency("latency.png")
-	p.TilePlots("tiled.png")
+	p.MakePlots()
 
 	fmt.Println("Program finished, cleaning up...")
 	//queryPrometheusMetric(config.promPort, config.promEndpoint)
