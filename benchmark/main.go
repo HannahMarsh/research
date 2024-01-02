@@ -25,6 +25,7 @@ type config_ struct {
 	promEndpoint   string        // prometheus local endpoint
 	failures       []*bconfig.Config
 	maxConcurrency int
+	keyspacePop    []float64
 }
 
 // Metrics we want to collect
@@ -90,6 +91,8 @@ func getConfigs() config_ {
 	}
 	maxConcurrency := config.Get("databaseMaxConcurrency").AsInt(0.0)
 
+	keyspacePop := config.Get("keyspacePop").AsFloatArray()
+
 	hosts := []string{databaseConfig.Get("ip").AsString("localhost")}
 	db, err := NewDbWrapper(keyspace, tableName, maxConcurrency, hosts...)
 	if err != nil {
@@ -104,6 +107,7 @@ func getConfigs() config_ {
 		promPort:       promPort,
 		failures:       failures,
 		maxConcurrency: maxConcurrency,
+		keyspacePop:    keyspacePop,
 	}
 }
 
@@ -146,9 +150,27 @@ func main() {
 
 }
 
-func generateRequests(ctx context.Context, config config_) {
+// Function to select a keyspace ID based on weights
+func selectKeySpace(keySpaces []float64) int {
+	var totalWeight float64
+	for _, ks := range keySpaces {
+		totalWeight += ks
+	}
 
-	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(config.numRequests)/100)
+	rnd := rand.Float64() * totalWeight
+	for i := 0; i < len(keySpaces); i++ {
+		if rnd < keySpaces[i] {
+			return i
+		}
+		rnd -= keySpaces[i]
+	}
+	return -1 // Should not reach here
+}
+
+func generateRequests(ctx context.Context, config config_) {
+	sizeOfEachKeyspace := uint64(config.numRequests) / 100
+
+	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, sizeOfEachKeyspace)
 	fmt.Printf("\n")
 	start := time.Now()
 
@@ -166,7 +188,9 @@ func generateRequests(ctx context.Context, config config_) {
 			return // Exit if context is cancelled
 		}
 
-		key := fmt.Sprintf("%d", zip.Uint64())
+		keyspace := selectKeySpace(config.keyspacePop)
+		m.AddKeyspaceRequest(keyspace, time.Now())
+		key := fmt.Sprintf("%d:%d", keyspace, zip.Uint64()) // Concatenate keyspace and key
 		value := fmt.Sprintf("value-%d", zip.Uint64())
 
 		go executeRequest(config, key, value)
@@ -194,23 +218,26 @@ func executeRequest(config config_, key string, value string) {
 	ip := node.Get("ip").AsString("")
 	port := node.Get("port").AsString("")
 	cacheNodeURL := fmt.Sprintf("http://%s:%s", ip, port)
-	nodeLabel := fmt.Sprintf("node%d", nodeId+1) // "node1", "node2", etc.
 
 	metricStart := time.Now()
 
 	// 99% of the time, perform a read operation
 	if rand.Intn(100) < int(config.readPercentage*100) {
-		m.AddRequest(time.Now(), "read", nodeId)
-		if getValue(cacheNodeURL, key, nodeId, nodeLabel, config.database) {
+		if getValue(cacheNodeURL, key, nodeId, config.database) {
 			m.AddLatency(metricStart, time.Since(metricStart))
+			m.AddRequest(time.Now(), "read", nodeId, true)
 			return
+		} else {
+			m.AddRequest(time.Now(), "read", nodeId, false)
 		}
 		// 1% of the time perform a write operation
 	} else {
-		m.AddRequest(time.Now(), "write", nodeId)
 		if setValue(cacheNodeURL, key, value, config.database, true) {
 			m.AddLatency(metricStart, time.Since(metricStart))
+			m.AddRequest(time.Now(), "write", nodeId, true)
 			return
+		} else {
+			m.AddRequest(time.Now(), "write", nodeId, false)
 		}
 	}
 
@@ -286,8 +313,7 @@ func getNodeHash(key string, config config_) int {
 }
 
 // getValue simulates a read operation by sending a GET request to the cache node and handle cache hit/miss logic
-func getValue(baseURL string, key string, nodeIndex int, nodeLabel string, db *DbWrapper) bool {
-	//start := time.Now() // start time for latency measurement
+func getValue(baseURL string, key string, nodeIndex int, db *DbWrapper) bool {
 
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
 	resp, err := http.Get(url)
@@ -305,21 +331,18 @@ func getValue(baseURL string, key string, nodeIndex int, nodeLabel string, db *D
 	// if it was a cache miss
 	if resp.StatusCode != http.StatusOK {
 		// retrieve value from the database
-		m.AddDatabaseRequest(time.Now())
-		valueFromDB, keyExists := db.Get(key)
+		requestTime := time.Now()
+		valueFromDB, successful := db.Get(key)
+		m.AddDatabaseRequest(requestTime, successful)
 
-		if !keyExists {
-			valueFromDB = "null"
-		}
-		if setValue(baseURL, key, valueFromDB, db, false) {
-			// record the latency
+		if successful && setValue(baseURL, key, valueFromDB, db, false) {
 			return true
 		}
-		// else cache hit
 	} else {
+		// cache hit
 		_, err := io.ReadAll(resp.Body)
 		if err == nil {
-			m.AddCacheHit(time.Now(), nodeIndex)
+			m.AddCacheHit(time.Now(), key, nodeIndex)
 			return true
 		} else {
 			log.Printf("error reading response body: %s", err)
@@ -331,17 +354,19 @@ func getValue(baseURL string, key string, nodeIndex int, nodeLabel string, db *D
 // setValue simulates a write operation by sending a POST request to the cache node to write a key-value pair
 // if writeToDb is true, it also writes the key, value pair to the database
 func setValue(baseURL, key, value string, db *DbWrapper, writeToDb bool) bool {
-	//start := time.Now() // start time for latency measurement
-
 	if writeToDb {
-		m.AddDatabaseRequest(time.Now())
-		db.Put(key, value)
+		requestTime := time.Now()
+		successful := db.Put(key, value)
+		m.AddDatabaseRequest(requestTime, successful)
+		if !successful {
+			return false
+		}
 	}
 
 	url := fmt.Sprintf("%s/set?key=%s&value=%s", baseURL, key, value)
 	resp, err := http.PostForm(url, nil)
 	if err != nil {
-		log.Printf("SET error: %s\n", err)
+		//log.Printf("SET error: %s\n", err)
 		return false
 	}
 	defer func(Body io.ReadCloser) {

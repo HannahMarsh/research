@@ -85,3 +85,18 @@ func (c *Config) AsBool(dflt bool) bool {
 	fmt.Printf("Can not convert to bool\n")
 	return dflt
 }
+
+func (c *Config) AsFloatArray() []float64 {
+	if !c.isEmpty {
+		if resultArray, ok := c.Value.([]interface{}); ok {
+			ar := make([]float64, len(resultArray))
+			for i := 0; i < len(resultArray); i++ {
+				if fl, ok2 := resultArray[i].(float64); ok2 {
+					ar[i] = fl
+				}
+			}
+			return ar
+		}
+	}
+	return []float64{}
+}

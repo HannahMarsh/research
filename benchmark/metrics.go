@@ -2,6 +2,7 @@ package main
 
 import (
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -10,11 +11,12 @@ type Metrics struct {
 	config           config_
 	start            time.Time
 	end              time.Time
-	nodeFailures     []ThreadSafeSortedIntervals
+	nodeFailures     ThreadSafeSortedMetrics
 	databaseRequests ThreadSafeSortedMetrics
 	allRequests      ThreadSafeSortedMetrics
 	cacheHits        ThreadSafeSortedMetrics
 	latency          ThreadSafeSortedMetrics
+	keyspacePop      ThreadSafeSortedMetrics
 }
 
 func NewMetrics(start time.Time, end time.Time, config config_) *Metrics {
@@ -22,16 +24,12 @@ func NewMetrics(start time.Time, end time.Time, config config_) *Metrics {
 		config:           config,
 		start:            start,
 		end:              end,
-		nodeFailures:     make([]ThreadSafeSortedIntervals, len(config.nodeConfigs)),
+		nodeFailures:     ThreadSafeSortedMetrics{},
 		databaseRequests: ThreadSafeSortedMetrics{},
 		cacheHits:        ThreadSafeSortedMetrics{},
 		latency:          ThreadSafeSortedMetrics{},
+		keyspacePop:      ThreadSafeSortedMetrics{},
 	}
-}
-
-type ThreadSafeSortedIntervals struct {
-	mu        sync.Mutex
-	intervals []MetricInterval
 }
 
 type ThreadSafeSortedMetrics struct {
@@ -40,30 +38,60 @@ type ThreadSafeSortedMetrics struct {
 }
 
 type Metric struct {
-	metricType string
-	timestamp  time.Time
-	label      string
-	value      float64
+	metricType   string
+	timestamp    time.Time
+	stringValues map[string]string
+	floatValues  map[string]float64
 }
 
-type MetricInterval struct {
-	metricType string
-	start      time.Time
-	end        time.Time
-	label      string
-	value      float64
+func (m *Metrics) AddDatabaseRequest(timestamp time.Time, successful bool) {
+	stringValues := map[string]string{
+		"successful": strconv.FormatBool(successful),
+	}
+	go m.databaseRequests.InsertTimestampWithLabel(timestamp, "databaseRequest", stringValues, nil)
 }
 
-func (m *Metrics) AddDatabaseRequest(timestamp time.Time) {
-	go m.databaseRequests.InsertTimestampWithLabel(timestamp, "databaseRequest", "", 0.0)
-}
-
-func (m *Metrics) AddCacheHit(timestamp time.Time, nodeIndex int) {
-	go m.cacheHits.InsertTimestampWithLabel(timestamp, "cacheHit", "node index", float64(nodeIndex))
+func (m *Metrics) AddCacheHit(timestamp time.Time, key string, nodeIndex int) {
+	stringValues := map[string]string{
+		"key": key,
+	}
+	floatValues := map[string]float64{
+		"nodeIndex": float64(nodeIndex),
+	}
+	go m.cacheHits.InsertTimestampWithLabel(timestamp, "cacheHit", stringValues, floatValues)
 }
 
 func (m *Metrics) AddLatency(timestamp time.Time, latency time.Duration) {
-	go m.latency.InsertTimestampWithLabel(timestamp, "latency", "latency in seconds", latency.Seconds())
+	floatValues := map[string]float64{
+		"latency": latency.Seconds(),
+	}
+	go m.latency.InsertTimestampWithLabel(timestamp, "latency", nil, floatValues)
+}
+
+func (m *Metrics) AddRequest(timestamp time.Time, operationType string, nodeIndex int, successful bool) {
+	stringValues := map[string]string{
+		"operationType": operationType,
+		"successful":    strconv.FormatBool(successful),
+	}
+	floatValues := map[string]float64{
+		"nodeIndex": float64(nodeIndex),
+	}
+	go m.allRequests.InsertTimestampWithLabel(timestamp, "request", stringValues, floatValues)
+}
+
+func (m *Metrics) AddNodeFailureInterval(nodeIndex int, start time.Time, end time.Time) {
+	floatValues := map[string]float64{
+		"nodeIndex": float64(nodeIndex),
+		"duration":  end.Sub(start).Seconds(),
+	}
+	go m.nodeFailures.InsertTimestampWithLabel(start, "nodeFailureInterval", nil, floatValues)
+}
+
+func (m *Metrics) AddKeyspaceRequest(keyspace int, timestamp time.Time) {
+	floatValues := map[string]float64{
+		"keyspace": float64(keyspace),
+	}
+	go m.keyspacePop.InsertTimestampWithLabel(timestamp, "keyspacePop", nil, floatValues)
 }
 
 func (m *Metrics) GetLatency() []Metric {
@@ -78,53 +106,28 @@ func (m *Metrics) GetDatabaseRequests() []Metric {
 	return m.databaseRequests.GetMetrics()
 }
 
-func (m *Metrics) AddRequest(timestamp time.Time, operationType string, nodeIndex int) {
-	go m.allRequests.InsertTimestampWithLabel(timestamp, "request", operationType, float64(nodeIndex))
-}
-
 func (m *Metrics) GetAllRequests() []Metric {
 	return m.allRequests.GetMetrics()
 }
 
-func (m *Metrics) GetFailureIntervals() [][]MetricInterval {
-	intervals := make([][]MetricInterval, len(m.nodeFailures))
-
-	for i := range m.nodeFailures {
-		t := m.nodeFailures[i].GetIntervals()
-		for _, interval := range t {
-			intervals[i] = append(intervals[i], interval)
-		}
-	}
-	return intervals
+func (m *Metrics) GetFailureIntervals() []Metric {
+	return m.nodeFailures.GetMetrics()
 }
 
-func (m *Metrics) AddNodeFailureInterval(nodeIndex int, start time.Time, end time.Time) {
-	go m.nodeFailures[nodeIndex].InsertFailureInterval(start, end)
+func (m *Metrics) GetKeyspacePopularities() []Metric {
+	return m.keyspacePop.GetMetrics()
 }
 
 // InsertTimestampWithLabel safely inserts a new timestamp into the slice in sorted order
-func (ts *ThreadSafeSortedMetrics) InsertTimestampWithLabel(newTimestamp time.Time, name string, label string, value float64) {
+func (ts *ThreadSafeSortedMetrics) InsertTimestampWithLabel(newTimestamp time.Time, name string, stringValues map[string]string, floatValues map[string]float64) {
 	ts.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
 	defer ts.mu.Unlock() // Unlock the mutex when the function returns
 
 	// Append and sort - todo not the most efficient for large slices
-	ts.metrics = append(ts.metrics, Metric{timestamp: newTimestamp, metricType: name, label: label, value: value})
+	ts.metrics = append(ts.metrics, Metric{timestamp: newTimestamp, metricType: name, stringValues: stringValues, floatValues: floatValues})
 	sort.Slice(ts.metrics, func(i, j int) bool {
 		return ts.metrics[i].timestamp.Before(ts.metrics[j].timestamp)
 	})
-}
-
-func (tsi *ThreadSafeSortedIntervals) InsertFailureInterval(start time.Time, end time.Time) {
-	go func() {
-		tsi.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
-		defer tsi.mu.Unlock() // Unlock the mutex when the function returns
-
-		// Append and sort - todo not the most efficient for large slices
-		tsi.intervals = append(tsi.intervals, MetricInterval{start: start, end: end})
-		sort.Slice(tsi.intervals, func(i, j int) bool {
-			return tsi.intervals[i].start.Before(tsi.intervals[j].start)
-		})
-	}()
 }
 
 // GetMetrics safely returns a copy of the list of metrics
@@ -135,14 +138,4 @@ func (ts *ThreadSafeSortedMetrics) GetMetrics() []Metric {
 	copiedTimestamps := make([]Metric, len(ts.metrics))
 	copy(copiedTimestamps, ts.metrics)
 	return copiedTimestamps
-}
-
-func (tsi *ThreadSafeSortedIntervals) GetIntervals() []MetricInterval {
-	tsi.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
-	defer tsi.mu.Unlock() // Unlock the mutex when the function returns
-
-	// Return a copy of the metrics slice to avoid race conditions
-	copiedIntervals := make([]MetricInterval, len(tsi.intervals))
-	copy(copiedIntervals, tsi.intervals)
-	return copiedIntervals
 }

@@ -22,7 +22,7 @@ var (
 	DARK_PINK    = color.RGBA{R: 200, G: 40, B: 75, A: 255}   // Dark red
 	LIGHT_PINK   = color.RGBA{R: 255, G: 50, B: 150, A: 255}  // Light red
 	DARK_YELLOW  = color.RGBA{R: 200, G: 200, B: 0, A: 255}   // Yellow
-	LIGHT_YELLOW = color.RGBA{R: 255, G: 255, B: 50, A: 255}  // Lemon (lighter yellow)
+	LIGHT_YELLOW = color.RGBA{R: 240, G: 240, B: 0, A: 255}   // Lemon (lighter yellow)
 	DARK_GREEN   = color.RGBA{R: 0, G: 128, B: 0, A: 255}     // Green
 	LIGHT_GREEN  = color.RGBA{R: 20, G: 200, B: 50, A: 255}   // Light Green
 	DARK_BLUE    = color.RGBA{R: 0, G: 0, B: 255, A: 255}     // Blue
@@ -41,10 +41,11 @@ type Plotter_ struct {
 	allRequests *plot.Plot
 	cacheHits   *plot.Plot
 	latency     *plot.Plot
+	keyspace    *plot.Plot
 }
 
 func NewPlotter(m *Metrics) *Plotter_ {
-	return &Plotter_{m: m, dbRequests: plot.New(), allRequests: plot.New(), cacheHits: plot.New(), latency: plot.New()}
+	return &Plotter_{m: m, dbRequests: plot.New(), allRequests: plot.New(), cacheHits: plot.New(), latency: plot.New(), keyspace: plot.New()}
 }
 
 func (plt *Plotter_) MakePlots() {
@@ -53,15 +54,17 @@ func (plt *Plotter_) MakePlots() {
 	var allRequests = path + "all_requests_per_second.png"
 	var cacheHits = path + "cache_hit_ratio.png"
 	var latency = path + "latency.png"
+	var keyspace = path + "keyspace.png"
 	var tiled = path + "tiled.png"
 	plt.PlotDatabaseRequests(dbRequests)
 	plt.PlotAllRequests(allRequests)
 	plt.PlotCacheHits(cacheHits)
 	plt.PlotLatency(latency)
-	plt.TilePlots(tiled, dbRequests, allRequests, cacheHits, latency)
+	plt.PlotKeyspacePopularities(keyspace)
+	plt.TilePlots(tiled, dbRequests, allRequests, cacheHits, latency, keyspace)
 }
 
-func (plt *Plotter_) TilePlots(tiled string, fileName1 string, fileName2 string, fileName3 string, fileName4 string) {
+func (plt *Plotter_) TilePlots(tiled string, fileName1 string, fileName2 string, fileName3 string, fileName4 string, fileName5 string) {
 	// Open the image files.
 	img1, err := openImage(fileName1)
 	if err != nil {
@@ -76,6 +79,10 @@ func (plt *Plotter_) TilePlots(tiled string, fileName1 string, fileName2 string,
 		log.Fatal(err)
 	}
 	img4, err := openImage(fileName4)
+	if err != nil {
+		log.Fatal(err)
+	}
+	img5, err := openImage(fileName5)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -199,11 +206,86 @@ func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
 	}
 }
 
+func (plt *Plotter_) getPoints(metrics []Metric, filter func(Metric) bool) (plotter.XYs, float64, float64) {
+	// Define the resolution and calculate timeSlice
+	resolution := int(math.Round(plt.m.config.maxDuration.Seconds()))
+	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
+
+	countsPerSlice := make(map[int64]int)
+	for _, metric := range metrics {
+		if filter(metric) {
+			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+			countsPerSlice[bucket]++
+		}
+	}
+	pts := make(plotter.XYs, resolution)
+	count_ := 0.0
+	sum := 0.0
+	maxCountPerSecond := 0.0
+
+	// Fill the pts with the request counts
+	for i := 0; i < resolution; i++ {
+		if count, ok := countsPerSlice[int64(i)]; ok {
+			countPerSecond := float64(count) / timeSlice.Seconds()
+			maxCountPerSecond = math.Max(maxCountPerSecond, countPerSecond)
+			pts[i].Y = countPerSecond
+			sum += countPerSecond
+			count_++
+		}
+		pts[i].X = float64(i) * timeSlice.Seconds()
+	}
+	if count_ > 0 {
+		return pts, maxCountPerSecond, sum / count_
+	}
+	return pts, maxCountPerSecond, 0
+}
+
+func (plt *Plotter_) PlotKeyspacePopularities(fileName string) {
+	start := plt.m.start
+	end := plt.m.end
+	p := plt.keyspace
+	p.Title.Text = "Keyspace Popularity as a Function of Time"
+	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
+	p.Title.TextStyle.Font.Size = 15
+	p.X.Label.Text = "Time (s)"
+	p.Y.Label.Text = "Requests per second"
+	p.X.Min = 0.0
+	p.X.Max = end.Sub(start).Seconds()
+	p.Y.Min = 0.0
+
+	// Adjust legend position
+	p.Legend.Top = true            // Position the legend at the top of the plot
+	p.Legend.Left = true           // Position the legend to the left side of the plot
+	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
+	p.Legend.YOffs = vg.Points(30) // Move the legend up
+
+	metrics := plt.m.GetKeyspacePopularities()
+	for i := 0; i < len(plt.m.config.keyspacePop); i++ {
+		pts, maxCount, mean := plt.getPoints(metrics, func(metric Metric) bool {
+			return int(math.Round(metric.floatValues["keyspace"])) == i
+		})
+		p.Y.Max = math.Max(p.Y.Max, maxCount*1.2)
+		line, err := plotter.NewLine(pts)
+		if err != nil {
+			log.Panic(err)
+		}
+		line.Color = DARK_COLORS[i]
+		p.Add(line)
+		p.Legend.Add(fmt.Sprintf("keyspace %d", i), line)
+		addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), LIGHT_COLORS[i])
+	}
+
+	// Save the plot to a PNG file
+	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
+		log.Panic(err)
+	}
+}
+
 func (plt *Plotter_) PlotAllRequests(fileName string) {
 	start := plt.m.start
 	end := plt.m.end
 	p := plt.allRequests
-	p.Title.Text = "Workload (User Requests per Second) As a Function of Time"
+	p.Title.Text = "User Requests per Second As a Function of Time"
 	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
 	p.Title.TextStyle.Font.Size = 15
 	p.X.Label.Text = "Time (s)"
@@ -223,42 +305,64 @@ func (plt *Plotter_) PlotAllRequests(fileName string) {
 	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
 
 	// Aggregate metrics into buckets based on the timeSlice
-	requestCountsPerSlice := make(map[int64]int)
+	unsuccessfulRequestCountsPerSlice := make(map[int64]int)
+	successfulRequestCountsPerSlice := make(map[int64]int)
 	metrics := plt.m.GetAllRequests()
 	for _, metric := range metrics {
 		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
-		requestCountsPerSlice[bucket]++
+		if metric.stringValues["successful"] == "true" {
+			successfulRequestCountsPerSlice[bucket]++
+		} else {
+			unsuccessfulRequestCountsPerSlice[bucket]++
+		}
 	}
 
 	// Create a plotter.XYs to hold the request counts
-	pts := make(plotter.XYs, resolution)
+	unsuccessfulPts := make(plotter.XYs, resolution)
+	successfulPts := make(plotter.XYs, resolution)
 	maxReqPerSecond := 0.0
 	sumReqPerSecond := 0.0
 	countSecs := 0
 
-	// Fill the pts with the request counts
+	// Fill the unsuccessfulPts with the request counts
 	for i := 0; i < resolution; i++ {
-		if count, ok := requestCountsPerSlice[int64(i)]; ok {
+		if count, ok := unsuccessfulRequestCountsPerSlice[int64(i)]; ok {
 			reqPerSecond := float64(count) / timeSlice.Seconds()
 			maxReqPerSecond = math.Max(maxReqPerSecond, reqPerSecond)
 			sumReqPerSecond += reqPerSecond
 			countSecs++
-			pts[i].Y = reqPerSecond
+			unsuccessfulPts[i].Y = reqPerSecond
 		}
-		pts[i].X = float64(i) * timeSlice.Seconds()
+		if count, ok := successfulRequestCountsPerSlice[int64(i)]; ok {
+			reqPerSecond := float64(count) / timeSlice.Seconds()
+			maxReqPerSecond = math.Max(maxReqPerSecond, reqPerSecond)
+			sumReqPerSecond += reqPerSecond
+			countSecs++
+			successfulPts[i].Y = reqPerSecond
+		}
+		unsuccessfulPts[i].X = float64(i) * timeSlice.Seconds()
+		successfulPts[i].X = float64(i) * timeSlice.Seconds()
 	}
 	p.Y.Max = maxReqPerSecond * 1.2
 
-	// Create a line chart
-	line, err := plotter.NewLine(pts)
+	line2, err := plotter.NewLine(successfulPts)
 	if err != nil {
 		log.Panic(err)
 	}
+	line2.Color = DARK_GREEN
+	p.Legend.Add("successful", line2)
+	p.Add(line2)
 
+	line, err := plotter.NewLine(unsuccessfulPts)
+	if err != nil {
+		log.Panic(err)
+	}
+	line.Color = DARK_RED
+	p.Legend.Add("unsuccessful", line)
 	p.Add(line)
 
-	mean := sumReqPerSecond / float64(countSecs)
-	addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), GREY)
+	//mean := sumReqPerSecond / float64(countSecs)
+	//addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), GREY)
 
 	// Save the plot to a PNG file
 	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
@@ -295,7 +399,7 @@ func (plt *Plotter_) PlotLatency(fileName string) {
 	metrics := plt.m.GetLatency()
 	for _, metric := range metrics {
 		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Seconds() / float64(timeSlice.Seconds()))))
-		totalLatencyPerSlice[bucket] += metric.value
+		totalLatencyPerSlice[bucket] += metric.floatValues["latency"]
 		countPerSlice[bucket]++
 	}
 
@@ -433,15 +537,13 @@ func (plt *Plotter_) plotNodeFailures(p *plot.Plot) {
 	nodeFailures := plt.m.GetFailureIntervals()
 
 	for i := 0; i < len(nodeFailures); i++ {
-		node := nodeFailures[i]
-		for j := 0; j < len(node); j++ {
-			interval := node[j]
-			iStart := interval.start.Sub(start).Seconds()
-			iEnd := interval.end.Sub(start).Seconds()
-			addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed", i+1), LIGHT_COLORS[i])
-			addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered", i+1), LIGHT_COLORS[i])
-			//fmt.Printf("node%d\nfailed from %d to %d\n", i+1, int(math.Round(iStart)), int(math.Round(iEnd)))
-		}
+		metric := nodeFailures[i]
+		iStart := metric.timestamp
+		duration := time.Duration(metric.floatValues["duration"] * float64(time.Second))
+		iEnd := iStart.Add(duration)
+		addVerticalLine(p, iStart.Sub(plt.m.start).Seconds(), fmt.Sprintf("node%d\nfailed", i+1), LIGHT_COLORS[i])
+		addVerticalLine(p, iEnd.Sub(plt.m.start).Seconds(), fmt.Sprintf("node%d\nrecovered", i+1), LIGHT_COLORS[i])
+		//fmt.Printf("node%d\nfailed from %d to %d\n", i+1, int(math.Round(iStart.Sub(plt.m.start).Seconds())), int(math.Round(iEnd.Sub(plt.m.start).Seconds())))
 	}
 }
 
@@ -458,13 +560,13 @@ func (plt *Plotter_) PlotCacheHitsForNode(p *plot.Plot, nodeIndex int) {
 	metrics := plt.m.GetCacheHits()
 	requests := plt.m.GetAllRequests()
 	for _, metric := range metrics {
-		if int(metric.value) == nodeIndex {
+		if int(metric.floatValues["nodeIndex"]) == nodeIndex {
 			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
 			cacheHitsPerSlice[bucket]++
 		}
 	}
 	for _, metric := range requests {
-		if int(metric.value) == nodeIndex {
+		if int(metric.floatValues["nodeIndex"]) == nodeIndex {
 			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
 			requestsPerSlice[bucket]++
 		}

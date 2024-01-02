@@ -49,15 +49,17 @@ func (k *DbWrapper) CreateKeyspace(keyspaceName string, replicationStrategy stri
 	return nil
 }
 
-func (k *DbWrapper) Put(key, value string) {
+func (k *DbWrapper) Put(key, value string) bool {
 	k.concurrency <- struct{}{}        // Wait for permission to proceed
 	defer func() { <-k.concurrency }() // Release the slot when done
 
 	query := fmt.Sprintf("INSERT INTO %s.%s (key, value) VALUES (?, ?);", k.keyspace, k.tableName)
 
 	if err := k.session.Query(query, key, value).Exec(); err != nil {
-		log.Printf("Failed to put key: %v", err)
+		//log.Printf("Failed to put key: %v", err)
+		return false
 	}
+	return true
 }
 
 func (k *DbWrapper) Get(key string) (string, bool) {
@@ -69,9 +71,10 @@ func (k *DbWrapper) Get(key string) (string, bool) {
 
 	if err := k.session.Query(query, key).Consistency(gocql.One).Scan(&value); err != nil {
 		if !errors.Is(gocql.ErrNotFound, err) {
-			log.Printf("Failed to get key: %v", err)
+			//log.Printf("Failed to get key: %v", err)
+			return err.Error(), false
 		}
-		return "", false
+		return "null", true
 	}
 	return value, true
 }
