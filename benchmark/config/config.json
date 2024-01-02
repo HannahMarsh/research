@@ -8,23 +8,8 @@
   "failures": {
     "0": {
       "nodeId": 0,
-      "timeToFail": 0.2,
-      "failureDuration": 0.5
-    },
-    "1": {
-      "nodeId": 1,
-      "timeToFail": 0.3,
-      "failureDuration": 0.5
-    },
-    "2": {
-      "nodeId": 2,
       "timeToFail": 0.4,
-      "failureDuration": 0.5
-    },
-    "3": {
-      "nodeId": 3,
-      "timeToFail": 0.5,
-      "failureDuration": 0.5
+      "failureDuration": 0.4
     }
 },
   "cacheNodes": {
