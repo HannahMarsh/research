@@ -1,21 +1,18 @@
 {
-  "numRequests": 10000,
+  "numRequests": 20000,
   "readPercentage": 0.99,
   "maxDuration": 30,
-  "keyspacePop": [0.5, 0.4, 0.3, 0.2, 0.1],
-  "databaseMaxConcurrency": 100,
+  "keyspacePop": [0.5, 0.45, 0.4, 0.35, 0.3, 0.25],
+  "virtualNodes": 100,
+  "numPossibleKeys": 1000,
+  "databaseMaxConcurrency": 10000,
   "prom_endpoint": "metrics",
   "prom_port": 9090,
   "failures": {
     "0": {
       "nodeId": 0,
-      "timeToFail": 0.4,
-      "failureDuration": 0.4
-    },
-    "1": {
-      "nodeId": 1,
-      "timeToFail": 0.5,
-      "failureDuration": 0.4
+      "timeToFail": 0.3,
+      "failureDuration": 0.5
     }
 },
   "cacheNodes": {

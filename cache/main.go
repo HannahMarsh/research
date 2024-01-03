@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	isFailed     bool
-	failMutex    sync.Mutex
-	cacheManager *cache.Cache[string]
+	isFailed       bool
+	failMutex      sync.Mutex
+	cacheManager   *cache.Cache[string]
+	geocacheClient *gocache.Cache
 )
 
 func main() {
@@ -41,7 +42,7 @@ func main() {
 	}
 
 	// Initialize Gocache in-memory store
-	geocacheClient := gocache.New(2*time.Second, 5*time.Second)
+	geocacheClient = gocache.New(4*time.Second, 7*time.Second)
 	geocacheStore := gocachestore.NewGoCache(geocacheClient)
 
 	// create new cache manager
@@ -63,6 +64,17 @@ func setupHandlers() {
 	http.HandleFunc("/get", get_)
 	http.HandleFunc("/fail", fail_)
 	http.HandleFunc("/recover", recover_)
+	http.HandleFunc("/size", size_)
+}
+
+func size_(w http.ResponseWriter, r *http.Request) {
+
+	value := geocacheClient.ItemCount()
+	_, err := fmt.Fprintf(w, "%d", value)
+	if err != nil {
+		log.Printf("%v", err)
+		return
+	}
 }
 
 // recover_ simulates cache recovery from failure

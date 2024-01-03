@@ -17,6 +17,7 @@ type Metrics struct {
 	cacheHits        ThreadSafeSortedMetrics
 	latency          ThreadSafeSortedMetrics
 	keyspacePop      ThreadSafeSortedMetrics
+	cacheSize        ThreadSafeSortedMetrics
 }
 
 func NewMetrics(start time.Time, end time.Time, config config_) *Metrics {
@@ -29,6 +30,7 @@ func NewMetrics(start time.Time, end time.Time, config config_) *Metrics {
 		cacheHits:        ThreadSafeSortedMetrics{},
 		latency:          ThreadSafeSortedMetrics{},
 		keyspacePop:      ThreadSafeSortedMetrics{},
+		cacheSize:        ThreadSafeSortedMetrics{},
 	}
 }
 
@@ -42,6 +44,14 @@ type Metric struct {
 	timestamp    time.Time
 	stringValues map[string]string
 	floatValues  map[string]float64
+}
+
+func (m *Metrics) AddCacheSize(timestamp time.Time, nodeIndex int, size int64) {
+	floatValues := map[string]float64{
+		"nodeIndex": float64(nodeIndex),
+		"size":      float64(size),
+	}
+	go m.cacheSize.InsertTimestampWithLabel(timestamp, "cacheSize", nil, floatValues)
 }
 
 func (m *Metrics) AddDatabaseRequest(timestamp time.Time, successful bool) {
@@ -100,6 +110,10 @@ func (m *Metrics) GetLatency() []Metric {
 
 func (m *Metrics) GetCacheHits() []Metric {
 	return m.cacheHits.GetMetrics()
+}
+
+func (m *Metrics) GetCacheSizes() []Metric {
+	return m.cacheSize.GetMetrics()
 }
 
 func (m *Metrics) GetDatabaseRequests() []Metric {

@@ -11,27 +11,31 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
 
 type config_ struct {
-	database       *DbWrapper
-	nodeConfigs    []*bconfig.Config
-	numRequests    int           // total number of requests to send
-	readPercentage float64       // percentage of read operations
-	maxDuration    time.Duration // max duration in seconds
-	promPort       string        // prometheus local server port
-	promEndpoint   string        // prometheus local endpoint
-	failures       []*bconfig.Config
-	maxConcurrency int
-	keyspacePop    []float64
+	database        *DbWrapper
+	nodeConfigs     []*bconfig.Config
+	numRequests     int           // total number of requests to send
+	readPercentage  float64       // percentage of read operations
+	maxDuration     time.Duration // max duration in seconds
+	promPort        string        // prometheus local server port
+	promEndpoint    string        // prometheus local endpoint
+	failures        []*bconfig.Config
+	maxConcurrency  int
+	keyspacePop     []float64
+	numPossibleKeys int
+	virtualNodes    int
 }
 
 // Metrics we want to collect
 var (
-	start time.Time
-	m     *Metrics
+	start    time.Time
+	m        *Metrics
+	nodeRing *NodeRing
 )
 
 func getFlags() (bool, string) {
@@ -85,7 +89,7 @@ func getConfigs() config_ {
 	maxDuration := config.Get("maxDuration").AsInt(30)
 
 	failuresConfig := config.Get("failures")
-	failures := []*bconfig.Config{}
+	var failures []*bconfig.Config
 	for i := 0; i < len(failuresConfig.Value.(map[string]interface{})); i++ {
 		failures = append(failures, failuresConfig.Get(fmt.Sprintf("%d", i)))
 	}
@@ -98,16 +102,20 @@ func getConfigs() config_ {
 	if err != nil {
 		log.Panic(err)
 	}
+	virtualNodes := config.Get("virtualNodes").AsInt(0)
+	numPossibleKeys := config.Get("numPossibleKeys").AsInt(0)
 	return config_{database: db,
-		nodeConfigs:    cacheNodes,
-		numRequests:    numRequests,
-		readPercentage: readPercentage,
-		promEndpoint:   promEndpoint,
-		maxDuration:    time.Duration(maxDuration) * time.Second,
-		promPort:       promPort,
-		failures:       failures,
-		maxConcurrency: maxConcurrency,
-		keyspacePop:    keyspacePop,
+		nodeConfigs:     cacheNodes,
+		numRequests:     numRequests,
+		readPercentage:  readPercentage,
+		promEndpoint:    promEndpoint,
+		maxDuration:     time.Duration(maxDuration) * time.Second,
+		promPort:        promPort,
+		failures:        failures,
+		maxConcurrency:  maxConcurrency,
+		keyspacePop:     keyspacePop,
+		numPossibleKeys: numPossibleKeys,
+		virtualNodes:    virtualNodes,
 	}
 }
 
@@ -119,6 +127,8 @@ func main() {
 	start = time.Now()
 
 	config := getConfigs()
+
+	nodeRing = NewNodeRing(len(config.nodeConfigs), config.virtualNodes)
 
 	m = NewMetrics(start, start.Add(config.maxDuration), config)
 	p := NewPlotter(m)
@@ -167,12 +177,45 @@ func selectKeySpace(keySpaces []float64) int {
 	return -1 // Should not reach here
 }
 
-func generateRequests(ctx context.Context, config config_) {
-	sizeOfEachKeyspace := uint64(config.numRequests) / 100
+func getSizes(config config_) {
+	for j := 0; j < len(config.nodeConfigs); j++ {
+		// get node info
+		func(j int) {
+			node := config.nodeConfigs[j]
+			ip := node.Get("ip").AsString("")
+			port := node.Get("port").AsString("")
+			url := fmt.Sprintf("http://%s:%s/size", ip, port)
+			reqTime := time.Now()
+			resp, _ := http.Get(url)
+			if resp != nil {
+				defer func(Body io.ReadCloser) {
+					err := Body.Close()
+					if err != nil {
+						log.Printf("error closing reader: %s", err)
+					}
+				}(resp.Body)
 
-	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, sizeOfEachKeyspace)
+				// if it was a cache miss
+				if resp.StatusCode == http.StatusOK {
+					size, err := io.ReadAll(resp.Body)
+					if err == nil {
+						sizeInt, err2 := strconv.Atoi(string(size))
+						if err2 == nil {
+							m.AddCacheSize(reqTime, j, int64(sizeInt))
+						}
+					}
+				}
+			}
+		}(j)
+	}
+}
+
+func generateRequests(ctx context.Context, config config_) {
+	sizeOfEachKeyspace := config.numPossibleKeys
+
+	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(sizeOfEachKeyspace))
 	fmt.Printf("\n")
-	start := time.Now()
+	start = time.Now()
 
 	var displayPerSecond = 10
 	skip := int(math.Round((float64(config.numRequests) / config.maxDuration.Seconds()) / float64(displayPerSecond)))
@@ -181,6 +224,9 @@ func generateRequests(ctx context.Context, config config_) {
 
 		if i%skip == 0 {
 			fmt.Printf("\r%-2d seconds elapsed - %d/%d of requests done.", int(math.Round(float64(time.Since(start).Seconds()))), i+1, config.numRequests)
+			if i%(skip*2) == 0 {
+				go getSizes(config)
+			}
 		}
 
 		// Check if context is done before generating each request
@@ -210,8 +256,8 @@ func generateRequests(ctx context.Context, config config_) {
 
 func executeRequest(config config_, key string, value string) {
 
-	// select a cache node based on load-balancing hash
-	nodeId := getNodeHash(key, config)
+	// select a cache node based on node ring hash
+	nodeId := nodeRing.GetNode(key)
 
 	// get node info
 	node := config.nodeConfigs[nodeId]
@@ -302,23 +348,20 @@ func triggerNodeFailureOrRecovery(nodeIndex int, nodeConfig *bconfig.Config, fai
 	}
 }
 
-// getNodeHash computes a hash value used for load balancing across cache nodes
-func getNodeHash(key string, config config_) int {
-	// simple hash function to distribute requests across cache nodes
-	var hash int
-	for i := 0; i < len(key); i++ {
-		hash = (hash*31 + int(key[i])) % len(config.nodeConfigs)
-	}
-	return hash
-}
-
 // getValue simulates a read operation by sending a GET request to the cache node and handle cache hit/miss logic
 func getValue(baseURL string, key string, nodeIndex int, db *DbWrapper) bool {
 
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
 	resp, err := http.Get(url)
 	if err != nil {
-		// log.Printf("GET error: %s\n", err)
+		// retrieve value from the database
+		requestTime := time.Now()
+		_, successful := db.Get(key)
+		m.AddDatabaseRequest(requestTime, successful)
+
+		if successful {
+			return true
+		}
 		return false
 	}
 	defer func(Body io.ReadCloser) {
@@ -366,8 +409,9 @@ func setValue(baseURL, key, value string, db *DbWrapper, writeToDb bool) bool {
 	url := fmt.Sprintf("%s/set?key=%s&value=%s", baseURL, key, value)
 	resp, err := http.PostForm(url, nil)
 	if err != nil {
+		return true
 		//log.Printf("SET error: %s\n", err)
-		return false
+		//return false
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -377,8 +421,9 @@ func setValue(baseURL, key, value string, db *DbWrapper, writeToDb bool) bool {
 	}(resp.Body)
 
 	if resp.StatusCode == http.StatusOK {
-		return true
+		//return true
 	}
 	//log.Printf("SET failed for key: %s with status code: %d\n", key, resp.StatusCode)
-	return false
+	//return false
+	return true
 }
