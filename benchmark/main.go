@@ -121,7 +121,6 @@ func getConfigs() config_ {
 
 func main() {
 
-	// Use a WaitGroup to wait for all goroutines to finish
 	var wg sync.WaitGroup
 
 	start = time.Now()
@@ -133,7 +132,7 @@ func main() {
 	m = NewMetrics(start, start.Add(config.maxDuration), config)
 	p := NewPlotter(m)
 
-	// Create a context that will be cancelled after `runDuration`
+	// context will be cancelled after maxDuration
 	//ctx, cancel := context.WithTimeout(context.Background(), config.maxDuration)
 	//defer cancel()
 
@@ -147,10 +146,10 @@ func main() {
 	generateRequests(ctx, config)
 	cancel()
 
-	// Wait for the context to be cancelled (i.e., timeout)
+	// wait for the context to be cancelled (i.e., timeout)
 	<-ctx.Done()
 
-	wg.Wait() // Wait for all goroutines to finish
+	wg.Wait() // wait for all goroutines to finish
 
 	time.Sleep(2 * time.Second)
 
@@ -195,7 +194,6 @@ func getSizes(config config_) {
 					}
 				}(resp.Body)
 
-				// if it was a cache miss
 				if resp.StatusCode == http.StatusOK {
 					size, err := io.ReadAll(resp.Body)
 					if err == nil {
