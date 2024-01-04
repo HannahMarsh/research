@@ -7,19 +7,21 @@ import (
 	"time"
 )
 
+// Metrics holds different metric data for the benchmark
 type Metrics struct {
-	config           benchmark
-	start            time.Time
-	end              time.Time
-	nodeFailures     ThreadSafeSortedMetrics
-	databaseRequests ThreadSafeSortedMetrics
-	allRequests      ThreadSafeSortedMetrics
-	cacheHits        ThreadSafeSortedMetrics
-	latency          ThreadSafeSortedMetrics
-	keyspacePop      ThreadSafeSortedMetrics
-	cacheSize        ThreadSafeSortedMetrics
+	config           benchmark               // configuration for the benchmark
+	start            time.Time               // start time of simulation
+	end              time.Time               // end time of simulation
+	nodeFailures     ThreadSafeSortedMetrics // metric type for node failures
+	databaseRequests ThreadSafeSortedMetrics // metric type for database requests
+	allRequests      ThreadSafeSortedMetrics // metric type for all types of requests
+	cacheHits        ThreadSafeSortedMetrics // metric type for cache hits
+	latency          ThreadSafeSortedMetrics // metric type for latency
+	keyspacePop      ThreadSafeSortedMetrics // metric type for keyspace popularity
+	cacheSize        ThreadSafeSortedMetrics // metric type for cache sizes
 }
 
+// NewMetrics initializes a new Metrics struct and returns a pointer to it
 func NewMetrics(start time.Time, end time.Time, config benchmark) *Metrics {
 	return &Metrics{
 		config:           config,
@@ -34,9 +36,10 @@ func NewMetrics(start time.Time, end time.Time, config benchmark) *Metrics {
 	}
 }
 
+// ThreadSafeSortedMetrics encapsulates a slice of metrics for a single metric type and with concurrent access protection.
 type ThreadSafeSortedMetrics struct {
 	mu      sync.Mutex
-	metrics []Metric
+	metrics []Metric // slice of metrics
 }
 
 type Metric struct {
@@ -134,10 +137,10 @@ func (m *Metrics) GetKeyspacePopularities() []Metric {
 
 // InsertTimestampWithLabel safely inserts a new timestamp into the slice in sorted order
 func (ts *ThreadSafeSortedMetrics) InsertTimestampWithLabel(newTimestamp time.Time, name string, stringValues map[string]string, floatValues map[string]float64) {
-	ts.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
-	defer ts.mu.Unlock() // Unlock the mutex when the function returns
+	ts.mu.Lock() // maintain exclusive access to the slice
+	defer ts.mu.Unlock()
 
-	// Append and sort - todo not the most efficient for large slices
+	// Append and sort - todo sorting isn't efficient for large slices
 	ts.metrics = append(ts.metrics, Metric{timestamp: newTimestamp, metricType: name, stringValues: stringValues, floatValues: floatValues})
 	sort.Slice(ts.metrics, func(i, j int) bool {
 		return ts.metrics[i].timestamp.Before(ts.metrics[j].timestamp)
@@ -146,9 +149,9 @@ func (ts *ThreadSafeSortedMetrics) InsertTimestampWithLabel(newTimestamp time.Ti
 
 // GetMetrics safely returns a copy of the list of metrics
 func (ts *ThreadSafeSortedMetrics) GetMetrics() []Metric {
-	ts.mu.Lock()         // Lock the mutex to ensure exclusive access to the slice
-	defer ts.mu.Unlock() // Unlock the mutex when the function returns
-	// Return a copy of the metrics slice to avoid race conditions
+	ts.mu.Lock() // maintain exclusive access to the slice
+	defer ts.mu.Unlock()
+	// return a copy of the metrics slice (to avoid race conditions)
 	copiedTimestamps := make([]Metric, len(ts.metrics))
 	copy(copiedTimestamps, ts.metrics)
 	return copiedTimestamps

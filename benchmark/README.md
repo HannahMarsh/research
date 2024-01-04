@@ -1,6 +1,8 @@
 
 # Running cassandra with docker
 
+First, make sure the Docker daemon is running.
+
 pull the docker image:
 ```dockerfile
 docker pull cassandra

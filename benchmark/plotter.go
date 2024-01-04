@@ -53,7 +53,7 @@ func NewPlotter(m *Metrics) *Plotter_ {
 }
 
 func (plt *Plotter_) MakePlots() {
-	var path = "metrics/"
+	var path = "metrics/individual/"
 	var dbRequests = path + "requests_per_second.png"
 	var allRequests = path + "all_requests_per_second.png"
 	var cacheHits = path + "cache_hit_ratio.png"
@@ -61,7 +61,7 @@ func (plt *Plotter_) MakePlots() {
 	var keyspace = path + "keyspace.png"
 	var nodes = path + "nodes.png"
 	var cacheSize = path + "cacheSizes.png"
-	var tiled = path + "tiled.png"
+	var tiled = path + "../metrics.png"
 	var config = path + "config.png"
 	plt.PlotDatabaseRequests(dbRequests)
 	plt.PlotAllRequests(allRequests)
@@ -244,7 +244,7 @@ func (plt *Plotter_) getCountsPerTimeSlice(metrics []Metric, filter func(Metric)
 	countsPerSlice := make(map[int64]int)
 	for _, metric := range metrics {
 		if filter(metric) {
-			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(plt.m.start).Microseconds()) / float64(timeSlice.Microseconds())))
 			countsPerSlice[bucket]++
 		}
 	}
@@ -280,7 +280,7 @@ func (plt *Plotter_) getAveragePerTimeSlice(metrics []Metric, filter func(Metric
 
 	for _, metric := range metrics {
 		if filter(metric) {
-			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
+			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(plt.m.start).Microseconds()) / float64(timeSlice.Microseconds())))
 			countsPerSlice[bucket]++
 			sumPerSlice[bucket] += int64(metric.floatValues["size"])
 			averagePerSlice[bucket] = float64(sumPerSlice[bucket]) / float64(countsPerSlice[bucket])
