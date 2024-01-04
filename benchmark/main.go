@@ -16,28 +16,24 @@ import (
 	"time"
 )
 
-type config_ struct {
-	database        *DbWrapper
-	nodeConfigs     []*bconfig.Config
-	numRequests     int           // total number of requests to send
-	readPercentage  float64       // percentage of read operations
-	maxDuration     time.Duration // max duration in seconds
-	promPort        string        // prometheus local server port
-	promEndpoint    string        // prometheus local endpoint
-	failures        []*bconfig.Config
-	maxConcurrency  int
-	keyspacePop     []float64
-	numPossibleKeys int
-	virtualNodes    int
+// benchmark holds configuration details and various objects for running the program
+type benchmark struct {
+	database        *DbWrapper        // wrapper for database operations
+	nodeConfigs     []*bconfig.Config // configurations for each cache node
+	numRequests     int               // total number of requests to be processed
+	readPercentage  float64           // ratio of read operations to total operations
+	maxDuration     time.Duration     // maximum duration for the benchmarking process
+	failures        []*bconfig.Config // configurations for simulating node failures
+	maxConcurrency  int               // maximum number of concurrent operations (unused)
+	keyspacePop     []float64         // weights for each keyspace to simulate "hot" keyspaces
+	numPossibleKeys int               // total number of possible keys in the system
+	virtualNodes    int               // number of virtual nodes per cache node for consistent hashing
+	start           time.Time         // store initial start time
+	m               *Metrics          // metrics store
+	nodeRing        *NodeRing         // for hashing
 }
 
-// Metrics we want to collect
-var (
-	start    time.Time
-	m        *Metrics
-	nodeRing *NodeRing
-)
-
+// getFlags parses command line flags and returns boolean flags
 func getFlags() (bool, string) {
 	var local bool
 	var help bool
@@ -58,7 +54,9 @@ func getFlags() (bool, string) {
 	return local, cr
 }
 
-func getConfigs() config_ {
+// makeBenchmark loads and returns the benchmark configuration
+func makeBenchmark() benchmark {
+	// loading config
 	config, err := bconfig.GetConfig_()
 	if err != nil {
 		fmt.Println("Failed to load config:", err)
@@ -66,6 +64,7 @@ func getConfigs() config_ {
 	}
 	_, cr := getFlags()
 
+	// set up nodes configs
 	nodesConfig := config.Get("cacheNodes")
 	cacheNodes := []*bconfig.Config{
 		nodesConfig.Get("1").Get(cr),
@@ -74,20 +73,17 @@ func getConfigs() config_ {
 		nodesConfig.Get("4").Get(cr),
 	}
 
+	// set up database config
 	databaseConfig := config.Get("database").Get(cr)
-	var keyspace = ""
-	var tableName = ""
+	keyspace := databaseConfig.Get("keyspace").AsString("")
+	tableName := databaseConfig.Get("tableName").AsString("")
 
-	if databaseConfig.Get("create_keyspace").AsBool(false) {
-		keyspace = databaseConfig.Get("keyspace").AsString("")
-		tableName = databaseConfig.Get("tableName").AsString("")
-	}
+	// retrieve other benchmark params
 	numRequests := config.Get("numRequests").AsInt(0)
 	readPercentage := config.Get("readPercentage").AsFloat(0.99)
-	promEndpoint := config.Get("prom_endpoint").AsString("Metrics") // default endpoint is Metrics
-	promPort := config.Get("prom_port").AsString("9100")            // default port is 9100
 	maxDuration := config.Get("maxDuration").AsInt(30)
 
+	// set up failure simulation configs
 	failuresConfig := config.Get("failures")
 	var failures []*bconfig.Config
 	for i := 0; i < len(failuresConfig.Value.(map[string]interface{})); i++ {
@@ -95,8 +91,8 @@ func getConfigs() config_ {
 	}
 	maxConcurrency := config.Get("databaseMaxConcurrency").AsInt(0.0)
 
+	// set up keyspace popularity weights and other parameters
 	keyspacePop := config.Get("keyspacePop").AsFloatArray()
-
 	hosts := []string{databaseConfig.Get("ip").AsString("localhost")}
 	db, err := NewDbWrapper(keyspace, tableName, maxConcurrency, hosts...)
 	if err != nil {
@@ -104,13 +100,14 @@ func getConfigs() config_ {
 	}
 	virtualNodes := config.Get("virtualNodes").AsInt(0)
 	numPossibleKeys := config.Get("numPossibleKeys").AsInt(0)
-	return config_{database: db,
+
+	// finally, make the benchmark configuration
+	return benchmark{
+		database:        db,
 		nodeConfigs:     cacheNodes,
 		numRequests:     numRequests,
 		readPercentage:  readPercentage,
-		promEndpoint:    promEndpoint,
 		maxDuration:     time.Duration(maxDuration) * time.Second,
-		promPort:        promPort,
 		failures:        failures,
 		maxConcurrency:  maxConcurrency,
 		keyspacePop:     keyspacePop,
@@ -119,24 +116,32 @@ func getConfigs() config_ {
 	}
 }
 
+// main is the entry point for the program
 func main() {
 
 	var wg sync.WaitGroup
 
-	start = time.Now()
+	// set up the benchmark
+	config := makeBenchmark()
 
-	config := getConfigs()
+	// initialize node ring for consistent hashing
+	config.nodeRing = NewNodeRing(len(config.nodeConfigs), config.virtualNodes)
 
-	nodeRing = NewNodeRing(len(config.nodeConfigs), config.virtualNodes)
+	// set the start time
+	config.start = time.Now()
 
-	m = NewMetrics(start, start.Add(config.maxDuration), config)
-	p := NewPlotter(m)
+	// initialize metrics
+	config.m = NewMetrics(config.start, config.start.Add(config.maxDuration), config)
+
+	// make new plotter
+	p := NewPlotter(config.m)
+
+	// context creation for managing the lifecycle of the benchmark
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// context will be cancelled after maxDuration
-	//ctx, cancel := context.WithTimeout(context.Background(), config.maxDuration)
-	//defer cancel()
-
-	ctx, cancel := context.WithCancel(context.Background())
+	// ctx, cancel := context.WithTimeout(context.Background(), config.maxDuration)
+	// defer cancel()
 
 	// start failure simulation routine
 	go simulateNodeFailures(config, ctx)
@@ -151,15 +156,17 @@ func main() {
 
 	wg.Wait() // wait for all goroutines to finish
 
+	// todo remove this
 	time.Sleep(2 * time.Second)
 
+	// make the plots
 	p.MakePlots()
 
-	fmt.Println("Program finished.")
+	fmt.Println("Benchmark program finished.")
 
 }
 
-// Function to select a keyspace ID based on weights
+// selectKeySpace selects a keyspace index based on probability weights
 func selectKeySpace(keySpaces []float64) int {
 	var totalWeight float64
 	for _, ks := range keySpaces {
@@ -173,18 +180,21 @@ func selectKeySpace(keySpaces []float64) int {
 		}
 		rnd -= keySpaces[i]
 	}
-	return -1 // Should not reach here
+	return -1 // should not reach here
 }
 
-func getSizes(config config_) {
-	for j := 0; j < len(config.nodeConfigs); j++ {
-		// get node info
+// getSizes iterates through each cache node to retrieve and record its current cache size.
+// This information is used to monitor the cache usage across different nodes.
+func getSizes(b benchmark) {
+	for j := 0; j < len(b.nodeConfigs); j++ { // iterate through each cache node
 		func(j int) {
-			node := config.nodeConfigs[j]
-			ip := node.Get("ip").AsString("")
-			port := node.Get("port").AsString("")
-			url := fmt.Sprintf("http://%s:%s/size", ip, port)
-			reqTime := time.Now()
+			node := b.nodeConfigs[j]
+			ip := node.Get("ip").AsString("")                 // node's IP address
+			port := node.Get("port").AsString("")             // node's port
+			url := fmt.Sprintf("http://%s:%s/size", ip, port) // used to fetch the size from the node
+			reqTime := time.Now()                             // store the request time for storing cache size
+
+			// send a GET request to get its cache size
 			resp, _ := http.Get(url)
 			if resp != nil {
 				defer func(Body io.ReadCloser) {
@@ -194,12 +204,14 @@ func getSizes(config config_) {
 					}
 				}(resp.Body)
 
+				// process the response with the size if it's OK
 				if resp.StatusCode == http.StatusOK {
 					size, err := io.ReadAll(resp.Body)
 					if err == nil {
 						sizeInt, err2 := strconv.Atoi(string(size))
 						if err2 == nil {
-							m.AddCacheSize(reqTime, j, int64(sizeInt))
+							// add the cache size metric
+							b.m.AddCacheSize(reqTime, j, int64(sizeInt))
 						}
 					}
 				}
@@ -208,57 +220,66 @@ func getSizes(config config_) {
 	}
 }
 
-func generateRequests(ctx context.Context, config config_) {
-	sizeOfEachKeyspace := config.numPossibleKeys
+// generateRequests generates and dispatches requests based on the configuration
+func generateRequests(ctx context.Context, b benchmark) {
 
+	sizeOfEachKeyspace := b.numPossibleKeys
+
+	// create a new Zipf distribution for generating keys
 	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(sizeOfEachKeyspace))
+
+	var displayPerSecond = 10 // display progress every 10 seconds
+	skip := int(math.Round((float64(b.numRequests) / b.maxDuration.Seconds()) / float64(displayPerSecond)))
+
 	fmt.Printf("\n")
-	start = time.Now()
 
-	var displayPerSecond = 10
-	skip := int(math.Round((float64(config.numRequests) / config.maxDuration.Seconds()) / float64(displayPerSecond)))
-
-	for i := 0; i < config.numRequests; i++ {
-
+	for i := 0; i < b.numRequests; i++ {
+		// display progress at regular intervals
 		if i%skip == 0 {
-			fmt.Printf("\r%-2d seconds elapsed - %d/%d of requests done.", int(math.Round(float64(time.Since(start).Seconds()))), i+1, config.numRequests)
+			fmt.Printf("\r%-2d seconds elapsed - %d/%d of requests done.", int(math.Round(float64(time.Since(b.start).Seconds()))), i+1, b.numRequests)
+			// fetch cache sizes at twice the interval of progress display
 			if i%(skip*2) == 0 {
-				go getSizes(config)
+				go getSizes(b)
 			}
 		}
 
-		// Check if context is done before generating each request
+		// exit the loop if context is done (i.e., timeout or cancel)
 		if ctx.Err() != nil {
-			return // Exit if context is cancelled
+			return
 		}
 
-		keyspace := selectKeySpace(config.keyspacePop)
-		m.AddKeyspaceRequest(keyspace, time.Now())
-		key := fmt.Sprintf("%d:%d", keyspace, zip.Uint64()) // Concatenate keyspace and key
-		value := fmt.Sprintf("value-%d", zip.Uint64())
+		// select a keyspace based on the weights and record the request with the metrics object
+		keyspace := selectKeySpace(b.keyspacePop)
+		b.m.AddKeyspaceRequest(keyspace, time.Now())
+		key := fmt.Sprintf("%d:%d", keyspace, zip.Uint64()) // Form the key with keyspace and zipf value
+		value := fmt.Sprintf("value-%d", zip.Uint64())      // Create a value for the key
 
-		go executeRequest(config, key, value)
+		// execute the request in a new goroutine
+		go executeRequest(b, key, value)
 
-		dif := config.maxDuration.Microseconds() - time.Since(start).Microseconds()
-		interval := float64(dif) / float64(config.numRequests-i)
-		variance := int(math.Round(interval)) + 1 // 2x interval in mu
+		// calculate the sleep duration to spread requests randomly and approximately evenly over the run duration
+		dif := b.maxDuration.Microseconds() - time.Since(b.start).Microseconds()
+		interval := float64(dif) / float64(b.numRequests-i)
+		variance := int(math.Round(interval)) + 1 // random variance for the sleep interval
 		if variance > 100 {
 			ms := float64(rand.Intn(variance*2)) - 1
 			wait := time.Duration(ms) * time.Microsecond
-			time.Sleep(wait)
+			time.Sleep(wait) // sleep for the random duration within the variance
 		}
 	}
 	fmt.Printf("\nDone.\n")
 	return
 }
 
-func executeRequest(config config_, key string, value string) {
+// executeRequest determines the node for the key using the nodeRing.hashFunc and sends the request.
+// Also records latency and other metrics for each operation.
+func executeRequest(b benchmark, key string, value string) {
 
 	// select a cache node based on node ring hash
-	nodeId := nodeRing.GetNode(key)
+	nodeId := b.nodeRing.GetNode(key)
 
 	// get node info
-	node := config.nodeConfigs[nodeId]
+	node := b.nodeConfigs[nodeId]
 	ip := node.Get("ip").AsString("")
 	port := node.Get("port").AsString("")
 	cacheNodeURL := fmt.Sprintf("http://%s:%s", ip, port)
@@ -266,46 +287,48 @@ func executeRequest(config config_, key string, value string) {
 	metricStart := time.Now()
 
 	// 99% of the time, perform a read operation
-	if rand.Intn(100) < int(config.readPercentage*100) {
-		if getValue(cacheNodeURL, key, nodeId, config.database) {
-			m.AddLatency(metricStart, time.Since(metricStart))
-			m.AddRequest(time.Now(), "read", nodeId, true)
+	if rand.Intn(100) < int(b.readPercentage*100) {
+		if getValue(cacheNodeURL, key, nodeId, b.database, b) {
+			b.m.AddLatency(metricStart, time.Since(metricStart))
+			b.m.AddRequest(time.Now(), "read", nodeId, true)
 			return
 		} else {
-			m.AddRequest(time.Now(), "read", nodeId, false)
+			b.m.AddRequest(time.Now(), "read", nodeId, false)
 		}
 		// 1% of the time perform a write operation
 	} else {
-		if setValue(cacheNodeURL, key, value, config.database, true) {
-			m.AddLatency(metricStart, time.Since(metricStart))
-			m.AddRequest(time.Now(), "write", nodeId, true)
+		if setValue(cacheNodeURL, key, value, b.database, true, b) {
+			b.m.AddLatency(metricStart, time.Since(metricStart))
+			b.m.AddRequest(time.Now(), "write", nodeId, true)
 			return
 		} else {
-			m.AddRequest(time.Now(), "write", nodeId, false)
+			b.m.AddRequest(time.Now(), "write", nodeId, false)
 		}
 	}
 
 }
 
-func simulateNodeFailures(config config_, ctx context.Context) {
+// simulateNodeFailures simulates node failures according to the predefined failure intervals in the benchmark configuration.
+func simulateNodeFailures(b benchmark, ctx context.Context) {
 
 	// first make sure all nodes are up
-	for i := 0; i < len(config.nodeConfigs); i++ {
-		go triggerNodeFailureOrRecovery(i, config.nodeConfigs[i], false)
+	for i := 0; i < len(b.nodeConfigs); i++ {
+		go triggerNodeFailureOrRecovery(b.nodeConfigs[i], false)
 	}
 
-	for i := 0; i < len(config.failures); i++ {
-		failureConfig := config.failures[i]
+	for i := 0; i < len(b.failures); i++ {
+		failureConfig := b.failures[i]
 		nodeId := failureConfig.Get("nodeId").AsInt(0)
 		timeToFail := failureConfig.Get("timeToFail").AsFloat(0.0)
-		ttf := start.Add(time.Duration(float64(config.maxDuration.Nanoseconds())*timeToFail) * time.Nanosecond)
+		ttf := b.start.Add(time.Duration(float64(b.maxDuration.Nanoseconds())*timeToFail) * time.Nanosecond)
 		failureDuration := failureConfig.Get("failureDuration").AsFloat(0.0)
-		fd := time.Duration(float64(config.maxDuration.Nanoseconds())*failureDuration) * time.Nanosecond
-		go simulateNodeFailure(config, ctx, nodeId, ttf, fd)
+		fd := time.Duration(float64(b.maxDuration.Nanoseconds())*failureDuration) * time.Nanosecond
+		go simulateNodeFailure(b, ctx, nodeId, ttf, fd)
 	}
 }
 
-func simulateNodeFailure(config config_, ctx context.Context, nodeIndex int, timeToFail time.Time, failureDuration time.Duration) {
+// simulateNodeFailure handles the simulation of a single node failure and recovery.
+func simulateNodeFailure(b benchmark, ctx context.Context, nodeIndex int, timeToFail time.Time, failureDuration time.Duration) {
 
 	timeToRecover := timeToFail.Add(failureDuration)
 
@@ -314,21 +337,21 @@ func simulateNodeFailure(config config_, ctx context.Context, nodeIndex int, tim
 
 	for {
 		select {
-		case <-ctx.Done(): // Context is cancelled, stop the goroutine
+		case <-ctx.Done(): // ctx is cancelled so stop the goroutine
 			return
 		case <-failTimer.C:
-			m.AddNodeFailureInterval(nodeIndex, time.Now(), timeToRecover)
-			go triggerNodeFailureOrRecovery(nodeIndex, config.nodeConfigs[nodeIndex], true)
-			failTimer.Stop() // Stop the fail timer if it's no longer needed
+			b.m.AddNodeFailureInterval(nodeIndex, time.Now(), timeToRecover)
+			go triggerNodeFailureOrRecovery(b.nodeConfigs[nodeIndex], true)
+			failTimer.Stop() // stop the fail timer if it's no longer needed
 		case <-recoverTimer.C:
-			go triggerNodeFailureOrRecovery(nodeIndex, config.nodeConfigs[nodeIndex], false)
+			go triggerNodeFailureOrRecovery(b.nodeConfigs[nodeIndex], false)
 			return // end the function after recovery
 		}
 	}
 }
 
 // triggerNodeFailureOrRecovery sends a request to either fail or recover a node
-func triggerNodeFailureOrRecovery(nodeIndex int, nodeConfig *bconfig.Config, fail bool) {
+func triggerNodeFailureOrRecovery(nodeConfig *bconfig.Config, fail bool) {
 	// send an HTTP request to a specific cache node to simulate failure/recovery
 	ip := nodeConfig.Get("ip").AsString("")
 	port := nodeConfig.Get("port").AsString("")
@@ -340,14 +363,14 @@ func triggerNodeFailureOrRecovery(nodeIndex int, nodeConfig *bconfig.Config, fai
 
 	_, err := http.Get(url)
 	if err != nil {
-		//log.Printf("Failed to send %s request to %s: %v", endpoint, url, err)
+		// log.Printf("Failed to send %s request to %s: %v", endpoint, url, err)
 	} else {
-		//log.Printf("Sent %s request to %s", endpoint, url)
+		// log.Printf("Sent %s request to %s", endpoint, url)
 	}
 }
 
-// getValue simulates a read operation by sending a GET request to the cache node and handle cache hit/miss logic
-func getValue(baseURL string, key string, nodeIndex int, db *DbWrapper) bool {
+// getValue sends a GET request to the cache node and handle cache hit/miss logic
+func getValue(baseURL string, key string, nodeIndex int, db *DbWrapper, b benchmark) bool {
 
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
 	resp, err := http.Get(url)
@@ -355,7 +378,7 @@ func getValue(baseURL string, key string, nodeIndex int, db *DbWrapper) bool {
 		// retrieve value from the database
 		requestTime := time.Now()
 		_, successful := db.Get(key)
-		m.AddDatabaseRequest(requestTime, successful)
+		b.m.AddDatabaseRequest(requestTime, successful)
 
 		if successful {
 			return true
@@ -374,16 +397,16 @@ func getValue(baseURL string, key string, nodeIndex int, db *DbWrapper) bool {
 		// retrieve value from the database
 		requestTime := time.Now()
 		valueFromDB, successful := db.Get(key)
-		m.AddDatabaseRequest(requestTime, successful)
+		b.m.AddDatabaseRequest(requestTime, successful)
 
-		if successful && setValue(baseURL, key, valueFromDB, db, false) {
+		if successful && setValue(baseURL, key, valueFromDB, db, false, b) {
 			return true
 		}
 	} else {
 		// cache hit
 		_, err := io.ReadAll(resp.Body)
 		if err == nil {
-			m.AddCacheHit(time.Now(), key, nodeIndex)
+			b.m.AddCacheHit(time.Now(), key, nodeIndex)
 			return true
 		} else {
 			log.Printf("error reading response body: %s", err)
@@ -394,11 +417,11 @@ func getValue(baseURL string, key string, nodeIndex int, db *DbWrapper) bool {
 
 // setValue simulates a write operation by sending a POST request to the cache node to write a key-value pair
 // if writeToDb is true, it also writes the key, value pair to the database
-func setValue(baseURL, key, value string, db *DbWrapper, writeToDb bool) bool {
+func setValue(baseURL, key, value string, db *DbWrapper, writeToDb bool, b benchmark) bool {
 	if writeToDb {
 		requestTime := time.Now()
 		successful := db.Put(key, value)
-		m.AddDatabaseRequest(requestTime, successful)
+		b.m.AddDatabaseRequest(requestTime, successful)
 		if !successful {
 			return false
 		}

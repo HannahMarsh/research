@@ -8,7 +8,7 @@ import (
 )
 
 type Metrics struct {
-	config           config_
+	config           benchmark
 	start            time.Time
 	end              time.Time
 	nodeFailures     ThreadSafeSortedMetrics
@@ -20,7 +20,7 @@ type Metrics struct {
 	cacheSize        ThreadSafeSortedMetrics
 }
 
-func NewMetrics(start time.Time, end time.Time, config config_) *Metrics {
+func NewMetrics(start time.Time, end time.Time, config benchmark) *Metrics {
 	return &Metrics{
 		config:           config,
 		start:            start,
