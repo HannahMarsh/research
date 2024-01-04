@@ -16,7 +16,6 @@ import (
 	"time"
 )
 
-// benchmark holds configuration details and various objects for running the program
 type benchmark struct {
 	database        *DbWrapper        // wrapper for database operations
 	nodeConfigs     []*bconfig.Config // configurations for each cache node
@@ -27,10 +26,10 @@ type benchmark struct {
 	maxConcurrency  int               // maximum number of concurrent operations (unused)
 	keyspacePop     []float64         // weights for each keyspace to simulate "hot" keyspaces
 	numPossibleKeys int               // total number of possible keys in the system
-	virtualNodes    int               // number of virtual nodes per cache node for consistent hashing
+	virtualNodes    int               // number of virtual nodes for consistent hashing
 	start           time.Time         // store initial start time
 	m               *Metrics          // metrics store
-	nodeRing        *NodeRing         // for hashing
+	nodeRing        *NodeRing         // node ring for hashing
 }
 
 // getFlags parses command line flags and returns boolean flags
@@ -184,7 +183,6 @@ func selectKeySpace(keySpaces []float64) int {
 }
 
 // getSizes iterates through each cache node to retrieve and record its current cache size.
-// This information is used to monitor the cache usage across different nodes.
 func getSizes(b benchmark) {
 	for j := 0; j < len(b.nodeConfigs); j++ { // iterate through each cache node
 		func(j int) {
@@ -225,7 +223,7 @@ func generateRequests(ctx context.Context, b benchmark) {
 
 	sizeOfEachKeyspace := b.numPossibleKeys
 
-	// create a new Zipf distribution for generating keys
+	// create a new Zipf distribution (for generating keys)
 	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(sizeOfEachKeyspace))
 
 	var displayPerSecond = 10 // display progress every 10 seconds
