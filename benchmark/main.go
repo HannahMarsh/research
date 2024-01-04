@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -17,19 +16,21 @@ import (
 )
 
 type benchmark struct {
-	database        *DbWrapper        // wrapper for database operations
-	nodeConfigs     []*bconfig.Config // configurations for each cache node
-	numRequests     int               // total number of requests to be processed
-	readPercentage  float64           // ratio of read operations to total operations
-	maxDuration     time.Duration     // maximum duration for the benchmarking process
-	failures        []*bconfig.Config // configurations for simulating node failures
-	maxConcurrency  int               // maximum number of concurrent operations (unused)
-	keyspacePop     []float64         // weights for each keyspace to simulate "hot" keyspaces
-	numPossibleKeys int               // total number of possible keys in the system
-	virtualNodes    int               // number of virtual nodes for consistent hashing
-	start           time.Time         // store initial start time
-	m               *Metrics          // metrics store
-	nodeRing        *NodeRing         // node ring for hashing
+	database             *DbWrapper        // wrapper for database operations
+	nodeConfigs          []*bconfig.Config // configurations for each cache node
+	numRequests          int               // total number of requests to be processed
+	readPercentage       float64           // ratio of read operations to total operations
+	maxDuration          time.Duration     // maximum duration for the benchmarking process
+	failures             []*bconfig.Config // configurations for simulating node failures
+	maxConcurrency       int               // maximum number of concurrent operations (unused)
+	keyspacePop          []float64         // weights for each keyspace to simulate "hot" keyspaces
+	numPossibleKeys      int               // total number of possible keys in the system
+	virtualNodes         int               // number of virtual nodes for consistent hashing
+	start                time.Time         // store initial start time
+	m                    *Metrics          // metrics store
+	nodeRing             *NodeRing         // node ring for hashing
+	cacheExpiration      int
+	cacheCleanupInterval int
 }
 
 // getFlags parses command line flags and returns boolean flags
@@ -100,18 +101,23 @@ func makeBenchmark() benchmark {
 	virtualNodes := config.Get("virtualNodes").AsInt(0)
 	numPossibleKeys := config.Get("numPossibleKeys").AsInt(0)
 
+	expiration := config.Get("cacheExpiration").AsInt(5)
+	cleanupInterval := config.Get("cacheCleanupInterval").AsInt(5)
+
 	// finally, make the benchmark configuration
 	return benchmark{
-		database:        db,
-		nodeConfigs:     cacheNodes,
-		numRequests:     numRequests,
-		readPercentage:  readPercentage,
-		maxDuration:     time.Duration(maxDuration) * time.Second,
-		failures:        failures,
-		maxConcurrency:  maxConcurrency,
-		keyspacePop:     keyspacePop,
-		numPossibleKeys: numPossibleKeys,
-		virtualNodes:    virtualNodes,
+		database:             db,
+		nodeConfigs:          cacheNodes,
+		numRequests:          numRequests,
+		readPercentage:       readPercentage,
+		maxDuration:          time.Duration(maxDuration) * time.Second,
+		failures:             failures,
+		maxConcurrency:       maxConcurrency,
+		keyspacePop:          keyspacePop,
+		numPossibleKeys:      numPossibleKeys,
+		virtualNodes:         virtualNodes,
+		cacheCleanupInterval: cleanupInterval,
+		cacheExpiration:      expiration,
 	}
 }
 
@@ -136,17 +142,22 @@ func main() {
 	p := NewPlotter(config.m)
 
 	// context creation for managing the lifecycle of the benchmark
-	ctx, cancel := context.WithCancel(context.Background())
+	//ctx, cancel := context.WithCancel(context.Background())
 
 	// context will be cancelled after maxDuration
-	// ctx, cancel := context.WithTimeout(context.Background(), config.maxDuration)
-	// defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), config.maxDuration)
+	defer cancel()
 
 	// start failure simulation routine
 	go simulateNodeFailures(config, ctx)
 
+	startCacheNodes(config)
+
 	// start generating requests
 	log.Printf("Starting generating requests...")
+
+	go intermediatePlotter(p)
+
 	generateRequests(ctx, config)
 	cancel()
 
@@ -165,6 +176,18 @@ func main() {
 
 }
 
+func intermediatePlotter(plt *Plotter_) {
+	//// Create a ticker that fires every second
+	//ticker := time.NewTicker(1 * time.Second)
+	//
+	//for {
+	//	select {
+	//	case <-ticker.C:
+	//		plt.MakePlotsFrom(time.Now())
+	//	}
+	//}
+}
+
 // selectKeySpace selects a keyspace index based on probability weights
 func selectKeySpace(keySpaces []float64) int {
 	var totalWeight float64
@@ -180,6 +203,41 @@ func selectKeySpace(keySpaces []float64) int {
 		rnd -= keySpaces[i]
 	}
 	return -1 // should not reach here
+}
+
+// getSizes iterates through each cache node to retrieve and record its current cache size.
+func startCacheNodes(b benchmark) {
+	for j := 0; j < len(b.nodeConfigs); j++ { // iterate through each cache node
+
+		node := b.nodeConfigs[j]
+		ip := node.Get("ip").AsString("")                                                                                              // node's IP address
+		port := node.Get("port").AsString("")                                                                                          // node's port
+		url := fmt.Sprintf("http://%s:%s/start?expiration=%d&cleanUpInterval=%d", ip, port, b.cacheExpiration, b.cacheCleanupInterval) // used to fetch the size from the node
+		reqTime := time.Now()                                                                                                          // store the request time for storing cache size
+
+		// send a GET request to get its cache size
+		resp, _ := http.Get(url)
+		if resp != nil {
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					log.Printf("error closing reader: %s", err)
+				}
+			}(resp.Body)
+
+			// process the response with the size if it's OK
+			if resp.StatusCode == http.StatusOK {
+				size, err := io.ReadAll(resp.Body)
+				if err == nil {
+					sizeInt, err2 := strconv.Atoi(string(size))
+					if err2 == nil {
+						// add the cache size metric
+						b.m.AddCacheSize(reqTime, j, int64(sizeInt))
+					}
+				}
+			}
+		}
+	}
 }
 
 // getSizes iterates through each cache node to retrieve and record its current cache size.
@@ -226,20 +284,20 @@ func generateRequests(ctx context.Context, b benchmark) {
 	// create a new Zipf distribution (for generating keys)
 	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(sizeOfEachKeyspace))
 
-	var displayPerSecond = 10 // display progress every 10 seconds
-	skip := int(math.Round((float64(b.numRequests) / b.maxDuration.Seconds()) / float64(displayPerSecond)))
+	//var displayPerSecond = 10 // display progress every 10 seconds
+	//skip := int(math.Round((float64(b.numRequests) / b.maxDuration.Seconds()) / float64(displayPerSecond)))
 
 	fmt.Printf("\n")
 
-	for i := 0; i < b.numRequests; i++ {
+	for {
 		// display progress at regular intervals
-		if i%skip == 0 {
-			fmt.Printf("\r%-2d seconds elapsed - %d/%d of requests done.", int(math.Round(float64(time.Since(b.start).Seconds()))), i+1, b.numRequests)
-			// fetch cache sizes at twice the interval of progress display
-			if i%(skip*2) == 0 {
-				go getSizes(b)
-			}
-		}
+		//if i%skip == 0 {
+		//	fmt.Printf("\r%-2d seconds elapsed - %d/%d of requests done.", int(math.Round(float64(time.Since(b.start).Seconds()))), i+1, b.numRequests)
+		//	// fetch cache sizes at twice the interval of progress display
+		//	if i%(skip*2) == 0 {
+		//		go getSizes(b)
+		//	}
+		//}
 
 		// exit the loop if context is done (i.e., timeout or cancel)
 		if ctx.Err() != nil {
@@ -255,15 +313,15 @@ func generateRequests(ctx context.Context, b benchmark) {
 		// execute the request in a new goroutine
 		go executeRequest(b, key, value)
 
-		// calculate the sleep duration to spread requests randomly and approximately evenly over the run duration
-		dif := b.maxDuration.Microseconds() - time.Since(b.start).Microseconds()
-		interval := float64(dif) / float64(b.numRequests-i)
-		variance := int(math.Round(interval)) + 1 // random variance for the sleep interval
-		if variance > 100 {
-			ms := float64(rand.Intn(variance*2)) - 1
-			wait := time.Duration(ms) * time.Microsecond
-			time.Sleep(wait) // sleep for the random duration within the variance
-		}
+		//// calculate the sleep duration to spread requests randomly and approximately evenly over the run duration
+		//dif := b.maxDuration.Microseconds() - time.Since(b.start).Microseconds()
+		//interval := float64(dif) / float64(b.numRequests-i)
+		//variance := int(math.Round(interval)) + 1 // random variance for the sleep interval
+		//if variance > 100 {
+		//	ms := float64(rand.Intn(variance*2)) - 1
+		//	wait := time.Duration(ms) * time.Microsecond
+		//	time.Sleep(wait) // sleep for the random duration within the variance
+		//}
 	}
 	fmt.Printf("\nDone.\n")
 	return

@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -42,7 +43,7 @@ func main() {
 	}
 
 	// Initialize Gocache in-memory store
-	geocacheClient = gocache.New(4*time.Second, 7*time.Second)
+	geocacheClient = gocache.New(7*time.Second, 30*time.Second) // default
 	geocacheStore := gocachestore.NewGoCache(geocacheClient)
 
 	// create new cache manager
@@ -65,6 +66,38 @@ func setupHandlers() {
 	http.HandleFunc("/fail", fail_)
 	http.HandleFunc("/recover", recover_)
 	http.HandleFunc("/size", size_)
+	http.HandleFunc("/start", start_)
+}
+
+// set_ handles the cache set requests
+func start_(w http.ResponseWriter, r *http.Request) {
+	expiration, err := strconv.Atoi(r.URL.Query().Get("expiration"))
+	if err != nil || expiration <= 0 {
+		http.Error(w, "Invalid expiration", http.StatusBadRequest)
+		return
+	}
+	cleanUpInterval, err := strconv.Atoi(r.URL.Query().Get("cleanUpInterval"))
+	if err != nil || expiration <= 0 {
+		http.Error(w, "Invalid cleanup interval", http.StatusBadRequest)
+		return
+	}
+
+	// Initialize Gocache in-memory store
+	geocacheClient = gocache.New(time.Duration(expiration)*time.Second, time.Duration(cleanUpInterval)*time.Second)
+	geocacheStore := gocachestore.NewGoCache(geocacheClient)
+
+	// create new cache manager
+	cacheManager = cache.New[string](geocacheStore)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = fmt.Fprintf(w, "Started simulation")
+	if err != nil {
+		fmt.Printf("Failed to start scache simulation: %v\n", err)
+		return
+	}
 }
 
 func size_(w http.ResponseWriter, r *http.Request) {

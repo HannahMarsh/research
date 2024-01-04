@@ -107,6 +107,7 @@ func (m *Metrics) AddKeyspaceRequest(keyspace int, timestamp time.Time) {
 	go m.keyspacePop.InsertTimestampWithLabel(timestamp, "keyspacePop", nil, floatValues)
 }
 
+// todo have these return metrics after a given timestamp
 func (m *Metrics) GetLatency() []Metric {
 	return m.latency.GetMetrics()
 }

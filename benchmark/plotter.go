@@ -46,13 +46,52 @@ type Plotter_ struct {
 	keyspace     *plot.Plot
 	nodeRequests *plot.Plot
 	cacheSizes   *plot.Plot
+	end          time.Time
+	start        time.Time
 }
 
 func NewPlotter(m *Metrics) *Plotter_ {
-	return &Plotter_{m: m, dbRequests: plot.New(), allRequests: plot.New(), cacheHits: plot.New(), latency: plot.New(), keyspace: plot.New(), nodeRequests: plot.New(), cacheSizes: plot.New()}
+	plt := &Plotter_{m: m, dbRequests: plot.New(), allRequests: plot.New(), cacheHits: plot.New(), latency: plot.New(), keyspace: plot.New(), nodeRequests: plot.New(), cacheSizes: plot.New(), end: m.end, start: m.start}
+	//plt.initPlots()
+	return plt
+}
+
+func (plt *Plotter_) initPlots() {
+	plt.initPlot(plt.dbRequests, "Database Requests per Second as a Function of Time", "Requests per second")
+	plt.initPlot(plt.allRequests, "Total Requests per Second As a Function of Time", "Requests per second")
+	plt.initPlot(plt.cacheHits, "Cache Hit Ratio as a Function of Time", "Cache Hit Ratio")
+	plt.initPlot(plt.latency, "Request Latency As a Function of Time", "Average Latency (ms)")
+	plt.initPlot(plt.keyspace, "Keyspace Popularity as a Function of Time", "Requests per second")
+	plt.initPlot(plt.nodeRequests, "Cache Requests as a Function of Time", "Requests per second")
+	plt.initPlot(plt.cacheSizes, "Cache Sizes as a Function of Time", "Number of Items")
+}
+
+func (plt *Plotter_) initPlot(p *plot.Plot, title string, yAxis string) {
+	start := plt.m.start
+	end := plt.m.end
+	p.Title.Text = title
+	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
+	p.Title.TextStyle.Font.Size = 15
+	p.X.Label.Text = "Time (s)"
+	p.Y.Label.Text = yAxis
+	p.X.Min = 0.0
+	p.X.Max = end.Sub(start).Seconds()
+	p.Y.Min = 0.0
+
+	// Adjust legend position
+	p.Legend.Top = true            // Position the legend at the top of the plot
+	p.Legend.Left = true           // Position the legend to the left side of the plot
+	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
+	p.Legend.YOffs = vg.Points(30) // Move the legend up
 }
 
 func (plt *Plotter_) MakePlots() {
+	plt.MakePlotsFrom(plt.m.start, plt.m.end)
+}
+
+func (plt *Plotter_) MakePlotsFrom(start time.Time, end time.Time) {
+	plt.end = end
+	plt.start = start
 	var path = "metrics/individual/"
 	var dbRequests = path + "requests_per_second.png"
 	var allRequests = path + "all_requests_per_second.png"
@@ -80,7 +119,6 @@ func (plt *Plotter_) MakePlots() {
 }
 
 func (plt *Plotter_) TilePlots(tiled string, fileNames [][]string) {
-
 	// Define padding between images.
 	padding := 20 // pixels
 
@@ -144,6 +182,7 @@ func (plt *Plotter_) TilePlots(tiled string, fileNames [][]string) {
 	if err != nil {
 		panic(err)
 	}
+
 }
 
 // openImage is a helper function to open and decode an image file.
@@ -205,7 +244,7 @@ func (plt *Plotter_) PlotConfig(filename string) {
 	leftIndent := 50
 
 	// Draw the txt on the image
-	addLabel(img, leftIndent+20, 30, "Configuration Summary:", "fonts/roboto/Roboto-Bold.ttf", 18.0)
+	addLabel(img, leftIndent+20, 40, "Configuration Summary:", "fonts/roboto/Roboto-Bold.ttf", 18.0)
 	addLabel(img, leftIndent+40, 90, fmt.Sprintf("Duration: %d seconds", int(config.maxDuration.Seconds())), "fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 120, fmt.Sprintf("Num Requests: %d", config.numRequests), "fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 150, fmt.Sprintf("Nodes: %d", len(config.nodeConfigs)), "fonts/roboto/Roboto-Medium.ttf", 16.0)
@@ -214,6 +253,8 @@ func (plt *Plotter_) PlotConfig(filename string) {
 	addLabel(img, leftIndent+40, 240, fmt.Sprintf("Failures: %d", len(config.failures)), "fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 270, fmt.Sprintf("Num Possible Keys: %d", config.numPossibleKeys), "fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 300, fmt.Sprintf("Keyspace Weights: %v", config.keyspacePop), "fonts/roboto/Roboto-Medium.ttf", 16.0)
+	addLabel(img, leftIndent+40, 330, fmt.Sprintf("Cache Default Expiration: %d", config.cacheExpiration), "fonts/roboto/Roboto-Medium.ttf", 16.0)
+	addLabel(img, leftIndent+40, 360, fmt.Sprintf("Cache Cleanup Interval: %d", config.cacheCleanupInterval), "fonts/roboto/Roboto-Medium.ttf", 16.0)
 
 	// Save the image to file
 	saveImage(filename, img)
@@ -371,7 +412,7 @@ func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
 
 func (plt *Plotter_) PlotKeyspacePopularities(fileName string) {
 	start := plt.m.start
-	end := plt.m.end
+	end := plt.end
 	p := plt.keyspace
 	p.Title.Text = "Keyspace Popularity as a Function of Time"
 	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
@@ -412,7 +453,7 @@ func (plt *Plotter_) PlotKeyspacePopularities(fileName string) {
 
 func (plt *Plotter_) PlotNodes(fileName string) {
 	start := plt.m.start
-	end := plt.m.end
+	end := plt.end
 	p := plt.nodeRequests
 	p.Title.Text = "Cache Requests as a Function of Time"
 	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
@@ -453,7 +494,7 @@ func (plt *Plotter_) PlotNodes(fileName string) {
 
 func (plt *Plotter_) PlotCacheSizes(fileName string) {
 	start := plt.m.start
-	end := plt.m.end
+	end := plt.end
 	p := plt.cacheSizes
 	p.Title.Text = "Cache Sizes as a Function of Time"
 	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
@@ -494,7 +535,7 @@ func (plt *Plotter_) PlotCacheSizes(fileName string) {
 
 func (plt *Plotter_) PlotAllRequests(fileName string) {
 	start := plt.m.start
-	end := plt.m.end
+	end := plt.end
 	p := plt.allRequests
 	p.Title.Text = "Total Requests per Second As a Function of Time"
 	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
@@ -583,7 +624,7 @@ func (plt *Plotter_) PlotAllRequests(fileName string) {
 
 func (plt *Plotter_) PlotLatency(fileName string) {
 	start := plt.m.start
-	end := plt.m.end
+	end := plt.end
 	p := plt.latency
 	p.Title.Text = "Request Latency As a Function of Time"
 	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
@@ -665,7 +706,7 @@ func (plt *Plotter_) PlotLatency(fileName string) {
 
 func (plt *Plotter_) PlotCacheHits(fileName string) {
 	start := plt.m.start
-	end := plt.m.end
+	end := plt.end
 	p := plt.cacheHits
 	p.Title.Text = "Cache Hit Ratio as a Function of Time"
 	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
