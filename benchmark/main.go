@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -31,19 +32,22 @@ type benchmark struct {
 	nodeRing             *NodeRing         // node ring for hashing
 	cacheExpiration      int
 	cacheCleanupInterval int
+	metricsPath          string
 }
 
 // getFlags parses command line flags and returns boolean flags
-func getFlags() (bool, string) {
+func getFlags() (bool, string, string) {
 	var local bool
 	var help bool
+	var metricsPath string
 	flag.BoolVar(&help, "help", false, "Display usage")
 	flag.BoolVar(&local, "l", false, "use local ip addresses for cache nodes_config")
+	flag.StringVar(&metricsPath, "mp", "metrics", "path to store metrics")
 
 	flag.Parse()
 
 	if help == true {
-		fmt.Println("Usage: <program> [-help] [-l]")
+		fmt.Println("Usage: <program> [-help] [-l] [-mp]")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -51,7 +55,7 @@ func getFlags() (bool, string) {
 	if local {
 		cr = "local"
 	}
-	return local, cr
+	return local, cr, metricsPath
 }
 
 // makeBenchmark loads and returns the benchmark configuration
@@ -62,7 +66,7 @@ func makeBenchmark() benchmark {
 		fmt.Println("Failed to load config:", err)
 		os.Exit(-1)
 	}
-	_, cr := getFlags()
+	_, cr, metricsPath := getFlags()
 
 	// set up nodes configs
 	nodesConfig := config.Get("cacheNodes")
@@ -118,6 +122,7 @@ func makeBenchmark() benchmark {
 		virtualNodes:         virtualNodes,
 		cacheCleanupInterval: cleanupInterval,
 		cacheExpiration:      expiration,
+		metricsPath:          metricsPath,
 	}
 }
 
@@ -142,7 +147,7 @@ func main() {
 	p := NewPlotter(config.m)
 
 	// context creation for managing the lifecycle of the benchmark
-	//ctx, cancel := context.WithCancel(context.Background())
+	// ctx, cancel := context.WithCancel(context.Background())
 
 	// context will be cancelled after maxDuration
 	ctx, cancel := context.WithTimeout(context.Background(), config.maxDuration)
@@ -158,8 +163,9 @@ func main() {
 
 	go intermediatePlotter(p)
 
-	generateRequests(ctx, config)
-	cancel()
+	// todo prepopulate database
+	go generateRequests(ctx, config)
+	//cancel()
 
 	// wait for the context to be cancelled (i.e., timeout)
 	<-ctx.Done()
@@ -284,25 +290,30 @@ func generateRequests(ctx context.Context, b benchmark) {
 	// create a new Zipf distribution (for generating keys)
 	zip := rand.NewZipf(rand.New(rand.NewSource(42)), 1.07, 2, uint64(sizeOfEachKeyspace))
 
-	//var displayPerSecond = 10 // display progress every 10 seconds
-	//skip := int(math.Round((float64(b.numRequests) / b.maxDuration.Seconds()) / float64(displayPerSecond)))
+	var displayPerSecond = 10 // display progress every 10 seconds
+	skip := int(math.Round((float64(b.numRequests) / b.maxDuration.Seconds()) / float64(displayPerSecond)))
 
 	fmt.Printf("\n")
 
-	for {
+	for i := 0; i < b.numRequests; i++ {
 		// display progress at regular intervals
-		//if i%skip == 0 {
-		//	fmt.Printf("\r%-2d seconds elapsed - %d/%d of requests done.", int(math.Round(float64(time.Since(b.start).Seconds()))), i+1, b.numRequests)
-		//	// fetch cache sizes at twice the interval of progress display
-		//	if i%(skip*2) == 0 {
-		//		go getSizes(b)
-		//	}
-		//}
+		if i%skip == 0 {
+			fmt.Printf("\r%-2d seconds elapsed - %d/%d of requests done.", int(math.Round(float64(time.Since(b.start).Seconds()))), i+1, b.numRequests)
+			// fetch cache sizes at twice the interval of progress display
+			if i%(skip*4) == 0 {
+				go getSizes(b)
+			}
+		}
 
 		// exit the loop if context is done (i.e., timeout or cancel)
 		if ctx.Err() != nil {
 			return
 		}
+
+		//select {
+		//case <-ctx.Done(): // ctx is cancelled so stop the goroutine
+		//	return
+		//}
 
 		// select a keyspace based on the weights and record the request with the metrics object
 		keyspace := selectKeySpace(b.keyspacePop)
@@ -311,17 +322,31 @@ func generateRequests(ctx context.Context, b benchmark) {
 		value := fmt.Sprintf("value-%d", zip.Uint64())      // Create a value for the key
 
 		// execute the request in a new goroutine
+		//if i%10 == 0 {
+		//	go executeRequest(b, key, value)
+		//	// calculate the sleep duration to spread requests randomly and approximately evenly over the run duration
+		//	dif := b.maxDuration.Microseconds() - time.Since(b.start).Microseconds()
+		//	interval := float64(dif) / float64(b.numRequests-i)
+		//	variance := int(math.Round(interval)) + 1 // random variance for the sleep interval
+		//	if variance > 100 {
+		//		ms := float64(rand.Intn(variance*2)) - 1
+		//		wait := time.Duration(ms) * time.Microsecond
+		//		time.Sleep(wait) // sleep for the random duration within the variance
+		//	}
+		//} else {
+		//	go executeRequest(b, key, value)
+		//}
 		go executeRequest(b, key, value)
 
-		//// calculate the sleep duration to spread requests randomly and approximately evenly over the run duration
-		//dif := b.maxDuration.Microseconds() - time.Since(b.start).Microseconds()
-		//interval := float64(dif) / float64(b.numRequests-i)
-		//variance := int(math.Round(interval)) + 1 // random variance for the sleep interval
-		//if variance > 100 {
-		//	ms := float64(rand.Intn(variance*2)) - 1
-		//	wait := time.Duration(ms) * time.Microsecond
-		//	time.Sleep(wait) // sleep for the random duration within the variance
-		//}
+		// calculate the sleep duration to spread requests randomly and approximately evenly over the run duration
+		dif := b.maxDuration.Microseconds() - time.Since(b.start).Microseconds()
+		interval := float64(dif) / float64(b.numRequests-i)
+		variance := int(math.Round(interval)) + 1 // random variance for the sleep interval
+		if variance > 100 {
+			ms := float64(rand.Intn(variance*2)) - 1
+			wait := time.Duration(ms) * time.Microsecond
+			time.Sleep(wait) // sleep for the random duration within the variance
+		}
 	}
 	fmt.Printf("\nDone.\n")
 	return
@@ -330,6 +355,8 @@ func generateRequests(ctx context.Context, b benchmark) {
 // executeRequest determines the node for the key using the nodeRing.hashFunc and sends the request.
 // Also records latency and other metrics for each operation.
 func executeRequest(b benchmark, key string, value string) {
+
+	// todo send requests in batches
 
 	// select a cache node based on node ring hash
 	nodeId := b.nodeRing.GetNode(key)
@@ -427,6 +454,15 @@ func triggerNodeFailureOrRecovery(nodeConfig *bconfig.Config, fail bool) {
 
 // getValue sends a GET request to the cache node and handle cache hit/miss logic
 func getValue(baseURL string, key string, nodeIndex int, db *DbWrapper, b benchmark) bool {
+
+	//requestTime := time.Now()
+	//valueFromDB, successful := db.Get(key)
+	//b.m.AddDatabaseRequest(requestTime, successful)
+	//
+	//if successful && setValue(baseURL, key, valueFromDB, db, false, b) {
+	//	return true
+	//}
+	//return false
 
 	url := fmt.Sprintf("%s/get?key=%s", baseURL, key)
 	resp, err := http.Get(url)

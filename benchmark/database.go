@@ -63,8 +63,8 @@ func (k *DbWrapper) Put(key, value string) bool {
 }
 
 func (k *DbWrapper) Get(key string) (string, bool) {
-	k.concurrency <- struct{}{}        // Wait for permission to proceed
-	defer func() { <-k.concurrency }() // Release the slot when done
+	//k.concurrency <- struct{}{}        // Wait for permission to proceed
+	//defer func() { <-k.concurrency }() // Release the slot when done
 
 	var value string
 	query := fmt.Sprintf("SELECT value FROM %s.%s WHERE key = ? LIMIT 1;", k.keyspace, k.tableName)

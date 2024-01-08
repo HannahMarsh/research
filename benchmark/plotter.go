@@ -92,7 +92,7 @@ func (plt *Plotter_) MakePlots() {
 func (plt *Plotter_) MakePlotsFrom(start time.Time, end time.Time) {
 	plt.end = end
 	plt.start = start
-	var path = "metrics/individual/"
+	var path = plt.m.config.metricsPath + "/individual/"
 	var dbRequests = path + "requests_per_second.png"
 	var allRequests = path + "all_requests_per_second.png"
 	var cacheHits = path + "cache_hit_ratio.png"
