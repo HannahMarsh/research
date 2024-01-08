@@ -8,7 +8,7 @@ COPY go.mod .
 RUN go mod download
 
 # Copy the source code of the cache module
-COPY benchmark/ ./
+COPY bench/ ./
 
 RUN go build -o benchmark
 

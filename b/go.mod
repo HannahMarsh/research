@@ -2,10 +2,6 @@ module benchmark
 
 go 1.21
 
-require benchmark_config v0.0.0
-
-replace benchmark_config => ./config
-
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2
 	github.com/gocql/gocql v1.6.0
@@ -19,7 +15,7 @@ require (
 require (
 	git.sr.ht/~sbinet/gg v0.5.0 // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
-	github.com/campoy/embedmd v1.0.0 // indirect
+	github.com/campoy/embedmd v1.0.0 // indirectref
 	github.com/go-fonts/liberation v0.3.2 // indirect
 	github.com/go-latex/latex v0.0.0-20231108140139-5c1ce85aa4ea // indirect
 	github.com/go-pdf/fpdf v0.9.0 // indirect

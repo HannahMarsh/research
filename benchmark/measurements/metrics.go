@@ -1,4 +1,4 @@
-package main
+package measurements
 
 import (
 	"sort"
@@ -9,7 +9,6 @@ import (
 
 // Metrics holds different metric data for the benchmark
 type Metrics struct {
-	config           benchmark               // configuration for the benchmark
 	start            time.Time               // start time of simulation
 	end              time.Time               // end time of simulation
 	nodeFailures     ThreadSafeSortedMetrics // metric type for node failures
@@ -22,9 +21,8 @@ type Metrics struct {
 }
 
 // NewMetrics initializes a new Metrics struct and returns a pointer to it
-func NewMetrics(start time.Time, end time.Time, config benchmark) *Metrics {
+func NewMetrics(start time.Time, end time.Time) *Metrics {
 	return &Metrics{
-		config:           config,
 		start:            start,
 		end:              end,
 		nodeFailures:     ThreadSafeSortedMetrics{},
