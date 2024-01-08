@@ -14,7 +14,7 @@
 package util
 
 import (
-	bconfig "benchmark_config"
+	bconfig "benchmark/config"
 	"fmt"
 	"sort"
 

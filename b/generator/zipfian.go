@@ -31,7 +31,7 @@
 package generator
 
 import (
-	"benchmark/b/util"
+	"benchmark/util"
 	"fmt"
 	"math"
 	"math/rand"
