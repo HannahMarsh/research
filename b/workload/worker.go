@@ -6,7 +6,6 @@ import (
 	"benchmark/db"
 	"context"
 	"fmt"
-	"github.com/pingcap/go-ycsb/pkg/prop"
 	"log"
 	"math/rand"
 	"os"
@@ -54,9 +53,9 @@ func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workl
 
 	if totalOpCount < int64(threadCount) {
 		fmt.Printf("totalOpCount(%s/%s/%s): %d should be bigger than threadCount: %d",
-			prop.OperationCount,
-			prop.InsertCount,
-			prop.RecordCount,
+			p.OperationCount,
+			p.InsertCount,
+			p.RecordCount,
 			totalOpCount,
 			threadCount)
 
@@ -69,7 +68,7 @@ func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workl
 	}
 
 	targetPerThreadPerms := float64(-1)
-	if v := p.Target; v > 0 {
+	if v := p.TargetOperationsPerSec; v > 0 {
 		targetPerThread := float64(v) / float64(threadCount)
 		targetPerThreadPerms = targetPerThread / 1000.0
 	}

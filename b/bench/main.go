@@ -49,7 +49,7 @@ var (
 	globalProps    *bconfig.Config
 )
 
-func initialGlobal(dbName string, onProperties func()) {
+func initialGlobal(onProperties func()) {
 	var err error
 	globalProps, err = bconfig.NewConfig(propertyFile)
 
@@ -78,7 +78,7 @@ func initialGlobal(dbName string, onProperties func()) {
 	}
 
 	if globalDB, err = db.NewDatabase(globalProps); err != nil {
-		util.Fatalf("create db %s failed %v", dbName, err)
+		util.Fatalf("create db failed: %v", err)
 	}
 	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
 	globalCache = cache.NewCache(globalProps)
@@ -117,8 +117,8 @@ func main() {
 	}()
 
 	rootCmd := &cobra.Command{
-		Use:   "go-ycsb",
-		Short: "Go YCSB",
+		Use:   "go-benchmark",
+		Short: "Go Benchmark",
 	}
 
 	rootCmd.AddCommand(

@@ -43,8 +43,7 @@ func newShellCommand() *cobra.Command {
 var shellContext context.Context
 
 func runShellCommandFunc(cmd *cobra.Command, args []string) {
-	dbName := "cassandra"
-	initialGlobal(dbName, nil)
+	initialGlobal(nil)
 
 	shellContext = globalWorkload.InitThread(globalContext, 0, 1)
 	shellContext = globalDB.InitThread(shellContext, 0, 1)

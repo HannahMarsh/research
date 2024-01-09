@@ -24,9 +24,16 @@ import (
 )
 
 func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool, command string) {
-	dbName := args[0]
 
-	initialGlobal(dbName, func() {
+	// Parse the flags
+	if err := cmd.Flags().Parse(args); err != nil {
+		fmt.Printf("Error parsing flags: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Debug: propertyFile = %s\n", propertyFile)
+
+	initialGlobal(func() {
 		doTransFlag := true
 		if !doTransactions {
 			doTransFlag = false
@@ -40,7 +47,7 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 		}
 
 		if cmd.Flags().Changed("target") {
-			globalProps.Target = int64(targetArg)
+			globalProps.TargetOperationsPerSec = int64(targetArg)
 		}
 
 		if cmd.Flags().Changed("interval") {
@@ -49,12 +56,13 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	})
 
 	fmt.Println("***************** properties *****************")
-	r := reflect.ValueOf(globalProps)
+	r := reflect.ValueOf(globalProps).Elem() // Dereference the pointer to get the struct
 
 	for i := 0; i < r.NumField(); i++ {
 		field := r.Field(i)
-		fmt.Printf("\"%s\"=\"%v\"\n", r.Type().Field(i).Name, field.Interface())
+		fmt.Printf("\t%s = %v\n", r.Type().Field(i).Name, field.Interface())
 	}
+
 	fmt.Println("**********************************************")
 
 	c := client.NewClient(globalProps, globalWorkload, globalDB, globalCache)
@@ -81,6 +89,7 @@ var (
 
 func initClientCommand(m *cobra.Command) {
 	m.Flags().StringVar(&propertyFile, "property_file", "P", "Specify a property file")
+	fmt.Printf("propertyFile: %s\n", propertyFile)
 	m.Flags().StringArrayVarP(&propertyValues, "prop", "p", nil, "Specify a property value with name=value")
 	m.Flags().StringVar(&tableName, "table", "", "Use the table name instead of the default \""+bconfig.TableNameDefault+"\"")
 	m.Flags().IntVar(&threadsArg, "threads", 1, "Execute using n threads - can also be specified as the \"threadcount\" property")
@@ -90,7 +99,7 @@ func initClientCommand(m *cobra.Command) {
 
 func newLoadCommand() *cobra.Command {
 	m := &cobra.Command{
-		Use:   "load db",
+		Use:   "load",
 		Short: "YCSB load benchmark",
 		Args:  cobra.MinimumNArgs(1),
 		Run:   runLoadCommandFunc,
@@ -102,10 +111,10 @@ func newLoadCommand() *cobra.Command {
 
 func newRunCommand() *cobra.Command {
 	m := &cobra.Command{
-		Use:   "run db",
-		Short: "YCSB run benchmark",
-		Args:  cobra.MinimumNArgs(1),
-		Run:   runTransCommandFunc,
+		Use:   "run",
+		Short: "run benchmark",
+		//Args:  cobra.MinimumNArgs(1),
+		Run: runTransCommandFunc,
 	}
 
 	initClientCommand(m)

@@ -54,10 +54,11 @@ type Config struct {
 	Silence                                      bool    `yaml:"Silence"`
 	Status                                       string  `yaml:"Status"`
 	TableName                                    string  `yaml:"TableName"`
-	Target                                       int64   `yaml:"Target"` // target operations per second
+	TargetOperationsPerSec                       int64   `yaml:"TargetOperationsPerSec"` // target operations per second
 	ThreadCount                                  int64   `yaml:"ThreadCount"`
 	UpdateProportion                             float64 `yaml:"UpdateProportion"`
 	Verbose                                      bool    `yaml:"Verbose"`
+	VirtualNodes                                 int64   `yaml:"VirtualNodes"`
 	WarmUpTime                                   int64   `yaml:"WarmUpTime"`
 	Workload                                     string  `yaml:"Workload"`
 	WriteAllFields                               bool    `yaml:"WriteAllFields"`
@@ -70,14 +71,14 @@ func NewConfig(yamlFileName string) (*Config, error) {
 	// initialize with default values
 	defaultConfig := Config{
 		BatchSize:                            1,
-		CassandraCluster:                     "127.0.0.1: 9042",
+		CassandraCluster:                     "127.0.0.1:9042",
 		CassandraConnections:                 2,
 		CassandraKeyspace:                    "test",
 		CassandraPassword:                    "",
 		CassandraUsername:                    "",
 		Command:                              "",
 		DataIntegrity:                        false,
-		DebugPprof:                           ": 6060",
+		DebugPprof:                           ":6060",
 		DoTransactions:                       false,
 		DropData:                             false,
 		ExponentialFrac:                      0.8571428571,
@@ -117,10 +118,11 @@ func NewConfig(yamlFileName string) (*Config, error) {
 		Silence:                                      true,
 		Status:                                       "",
 		TableName:                                    "usertable",
-		Target:                                       500,
+		TargetOperationsPerSec:                       500,
 		ThreadCount:                                  200,
 		UpdateProportion:                             0.05,
 		Verbose:                                      false,
+		VirtualNodes:                                 500,
 		WarmUpTime:                                   0,
 		Workload:                                     "",
 		WriteAllFields:                               false,

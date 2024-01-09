@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -140,7 +141,6 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 	hosts := strings.Split(p.CassandraCluster, ",")
 
 	cluster := gocql.NewCluster(hosts...)
-	cluster.Keyspace = p.CassandraKeyspace
 	d.keySpace = cluster.Keyspace
 
 	cluster.NumConns = p.CassandraConnections
@@ -163,31 +163,49 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 
 	d.bufPool = util.NewBufPool()
 
-	if err := d.createTable(); err != nil {
+	if err := d.createKeyspaceIfNotExists("SimpleStrategy", 1); err != nil {
+		return nil, err
+	}
+
+	cluster.Keyspace = p.CassandraKeyspace
+	d.keySpace = p.CassandraKeyspace
+
+	if err := d.createTableIfNotExists(); err != nil {
 		return nil, err
 	}
 
 	return d, nil
 }
 
-func (db *CassandraDB) createTable() error {
-	tableName := db.p.TableName
+func (k *CassandraDB) createKeyspaceIfNotExists(replicationStrategy string, replicationFactor int) error {
+	query := fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': '%s', 'replication_factor': %d};", k.p.CassandraKeyspace, replicationStrategy, replicationFactor)
 
-	if db.p.DropData {
-		if err := db.session.Query(fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", db.keySpace, tableName)).Exec(); err != nil {
+	if err := k.session.Query(query).Exec(); err != nil {
+		log.Printf("Failed to create keyspace %s: %v", k.p.CassandraKeyspace, err)
+		return err
+	}
+	log.Printf("Keyspace %s created successfully", k.p.CassandraKeyspace)
+	return nil
+}
+
+func (k *CassandraDB) createTableIfNotExists() error {
+	tableName := k.p.TableName
+
+	if k.p.DropData {
+		if err := k.session.Query(fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", k.keySpace, tableName)).Exec(); err != nil {
 			return err
 		}
 	}
 
-	fieldCount := db.p.FieldCount
+	fieldCount := k.p.FieldCount
 
-	db.fieldNames = make([]string, fieldCount)
+	k.fieldNames = make([]string, fieldCount)
 	for i := int64(0); i < fieldCount; i++ {
-		db.fieldNames[i] = fmt.Sprintf("field%d", i)
+		k.fieldNames[i] = fmt.Sprintf("field%d", i)
 	}
 
 	buf := new(bytes.Buffer)
-	s := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s (YCSB_KEY VARCHAR PRIMARY KEY", db.keySpace, tableName)
+	s := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s (key VARCHAR PRIMARY KEY", k.keySpace, tableName)
 	buf.WriteString(s)
 
 	for i := int64(0); i < fieldCount; i++ {
@@ -196,40 +214,40 @@ func (db *CassandraDB) createTable() error {
 
 	buf.WriteString(");")
 
-	if db.verbose {
+	if k.verbose {
 		fmt.Println(buf.String())
 	}
 
-	err := db.session.Query(buf.String()).Exec()
+	err := k.session.Query(buf.String()).Exec()
 	return err
 }
 
-func (db *CassandraDB) Close() error {
-	if db.session == nil {
+func (k *CassandraDB) Close() error {
+	if k.session == nil {
 		return nil
 	}
 
-	db.session.Close()
+	k.session.Close()
 	return nil
 }
 
-func (db *CassandraDB) InitThread(ctx context.Context, _ int, _ int) context.Context {
+func (k *CassandraDB) InitThread(ctx context.Context, _ int, _ int) context.Context {
 	return ctx
 }
 
-func (db *CassandraDB) CleanupThread(_ctx context.Context) {
+func (k *CassandraDB) CleanupThread(_ctx context.Context) {
 
 }
 
-func (db *CassandraDB) Read(ctx context.Context, table string, key string, fields []string) (map[string][]byte, error) {
+func (k *CassandraDB) Read(ctx context.Context, table string, key string, fields []string) (map[string][]byte, error) {
 	var query string
 	if len(fields) == 0 {
-		fields = db.fieldNames
+		fields = k.fieldNames
 	}
 
-	query = fmt.Sprintf(`SELECT %s FROM %s.%s WHERE YCSB_KEY = ?`, strings.Join(fields, ","), db.keySpace, table)
+	query = fmt.Sprintf(`SELECT %s FROM %s.%s WHERE key = ?`, strings.Join(fields, ","), k.keySpace, table)
 
-	if db.verbose {
+	if k.verbose {
 		fmt.Printf("%s\n", query)
 	}
 
@@ -240,7 +258,7 @@ func (db *CassandraDB) Read(ctx context.Context, table string, key string, field
 		dest[i] = v
 	}
 
-	err := db.session.Query(query, key).WithContext(ctx).Scan(dest...)
+	err := k.session.Query(query, key).WithContext(ctx).Scan(dest...)
 	if err == gocql.ErrNotFound {
 		return nil, nil
 	} else if err != nil {
@@ -254,27 +272,27 @@ func (db *CassandraDB) Read(ctx context.Context, table string, key string, field
 	return m, nil
 }
 
-func (db *CassandraDB) Scan(ctx context.Context, table string, startKey string, count int, fields []string) ([]map[string][]byte, error) {
+func (k *CassandraDB) Scan(ctx context.Context, table string, startKey string, count int, fields []string) ([]map[string][]byte, error) {
 	return nil, fmt.Errorf("scan is not supported")
 }
 
-func (db *CassandraDB) execQuery(ctx context.Context, query string, args ...interface{}) error {
-	if db.verbose {
+func (k *CassandraDB) execQuery(ctx context.Context, query string, args ...interface{}) error {
+	if k.verbose {
 		fmt.Printf("%s %v\n", query, args)
 	}
 
-	err := db.session.Query(query, args...).WithContext(ctx).Exec()
+	err := k.session.Query(query, args...).WithContext(ctx).Exec()
 	return err
 }
 
-func (db *CassandraDB) Update(ctx context.Context, table string, key string, values map[string][]byte) error {
-	buf := bytes.NewBuffer(db.bufPool.Get())
+func (k *CassandraDB) Update(ctx context.Context, table string, key string, values map[string][]byte) error {
+	buf := bytes.NewBuffer(k.bufPool.Get())
 	defer func() {
-		db.bufPool.Put(buf.Bytes())
+		k.bufPool.Put(buf.Bytes())
 	}()
 
 	buf.WriteString("UPDATE ")
-	buf.WriteString(fmt.Sprintf("%s.%s", db.keySpace, table))
+	buf.WriteString(fmt.Sprintf("%s.%s", k.keySpace, table))
 	buf.WriteString(" SET ")
 	firstField := true
 	pairs := util.NewFieldPairs(values)
@@ -290,25 +308,25 @@ func (db *CassandraDB) Update(ctx context.Context, table string, key string, val
 		buf.WriteString(`= ?`)
 		args = append(args, p.Value)
 	}
-	buf.WriteString(" WHERE YCSB_KEY = ?")
+	buf.WriteString(" WHERE key = ?")
 
 	args = append(args, key)
 
-	return db.execQuery(ctx, buf.String(), args...)
+	return k.execQuery(ctx, buf.String(), args...)
 }
 
-func (db *CassandraDB) Insert(ctx context.Context, table string, key string, values map[string][]byte) error {
+func (k *CassandraDB) Insert(ctx context.Context, table string, key string, values map[string][]byte) error {
 	args := make([]interface{}, 0, 1+len(values))
 	args = append(args, key)
 
-	buf := bytes.NewBuffer(db.bufPool.Get())
+	buf := bytes.NewBuffer(k.bufPool.Get())
 	defer func() {
-		db.bufPool.Put(buf.Bytes())
+		k.bufPool.Put(buf.Bytes())
 	}()
 
 	buf.WriteString("INSERT INTO ")
-	buf.WriteString(fmt.Sprintf("%s.%s", db.keySpace, table))
-	buf.WriteString(" (YCSB_KEY")
+	buf.WriteString(fmt.Sprintf("%s.%s", k.keySpace, table))
+	buf.WriteString(" (key")
 
 	pairs := util.NewFieldPairs(values)
 	for _, p := range pairs {
@@ -324,11 +342,11 @@ func (db *CassandraDB) Insert(ctx context.Context, table string, key string, val
 
 	buf.WriteByte(')')
 
-	return db.execQuery(ctx, buf.String(), args...)
+	return k.execQuery(ctx, buf.String(), args...)
 }
 
-func (db *CassandraDB) Delete(ctx context.Context, table string, key string) error {
-	query := fmt.Sprintf(`DELETE FROM %s.%s WHERE YCSB_KEY = ?`, db.keySpace, table)
+func (k *CassandraDB) Delete(ctx context.Context, table string, key string) error {
+	query := fmt.Sprintf(`DELETE FROM %s.%s WHERE key = ?`, k.keySpace, table)
 
-	return db.execQuery(ctx, query, key)
+	return k.execQuery(ctx, query, key)
 }

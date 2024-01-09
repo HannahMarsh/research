@@ -33,13 +33,13 @@ MaxScanLength: 1000
 MeasurementRawOutputFile: ""
 MeasurementType: "histogram"
 MinScanLength: 1
-OperationCount: 0
+OperationCount: 10000
 OutputStyle: ""
 PasswordAuthenticator: false
 ReadAllFields: true
 ReadModifyWriteProportion: 0.0
 ReadProportion: 0.95
-RecordCount: 0
+RecordCount: 100000
 RequestDistribution: "uniform"
 ScanLengthDistribution: "uniform"
 ScanProportion: 0.0
@@ -50,6 +50,7 @@ Target: 500
 ThreadCount: 200
 UpdateProportion: 0.05
 Verbose: false
+VirtualNodes: 500
 WarmUpTime: 0
 Workload: ""
 WriteAllFields: false
