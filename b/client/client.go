@@ -1,6 +1,7 @@
 package client
 
 import (
+	"benchmark/cache"
 	bconfig "benchmark/config"
 	"benchmark/db"
 	"benchmark/measurement"
@@ -15,12 +16,13 @@ type Client struct {
 	p        *properties.Properties
 	workload *workload.Workload
 	db       db.DB
+	cache    *cache.Cache
 }
 
 // NewClient returns a client with the given workload and DB.
 // The workload and db can't be nil.
-func NewClient(p *properties.Properties, workload *workload.Workload, db db.DB) *Client {
-	return &Client{p: p, workload: workload, db: db}
+func NewClient(p *properties.Properties, workload *workload.Workload, db db.DB, cache_ *cache.Cache) *Client {
+	return &Client{p: p, workload: workload, db: db, cache: cache_}
 }
 
 // Run runs the workload to the target DB, and blocks until all workers end.
@@ -65,7 +67,7 @@ func (c *Client) Run(ctx context.Context) {
 		go func(threadId int) {
 			defer wg.Done()
 
-			w := workload.NewWorker(c.p, threadId, threadCount, c.workload, c.db)
+			w := workload.NewWorker(c.p, threadId, threadCount, c.workload, c.db, c.cache)
 			ctx := c.workload.InitThread(ctx, threadId, threadCount)
 			ctx = c.db.InitThread(ctx, threadId, threadCount)
 			w.Run(ctx)

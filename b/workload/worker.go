@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"benchmark/cache"
 	"benchmark/db"
 	"context"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 type worker struct {
 	p               *properties.Properties
 	workDB          db.DB
+	cache           *cache.Cache
 	workload        *Workload
 	doTransactions  bool
 	doBatch         bool
@@ -26,7 +28,7 @@ type worker struct {
 	opsDone         int64
 }
 
-func NewWorker(p *properties.Properties, threadID int, threadCount int, workload *Workload, db db.DB) *worker {
+func NewWorker(p *properties.Properties, threadID int, threadCount int, workload *Workload, db db.DB, cache *cache.Cache) *worker {
 	w := new(worker)
 	w.p = p
 	w.doTransactions = p.GetBool(prop.DoTransactions, true)
@@ -37,6 +39,7 @@ func NewWorker(p *properties.Properties, threadID int, threadCount int, workload
 	w.threadID = threadID
 	w.workload = workload
 	w.workDB = db
+	w.cache = cache
 
 	var totalOpCount int64
 	if w.doTransactions {
@@ -108,17 +111,17 @@ func (w *worker) Run(ctx context.Context) {
 		opsCount := 1
 		if w.doTransactions {
 			if w.doBatch {
-				err = w.workload.DoBatchTransaction(ctx, w.batchSize, w.workDB)
+				err = w.workload.DoBatchTransaction(ctx, w.batchSize, w.workDB, w.cache)
 				opsCount = w.batchSize
 			} else {
-				err = w.workload.DoTransaction(ctx, w.workDB)
+				err = w.workload.DoTransaction(ctx, w.workDB, w.cache)
 			}
 		} else {
 			if w.doBatch {
-				err = w.workload.DoBatchInsert(ctx, w.batchSize, w.workDB)
+				err = w.workload.DoBatchInsert(ctx, w.batchSize, w.workDB, w.cache)
 				opsCount = w.batchSize
 			} else {
-				err = w.workload.DoInsert(ctx, w.workDB)
+				err = w.workload.DoInsert(ctx, w.workDB, w.cache)
 			}
 		}
 

@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"benchmark/cache"
 	bconfig "benchmark/config"
 	"benchmark/db"
 	"benchmark/generator"
@@ -324,7 +325,7 @@ func (c *Workload) verifyRow(state *WorkloadState, key string, values map[string
 	}
 }
 
-func (c *Workload) DoInsert(ctx context.Context, db db.DB) error {
+func (c *Workload) DoInsert(ctx context.Context, db db.DB, cache_ *cache.Cache) error {
 	state := ctx.Value(stateKey).(*WorkloadState)
 	r := state.r
 	keyNum := c.keySequence.Next(r)
@@ -337,6 +338,11 @@ func (c *Workload) DoInsert(ctx context.Context, db db.DB) error {
 	var err error
 	for {
 		err = db.Insert(ctx, c.table, dbKey, values)
+		if err != nil {
+			break
+		}
+
+		err = cache_.Set(ctx, dbKey, values)
 		if err != nil {
 			break
 		}
@@ -366,7 +372,7 @@ func (c *Workload) DoInsert(ctx context.Context, db db.DB) error {
 	return err
 }
 
-func (c *Workload) DoBatchInsert(ctx context.Context, batchSize int, d db.DB) error {
+func (c *Workload) DoBatchInsert(ctx context.Context, batchSize int, d db.DB, cache_ *cache.Cache) error {
 	batchDB, ok := d.(db.BatchDB)
 	if !ok {
 		return fmt.Errorf("the %T does't implement the batchDB interface", d)
@@ -395,6 +401,14 @@ func (c *Workload) DoBatchInsert(ctx context.Context, batchSize int, d db.DB) er
 			break
 		}
 
+		// Update the cache with the new values after a successful database insert
+		for i, key := range keys {
+			err = cache_.Set(ctx, key, values[i])
+			if err != nil {
+				//break
+			}
+		}
+
 		select {
 		case <-ctx.Done():
 			if ctx.Err() == context.Canceled {
@@ -419,7 +433,7 @@ func (c *Workload) DoBatchInsert(ctx context.Context, batchSize int, d db.DB) er
 	return err
 }
 
-func (c *Workload) DoBatchTransaction(ctx context.Context, batchSize int, d db.DB) error {
+func (c *Workload) DoBatchTransaction(ctx context.Context, batchSize int, d db.DB, cache_ *cache.Cache) error {
 	batchDB, ok := d.(db.BatchDB)
 	if !ok {
 		return fmt.Errorf("the %T does't implement the batchDB interface", d)
@@ -430,13 +444,13 @@ func (c *Workload) DoBatchTransaction(ctx context.Context, batchSize int, d db.D
 	operation := operationType(c.operationChooser.Next(r))
 	switch operation {
 	case read:
-		return c.doBatchTransactionRead(ctx, batchSize, batchDB, state)
+		return c.doBatchTransactionRead(ctx, batchSize, batchDB, cache_, state)
 	case insert:
-		return c.doBatchTransactionInsert(ctx, batchSize, batchDB, state)
+		return c.doBatchTransactionInsert(ctx, batchSize, batchDB, cache_, state)
 	case update:
-		return c.doBatchTransactionUpdate(ctx, batchSize, batchDB, state)
+		return c.doBatchTransactionUpdate(ctx, batchSize, batchDB, cache_, state)
 	case scan:
-		panic("The batch mode don't support the scan operation")
+		panic("The batch mode doesn't support the scan operation")
 	default:
 		return nil
 	}
@@ -456,7 +470,7 @@ func (c *Workload) nextKeyNum(state *WorkloadState) int64 {
 	return keyNum
 }
 
-func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, state *WorkloadState) error {
+func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
 	r := state.r
 	keyNum := c.nextKeyNum(state)
 	keyName := c.buildKeyName(keyNum)
@@ -469,7 +483,24 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, state *Workl
 		fields = state.fieldNames
 	}
 
+	// First, attempt to get the value from the cache
+	cachedValue, err := cache_.Get(ctx, keyName, fields)
+	if err == nil && cachedValue != nil {
+		// Cache hit, use the cachedValue
+		// todo  handle the cached value
+		if c.dataIntegrity {
+			c.verifyRow(state, keyName, cachedValue)
+		}
+		return nil
+	}
+
+	// cache miss
 	values, err := db.Read(ctx, c.table, keyName, fields)
+	if err != nil {
+		return err
+	}
+
+	err = cache_.Set(ctx, keyName, values)
 	if err != nil {
 		return err
 	}
@@ -481,7 +512,7 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, state *Workl
 	return nil
 }
 
-func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, state *WorkloadState) error {
+func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
 	start := time.Now()
 	defer func() {
 		measurement.Measure("READ_MODIFY_WRITE", start, time.Now().Sub(start))
@@ -515,6 +546,9 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, s
 	if err := db.Update(ctx, c.table, keyName, values); err != nil {
 		return err
 	}
+	if err := cache_.Set(ctx, keyName, values); err != nil {
+		return err
+	}
 
 	if c.dataIntegrity {
 		c.verifyRow(state, keyName, readValues)
@@ -523,7 +557,7 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, s
 	return nil
 }
 
-func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, state *WorkloadState) error {
+func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
 	r := state.r
 	keyNum := c.transactionInsertKeySequence.Next(r)
 	defer c.transactionInsertKeySequence.Acknowledge(keyNum)
@@ -531,10 +565,17 @@ func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, state *Wor
 	values := c.buildValues(state, dbKey)
 	defer c.putValues(values)
 
-	return db.Insert(ctx, c.table, dbKey, values)
+	if err := db.Insert(ctx, c.table, dbKey, values); err != nil {
+		return err
+	}
+	if err := cache_.Set(ctx, dbKey, values); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, state *WorkloadState) error {
+// If all keys are in the cache, it uses those values. However, if any key is missing, it should perform a scan operation on the database for the entire range.
+func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
 	r := state.r
 	keyNum := c.nextKeyNum(state)
 	startKeyName := c.buildKeyName(keyNum)
@@ -549,31 +590,68 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, state *Workl
 		fields = state.fieldNames
 	}
 
-	_, err := db.Scan(ctx, c.table, startKeyName, int(scanLen), fields)
+	// Check if the range is in the cache
+	values := make([]map[string][]byte, 0, int(scanLen))
+	cacheMiss := false
+	for i := 0; i < int(scanLen); i++ {
+		keyName := c.buildKeyName(keyNum + int64(i))
+		value, err := cache_.Get(ctx, keyName, fields)
+		if err != nil || value == nil {
+			// Cache miss detected
+			cacheMiss = true
+			break
+		}
+		values = append(values, value)
+		if c.dataIntegrity {
+			c.verifyRow(state, keyName, value)
+		}
+	}
 
-	return err
+	if cacheMiss {
+		// Perform the scan in the database if any key is not in cache
+		dbValues, err := db.Scan(ctx, c.table, startKeyName, int(scanLen), fields)
+		if err != nil {
+			return err
+		}
+		values = dbValues // Use values from the database
+
+		// update the cache with the new values from the database
+		for _, value := range dbValues {
+			key := value["key"] // todo is "key" the identifier in the returned map?
+			cacheErr := cache_.Set(ctx, string(key), value)
+			if cacheErr != nil {
+				//log.Printf("Failed to update cache for key %s: %v", string(key), cacheErr)
+			}
+		}
+	}
+
+	return nil
+
+	// if _, err := db.Scan(ctx, c.table, startKeyName, int(scanLen), fields); err != nil {
+	//		return err
+	//	}
 }
 
-func (c *Workload) DoTransaction(ctx context.Context, db db.DB) error {
+func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ *cache.Cache) error {
 	state := ctx.Value(stateKey).(*WorkloadState)
 	r := state.r
 
 	operation := operationType(c.operationChooser.Next(r))
 	switch operation {
 	case read:
-		return c.doTransactionRead(ctx, db, state)
+		return c.doTransactionRead(ctx, db, cache_, state)
 	case update:
-		return c.doTransactionUpdate(ctx, db, state)
+		return c.doTransactionUpdate(ctx, db, cache_, state)
 	case insert:
-		return c.doTransactionInsert(ctx, db, state)
+		return c.doTransactionInsert(ctx, db, cache_, state)
 	case scan:
-		return c.doTransactionScan(ctx, db, state)
+		return c.doTransactionScan(ctx, db, cache_, state)
 	default:
-		return c.doTransactionReadModifyWrite(ctx, db, state)
+		return c.doTransactionReadModifyWrite(ctx, db, cache_, state)
 	}
 }
 
-func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, state *WorkloadState) error {
+func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
 	keyNum := c.nextKeyNum(state)
 	keyName := c.buildKeyName(keyNum)
 
@@ -586,10 +664,22 @@ func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, state *Wor
 
 	defer c.putValues(values)
 
-	return db.Update(ctx, c.table, keyName, values)
+	// Perform the update to the database
+	err := db.Update(ctx, c.table, keyName, values)
+	if err != nil {
+		return err
+	}
+
+	// Update the cache with the new values after a successful database insert
+	cacheErr := cache_.Set(ctx, keyName, values)
+	if cacheErr != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db db.BatchDB, state *WorkloadState) error {
+func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db db.BatchDB, cache_ *cache.Cache, state *WorkloadState) error {
 	r := state.r
 	var fields []string
 
@@ -605,16 +695,52 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 		keys[i] = c.buildKeyName(c.nextKeyNum(state))
 	}
 
-	_, err := db.BatchRead(ctx, c.table, keys, fields)
-	if err != nil {
-		return err
+	// Prepare the slice for cache misses
+	cacheMissKeys := make([]string, 0, batchSize)
+	values := make([]map[string][]byte, 0, batchSize)
+
+	// Attempt to get the value from the cache
+	for _, key := range keys {
+		cachedValue, err := cache_.Get(ctx, key, fields)
+		if err == nil && cachedValue != nil {
+			// Cache hit, use the cachedValue
+			values = append(values, cachedValue)
+			if c.dataIntegrity {
+				// Verify the integrity of the cached value
+				c.verifyRow(state, key, cachedValue)
+			}
+		} else if err != nil {
+			// If an error occurred while fetching from cache, handle it
+			return err
+		} else {
+			// Cache miss, add this key to the list of misses
+			cacheMissKeys = append(cacheMissKeys, key)
+		}
 	}
 
-	// TODO should we verify the result?
+	// If there were cache misses, read from the database
+	if len(cacheMissKeys) > 0 {
+		dbValues, err := db.BatchRead(ctx, c.table, cacheMissKeys, fields)
+		if err != nil {
+			return err
+		}
+
+		// Add database read values to the total values
+		values = append(values, dbValues...)
+
+		if c.dataIntegrity {
+			// Verify the integrity of the values read from the database
+			for _, dbValue := range dbValues {
+				key := dbValue["key"] // Assuming "key" is the identifier in the returned map
+				c.verifyRow(state, string(key), dbValue)
+			}
+		}
+	}
+
 	return nil
 }
 
-func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, db db.BatchDB, state *WorkloadState) error {
+func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, db db.BatchDB, cache_ *cache.Cache, state *WorkloadState) error {
 	r := state.r
 	keys := make([]string, batchSize)
 	values := make([]map[string][]byte, batchSize)
@@ -636,10 +762,24 @@ func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, 
 		}
 	}()
 
-	return db.BatchInsert(ctx, c.table, keys, values)
+	// Perform the batch insert to the database
+	err := db.BatchInsert(ctx, c.table, keys, values)
+	if err != nil {
+		return err
+	}
+
+	// Update the cache with the new values after a successful database insert
+	for i, key := range keys {
+		cacheErr := cache_.Set(ctx, key, values[i])
+		if cacheErr != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, db db.BatchDB, state *WorkloadState) error {
+func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, db db.BatchDB, cache_ *cache.Cache, state *WorkloadState) error {
 	keys := make([]string, batchSize)
 	values := make([]map[string][]byte, batchSize)
 	for i := 0; i < batchSize; i++ {
@@ -659,5 +799,19 @@ func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, 
 		}
 	}()
 
-	return db.BatchUpdate(ctx, c.table, keys, values)
+	// Perform the batch update to the database
+	err := db.BatchUpdate(ctx, c.table, keys, values)
+	if err != nil {
+		return err
+	}
+
+	// Update the cache with the new values after a successful database update
+	for i, key := range keys {
+		cacheErr := cache_.Set(ctx, key, values[i])
+		if cacheErr != nil {
+			return err
+		}
+	}
+
+	return nil
 }
