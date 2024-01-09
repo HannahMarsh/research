@@ -147,9 +147,11 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 	cluster.Timeout = 30 * time.Second
 	cluster.Consistency = gocql.Quorum
 
-	username := p.CassandraUsername
-	password := p.CassandraPassword
-	cluster.Authenticator = gocql.PasswordAuthenticator{Username: username, Password: password}
+	if p.PasswordAuthenticator {
+		username := p.CassandraUsername
+		password := p.CassandraPassword
+		cluster.Authenticator = gocql.PasswordAuthenticator{Username: username, Password: password}
+	}
 
 	session, err := cluster.CreateSession()
 	if err != nil {

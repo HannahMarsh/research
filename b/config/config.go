@@ -56,6 +56,7 @@ type Config struct {
 	OutputStyle                                  string  `yaml:"OutputStyle"`
 	MeasurementHistogramPercentileExport         bool    `yaml:"HistogramPercentilesExport"`
 	MeasurementHistogramPercentileExportFilepath string  `yaml:"HistogramPercentilesExportFilepath"`
+	PasswordAuthenticator                        bool    `yaml:"PasswordAuthenticator"`
 	CassandraCluster                             string  `yaml:"CassandraCluster"`
 	CassandraKeyspace                            string  `yaml:"CassandraKeyspace"`
 	CassandraConnections                         int     `yaml:"CassandraConnections"`
@@ -118,11 +119,12 @@ func NewConfig(yamlFileName string) (*Config, error) {
 		OutputStyle:                          "plain",
 		MeasurementHistogramPercentileExport: false,
 		MeasurementHistogramPercentileExportFilepath: "./",
-		CassandraCluster:     "127.0.0.1:9042",
-		CassandraKeyspace:    "test",
-		CassandraConnections: 2,
-		CassandraUsername:    "cassandra",
-		CassandraPassword:    "cassandra",
+		PasswordAuthenticator:                        false,
+		CassandraCluster:                             "127.0.0.1:9042",
+		CassandraKeyspace:                            "test",
+		CassandraConnections:                         2,
+		CassandraUsername:                            "",
+		CassandraPassword:                            "",
 	}
 
 	// Read YAML file

@@ -48,8 +48,9 @@ Command: ""
 OutputStyle: ""
 HistogramPercentilesExport: false
 HistogramPercentilesExportFilepath: "./"
+PasswordAuthenticator: false
 CassandraCluster: "127.0.0.1:9042"
 CassandraKeyspace: "test"
 CassandraConnections: 2
-CassandraUsername: "cassandra"
-CassandraPassword: "cassandra"
+CassandraUsername: ""
+CassandraPassword: ""
