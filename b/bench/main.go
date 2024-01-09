@@ -14,6 +14,7 @@
 package main
 
 import (
+	"benchmark/cache"
 	"benchmark/client"
 	bconfig "benchmark/config"
 	"benchmark/db"
@@ -22,16 +23,12 @@ import (
 	"benchmark/workload"
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
-
-	"github.com/magiconair/properties"
 
 	// Register workload
 
@@ -39,54 +36,42 @@ import (
 )
 
 var (
-	propertyFiles  []string
+	propertyFile   string
 	propertyValues []string
-	dbName         string
 	tableName      string
 
 	globalContext context.Context
 	globalCancel  context.CancelFunc
 
 	globalDB       db.DB
+	globalCache    *cache.Cache
 	globalWorkload *workload.Workload
-	globalProps    *properties.Properties
+	globalProps    *bconfig.Config
 )
 
 func initialGlobal(dbName string, onProperties func()) {
-	globalProps = properties.NewProperties()
-	if len(propertyFiles) > 0 {
-		globalProps = properties.MustLoadFiles(propertyFiles, properties.UTF8, false)
-	}
-
-	for _, prop := range propertyValues {
-		seps := strings.SplitN(prop, "=", 2)
-		if len(seps) != 2 {
-			log.Fatalf("bad property: `%s`, expected format `name=value`", prop)
-		}
-		globalProps.Set(seps[0], seps[1])
-	}
+	var err error
+	globalProps, err = bconfig.NewConfig(propertyFile)
 
 	if onProperties != nil {
 		onProperties()
 	}
 
-	addr := globalProps.GetString(bconfig.DebugPprof, bconfig.DebugPprofDefault)
+	addr := globalProps.DebugPprof
 	go func() {
-		http.ListenAndServe(addr, nil)
+		err := http.ListenAndServe(addr, nil)
+		if err != nil {
+			panic(err)
+		}
 	}()
 
 	measurement.InitMeasure(globalProps)
 
 	if len(tableName) == 0 {
-		tableName = globalProps.GetString(bconfig.TableName, bconfig.TableNameDefault)
-	}
-	var err error
-
-	if _, _, err = globalProps.Set(bconfig.TableName, tableName); err != nil {
-		panic(err)
+		tableName = globalProps.TableName
 	}
 
-	workloadName := globalProps.GetString(bconfig.Workload, "core")
+	workloadName := globalProps.Workload
 
 	if globalWorkload, err = workload.NewWorkload(globalProps); err != nil {
 		util.Fatalf("create workload %s failed %v", workloadName, err)
@@ -95,10 +80,14 @@ func initialGlobal(dbName string, onProperties func()) {
 	if globalDB, err = db.NewDatabase(globalProps); err != nil {
 		util.Fatalf("create db %s failed %v", dbName, err)
 	}
-	globalDB = client.DbWrapper{DB: globalDB}
+	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
+	globalCache = cache.NewCache(globalProps)
+
+	// todo add each cache node from config
 }
 
 func main() {
+
 	globalContext, globalCancel = context.WithCancel(context.Background())
 
 	sc := make(chan os.Signal, 1)

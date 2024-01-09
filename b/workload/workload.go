@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/magiconair/properties"
 	"math"
 	"math/rand"
 	_ "os"
@@ -21,7 +20,7 @@ import (
 )
 
 type Workload struct {
-	p *properties.Properties
+	p *bconfig.Config
 
 	table      string
 	fieldCount int64
@@ -67,42 +66,42 @@ const (
 const stateKey = contextKey("core")
 
 // Create implements the WorkloadCreator Create interface.
-func NewWorkload(p *properties.Properties) (*Workload, error) {
+func NewWorkload(p *bconfig.Config) (*Workload, error) {
 	c := new(Workload)
 	c.p = p
-	c.table = p.GetString(bconfig.TableName, bconfig.TableNameDefault)
-	c.fieldCount = p.GetInt64(bconfig.FieldCount, bconfig.FieldCountDefault)
+	c.table = p.TableName
+	c.fieldCount = p.FieldCount
 	c.fieldNames = make([]string, c.fieldCount)
 	for i := int64(0); i < c.fieldCount; i++ {
 		c.fieldNames[i] = fmt.Sprintf("field%d", i)
 	}
 	c.fieldLengthGenerator = getFieldLengthGenerator(p)
-	c.recordCount = p.GetInt64(bconfig.RecordCount, bconfig.RecordCountDefault)
+	c.recordCount = p.RecordCount
 	if c.recordCount == 0 {
 		c.recordCount = int64(math.MaxInt32)
 	}
 
-	requestDistrib := p.GetString(bconfig.RequestDistribution, bconfig.RequestDistributionDefault)
-	minScanLength := p.GetInt64(bconfig.MinScanLength, bconfig.MinScanLengthDefault)
-	maxScanLength := p.GetInt64(bconfig.MaxScanLength, bconfig.MaxScanLengthDefault)
-	scanLengthDistrib := p.GetString(bconfig.ScanLengthDistribution, bconfig.ScanLengthDistributionDefault)
+	requestDistrib := p.RequestDistribution
+	minScanLength := p.MinScanLength
+	maxScanLength := p.MaxScanLength
+	scanLengthDistrib := p.ScanLengthDistribution
 
-	insertStart := p.GetInt64(bconfig.InsertStart, bconfig.InsertStartDefault)
-	insertCount := p.GetInt64(bconfig.InsertCount, c.recordCount-insertStart)
+	insertStart := p.InsertStart
+	insertCount := p.InsertCount
 	if c.recordCount < insertStart+insertCount {
 		util.Fatalf("record count %d must be bigger than insert start %d + count %d",
 			c.recordCount, insertStart, insertCount)
 	}
-	c.zeroPadding = p.GetInt64(bconfig.ZeroPadding, bconfig.ZeroPaddingDefault)
-	c.readAllFields = p.GetBool(bconfig.ReadAllFields, bconfig.ReadALlFieldsDefault)
-	c.writeAllFields = p.GetBool(bconfig.WriteAllFields, bconfig.WriteAllFieldsDefault)
-	c.dataIntegrity = p.GetBool(bconfig.DataIntegrity, bconfig.DataIntegrityDefault)
-	fieldLengthDistribution := p.GetString(bconfig.FieldLengthDistribution, bconfig.FieldLengthDistributionDefault)
+	c.zeroPadding = p.ZeroPadding
+	c.readAllFields = p.ReadAllFields
+	c.writeAllFields = p.WriteAllFields
+	c.dataIntegrity = p.DataIntegrity
+	fieldLengthDistribution := p.FieldLengthDistribution
 	if c.dataIntegrity && fieldLengthDistribution != "constant" {
 		util.Fatal("must have constant field size to check data integrity")
 	}
 
-	if p.GetString(bconfig.InsertOrder, bconfig.InsertOrderDefault) == "hashed" {
+	if p.InsertOrder == "hashed" {
 		c.orderedInserts = false
 	} else {
 		c.orderedInserts = true
@@ -120,20 +119,20 @@ func NewWorkload(p *properties.Properties) (*Workload, error) {
 	case "sequential":
 		c.keyChooser = generator.NewSequential(keyrangeLowerBound, keyrangeUpperBound)
 	case "zipfian":
-		insertProportion := p.GetFloat64(bconfig.InsertProportion, bconfig.InsertProportionDefault)
-		opCount := p.GetInt64(bconfig.OperationCount, 0)
+		insertProportion := p.InsertProportion
+		opCount := p.OperationCount
 		expectedNewKeys := int64(float64(opCount) * insertProportion * 2.0)
 		keyrangeUpperBound = insertStart + insertCount + expectedNewKeys
 		c.keyChooser = generator.NewScrambledZipfian(keyrangeLowerBound, keyrangeUpperBound, generator.ZipfianConstant)
 	case "latest":
 		c.keyChooser = generator.NewSkewedLatest(&c.transactionInsertKeySequence)
 	case "hotspot":
-		hotsetFraction := p.GetFloat64(bconfig.HotspotDataFraction, bconfig.HotspotDataFractionDefault)
-		hotopnFraction := p.GetFloat64(bconfig.HotspotOpnFraction, bconfig.HotspotOpnFractionDefault)
+		hotsetFraction := p.HotspotDataFraction
+		hotopnFraction := p.HotspotOpnFraction
 		c.keyChooser = generator.NewHotspot(keyrangeLowerBound, keyrangeUpperBound, hotsetFraction, hotopnFraction)
 	case "exponential":
-		percentile := p.GetFloat64(bconfig.ExponentialPercentile, bconfig.ExponentialPercentileDefault)
-		frac := p.GetFloat64(bconfig.ExponentialFrac, bconfig.ExponentialFracDefault)
+		percentile := p.ExponentialPercentile
+		frac := p.ExponentialFrac
 		c.keyChooser = generator.NewExponential(percentile, float64(c.recordCount)*frac)
 	default:
 		util.Fatalf("unknown request distribution %s", requestDistrib)
@@ -150,10 +149,10 @@ func NewWorkload(p *properties.Properties) (*Workload, error) {
 		util.Fatalf("distribution %s not allowed for scan length", scanLengthDistrib)
 	}
 
-	c.insertionRetryLimit = p.GetInt64(bconfig.InsertionRetryLimit, bconfig.InsertionRetryLimitDefault)
-	c.insertionRetryInterval = p.GetInt64(bconfig.InsertionRetryInterval, bconfig.InsertionRetryIntervalDefault)
+	c.insertionRetryLimit = p.InsertionRetryLimit
+	c.insertionRetryInterval = p.InsertionRetryInterval
 
-	fieldLength := p.GetInt64(bconfig.FieldLength, bconfig.FieldLengthDefault)
+	fieldLength := p.FieldLength
 	c.valuePool = sync.Pool{
 		New: func() interface{} {
 			return make([]byte, fieldLength)
@@ -163,11 +162,11 @@ func NewWorkload(p *properties.Properties) (*Workload, error) {
 	return c, nil
 }
 
-func getFieldLengthGenerator(p *properties.Properties) generator.Generator {
+func getFieldLengthGenerator(p *bconfig.Config) generator.Generator {
 	var fieldLengthGenerator generator.Generator
-	fieldLengthDistribution := p.GetString(bconfig.FieldLengthDistribution, bconfig.FieldLengthDistributionDefault)
-	fieldLength := p.GetInt64(bconfig.FieldLength, bconfig.FieldLengthDefault)
-	fieldLengthHistogram := p.GetString(bconfig.FieldLengthHistogramFile, bconfig.FieldLengthHistogramFileDefault)
+	fieldLengthDistribution := p.FieldLengthDistribution
+	fieldLength := p.FieldLength
+	fieldLengthHistogram := p.FieldLengthHistogramFile
 
 	switch strings.ToLower(fieldLengthDistribution) {
 	case "constant":
@@ -185,12 +184,12 @@ func getFieldLengthGenerator(p *properties.Properties) generator.Generator {
 	return fieldLengthGenerator
 }
 
-func createOperationGenerator(p *properties.Properties) generator.Discrete {
-	readProportion := p.GetFloat64(bconfig.ReadProportion, bconfig.ReadProportionDefault)
-	updateProportion := p.GetFloat64(bconfig.UpdateProportion, bconfig.UpdateProportionDefault)
-	insertProportion := p.GetFloat64(bconfig.InsertProportion, bconfig.InsertProportionDefault)
-	scanProportion := p.GetFloat64(bconfig.ScanProportion, bconfig.ScanProportionDefault)
-	readModifyWriteProportion := p.GetFloat64(bconfig.ReadModifyWriteProportion, bconfig.ReadModifyWriteProportionDefault)
+func createOperationGenerator(p *bconfig.Config) generator.Discrete {
+	readProportion := p.ReadProportion
+	updateProportion := p.UpdateProportion
+	insertProportion := p.InsertProportion
+	scanProportion := p.ScanProportion
+	readModifyWriteProportion := p.ReadModifyWriteProportion
 
 	operationChooser := generator.NewDiscrete()
 	if readProportion > 0 {

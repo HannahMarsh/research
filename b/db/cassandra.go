@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
-	"github.com/magiconair/properties"
 )
 
 // cassandra properties
@@ -42,7 +41,7 @@ const (
 )
 
 type CassandraDB struct {
-	p       *properties.Properties
+	p       *bconfig.Config
 	session *gocql.Session
 	verbose bool
 
@@ -52,22 +51,22 @@ type CassandraDB struct {
 	fieldNames []string
 }
 
-func NewDatabase(p *properties.Properties) (*CassandraDB, error) {
+func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 	d := new(CassandraDB)
 	d.p = p
 
-	hosts := strings.Split(p.GetString(cassandraCluster, cassandraClusterDefault), ",")
+	hosts := strings.Split(p.CassandraCluster, ",")
 
 	cluster := gocql.NewCluster(hosts...)
-	cluster.Keyspace = p.GetString(cassandraKeyspace, cassandraKeyspaceDefault)
+	cluster.Keyspace = p.CassandraKeyspace
 	d.keySpace = cluster.Keyspace
 
-	cluster.NumConns = p.GetInt(cassandraConnections, cassandraConnectionsDefault)
+	cluster.NumConns = p.CassandraConnections
 	cluster.Timeout = 30 * time.Second
 	cluster.Consistency = gocql.Quorum
 
-	username := p.GetString(cassandraUsername, cassandraUsernameDefault)
-	password := p.GetString(cassandraPassword, cassandraPasswordDefault)
+	username := p.CassandraUsername
+	password := p.CassandraPassword
 	cluster.Authenticator = gocql.PasswordAuthenticator{Username: username, Password: password}
 
 	session, err := cluster.CreateSession()
@@ -75,7 +74,7 @@ func NewDatabase(p *properties.Properties) (*CassandraDB, error) {
 		return nil, err
 	}
 
-	d.verbose = p.GetBool(bconfig.Verbose, bconfig.VerboseDefault)
+	d.verbose = p.Verbose
 	d.session = session
 
 	d.bufPool = util.NewBufPool()
@@ -88,15 +87,15 @@ func NewDatabase(p *properties.Properties) (*CassandraDB, error) {
 }
 
 func (db *CassandraDB) createTable() error {
-	tableName := db.p.GetString(bconfig.TableName, bconfig.TableNameDefault)
+	tableName := db.p.TableName
 
-	if db.p.GetBool(bconfig.DropData, bconfig.DropDataDefault) {
+	if db.p.DropData {
 		if err := db.session.Query(fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", db.keySpace, tableName)).Exec(); err != nil {
 			return err
 		}
 	}
 
-	fieldCount := db.p.GetInt64(bconfig.FieldCount, bconfig.FieldCountDefault)
+	fieldCount := db.p.FieldCount
 
 	db.fieldNames = make([]string, fieldCount)
 	for i := int64(0); i < fieldCount; i++ {

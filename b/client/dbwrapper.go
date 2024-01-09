@@ -14,6 +14,7 @@
 package client
 
 import (
+	bconfig "benchmark/config"
 	"benchmark/db"
 	"benchmark/measurement"
 	"context"
@@ -23,6 +24,7 @@ import (
 
 type DbWrapper struct {
 	DB db.DB
+	P  *bconfig.Config
 }
 
 func measure(start time.Time, op string, err error) {

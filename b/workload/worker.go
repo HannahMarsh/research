@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-type worker struct {
+type Worker struct {
 	p               *properties.Properties
 	workDB          db.DB
 	cache           *cache.Cache
@@ -28,8 +28,8 @@ type worker struct {
 	opsDone         int64
 }
 
-func NewWorker(p *properties.Properties, threadID int, threadCount int, workload *Workload, db db.DB, cache *cache.Cache) *worker {
-	w := new(worker)
+func NewWorker(p *properties.Properties, threadID int, threadCount int, workload *Workload, db db.DB, cache *cache.Cache) *Worker {
+	w := new(Worker)
 	w.p = p
 	w.doTransactions = p.GetBool(prop.DoTransactions, true)
 	w.batchSize = p.GetInt(prop.BatchSize, prop.DefaultBatchSize)
@@ -82,7 +82,7 @@ func NewWorker(p *properties.Properties, threadID int, threadCount int, workload
 	return w
 }
 
-func (w *worker) throttle(ctx context.Context, startTime time.Time) {
+func (w *Worker) throttle(ctx context.Context, startTime time.Time) {
 	if w.targetOpsPerMs <= 0 {
 		return
 	}
@@ -98,7 +98,7 @@ func (w *worker) throttle(ctx context.Context, startTime time.Time) {
 	}
 }
 
-func (w *worker) Run(ctx context.Context) {
+func (w *Worker) Run(ctx context.Context) {
 	// spread the thread operation out so they don't all hit the DB at the same time
 	if w.targetOpsPerMs > 0.0 && w.targetOpsPerMs <= 1.0 {
 		time.Sleep(time.Duration(rand.Int63n(w.targetOpsTickNs)))

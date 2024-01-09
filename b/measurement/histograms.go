@@ -1,6 +1,7 @@
 package measurement
 
 import (
+	bconfig "benchmark/config"
 	"bufio"
 	"fmt"
 	"io"
@@ -8,21 +9,19 @@ import (
 	"sort"
 	"time"
 
-	"github.com/magiconair/properties"
-	"github.com/pingcap/go-ycsb/pkg/prop"
 	"github.com/pingcap/go-ycsb/pkg/util"
 )
 
-type histograms struct {
-	p *properties.Properties
+type Histograms struct {
+	p *bconfig.Config
 
 	histograms map[string]*histogram
 }
 
-func (h *histograms) GenerateExtendedOutputs() {
-	exportHistograms := h.p.GetBool(prop.MeasurementHistogramPercentileExport, prop.MeasurementHistogramPercentileExportDefault)
+func (h *Histograms) GenerateExtendedOutputs() {
+	exportHistograms := h.p.MeasurementHistogramPercentileExport
 	if exportHistograms {
-		exportHistogramsFilepath := h.p.GetString(prop.MeasurementHistogramPercentileExportFilepath, prop.MeasurementHistogramPercentileExportFilepathDefault)
+		exportHistogramsFilepath := h.p.MeasurementHistogramPercentileExportFilepath
 		for op, opM := range h.histograms {
 			outFile := fmt.Sprintf("%s%s-percentiles.txt", exportHistogramsFilepath, op)
 			fmt.Printf("Exporting the full latency spectrum for operation '%s' in percentile output format into file: %s.\n", op, outFile)
@@ -30,10 +29,18 @@ func (h *histograms) GenerateExtendedOutputs() {
 			if err != nil {
 				panic("failed to create percentile output file: " + err.Error())
 			}
-			defer f.Close()
+			defer func(f *os.File) {
+				err := f.Close()
+				if err != nil {
+					panic("failed to close percentile output file: " + err.Error())
+				}
+			}(f)
 			w := bufio.NewWriter(f)
 			_, err = opM.hist.PercentilesPrint(w, 1, 1.0)
-			w.Flush()
+			err = w.Flush()
+			if err != nil {
+				panic(err)
+			}
 			if err != nil {
 				panic("failed to print percentiles: " + err.Error())
 			}
@@ -41,7 +48,7 @@ func (h *histograms) GenerateExtendedOutputs() {
 	}
 }
 
-func (h *histograms) Measure(op string, start time.Time, lan time.Duration) {
+func (h *Histograms) Measure(op string, start time.Time, lan time.Duration) {
 	opM, ok := h.histograms[op]
 	if !ok {
 		opM = newHistogram()
@@ -51,7 +58,7 @@ func (h *histograms) Measure(op string, start time.Time, lan time.Duration) {
 	opM.Measure(lan)
 }
 
-func (h *histograms) summary() map[string][]string {
+func (h *Histograms) summary() map[string][]string {
 	summaries := make(map[string][]string, len(h.histograms))
 	for op, opM := range h.histograms {
 		summaries[op] = opM.Summary()
@@ -59,11 +66,14 @@ func (h *histograms) summary() map[string][]string {
 	return summaries
 }
 
-func (h *histograms) Summary() {
-	h.Output(os.Stdout)
+func (h *Histograms) Summary() {
+	err := h.Output(os.Stdout)
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (h *histograms) Output(w io.Writer) error {
+func (h *Histograms) Output(w io.Writer) error {
 	summaries := h.summary()
 	keys := make([]string, 0, len(summaries))
 	for k := range summaries {
@@ -78,7 +88,7 @@ func (h *histograms) Output(w io.Writer) error {
 		lines = append(lines, line)
 	}
 
-	outputStyle := h.p.GetString(prop.OutputStyle, util.OutputStylePlain)
+	outputStyle := h.p.OutputStyle
 	switch outputStyle {
 	case util.OutputStylePlain:
 		util.RenderString(w, "%-6s - %s\n", header, lines)
@@ -92,8 +102,8 @@ func (h *histograms) Output(w io.Writer) error {
 	return nil
 }
 
-func InitHistograms(p *properties.Properties) *histograms {
-	return &histograms{
+func InitHistograms(p *bconfig.Config) *Histograms {
+	return &Histograms{
 		p:          p,
 		histograms: make(map[string]*histogram, 16),
 	}

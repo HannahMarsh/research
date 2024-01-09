@@ -14,25 +14,38 @@
 package measurement
 
 import (
+	bconfig "benchmark/config"
 	"bufio"
+	"io"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/magiconair/properties"
-	"github.com/pingcap/go-ycsb/pkg/prop"
-	"github.com/pingcap/go-ycsb/pkg/ycsb"
 )
+
+// Measurer is used to capture measurements.
+type Measurer interface {
+	// Measure measures the latency of an operation.
+	Measure(op string, start time.Time, latency time.Duration)
+
+	// Summary writes a summary of the current measurement results to stdout.
+	Summary()
+
+	// GenerateExtendedOutputs is called at the end of the benchmark
+	GenerateExtendedOutputs()
+
+	// Output writes the measurement results to the specified writer.
+	Output(w io.Writer) error
+}
 
 var header = []string{"Operation", "Takes(s)", "Count", "OPS", "Avg(us)", "Min(us)", "Max(us)", "50th(us)", "90th(us)", "95th(us)", "99th(us)", "99.9th(us)", "99.99th(us)"}
 
 type measurement struct {
 	sync.RWMutex
 
-	p *properties.Properties
+	p *bconfig.Config
 
-	measurer ycsb.Measurer
+	measurer Measurer
 }
 
 func (m *measurement) measure(op string, start time.Time, lan time.Duration) {
@@ -45,7 +58,7 @@ func (m *measurement) output() {
 	m.RLock()
 	defer m.RUnlock()
 
-	outFile := m.p.GetString(prop.MeasurementRawOutputFile, "")
+	outFile := m.p.MeasurementRawOutputFile
 	var w *bufio.Writer
 	if outFile == "" {
 		w = bufio.NewWriter(os.Stdout)
@@ -76,10 +89,10 @@ func (m *measurement) summary() {
 }
 
 // InitMeasure initializes the global measurement.
-func InitMeasure(p *properties.Properties) {
+func InitMeasure(p *bconfig.Config) {
 	globalMeasure = new(measurement)
 	globalMeasure.p = p
-	measurementType := p.GetString(prop.MeasurementType, prop.MeasurementTypeDefault)
+	measurementType := p.MeasurementType
 	switch measurementType {
 	case "histogram":
 		globalMeasure.measurer = InitHistograms(p)
@@ -88,7 +101,7 @@ func InitMeasure(p *properties.Properties) {
 	default:
 		panic("unsupported measurement type: " + measurementType)
 	}
-	EnableWarmUp(p.GetInt64(prop.WarmUpTime, 0) > 0)
+	EnableWarmUp(p.WarmUpTime > 0)
 }
 
 // Output prints the complete measurements.

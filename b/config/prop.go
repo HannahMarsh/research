@@ -23,17 +23,18 @@ const (
 	RecordCount        = "recordcount"
 	RecordCountDefault = int64(0)
 	Workload           = "workload"
-	DB                 = "db"
-	Exporter           = "exporter"
-	ExportFile         = "exportfile"
+
 	ThreadCount        = "threadcount"
 	ThreadCountDefault = int64(200)
-	Target             = "target"
-	MaxExecutiontime   = "maxexecutiontime"
-	WarmUpTime         = "warmuptime"
-	DoTransactions     = "dotransactions"
-	Status             = "status"
-	Label              = "label"
+
+	Target           = "target"
+	MaxExecutiontime = "maxexecutiontime"
+	WarmUpTime       = "warmuptime"
+	DoTransactions   = "dotransactions"
+
+	Status = "status"
+	Label  = "label"
+
 	// batch mode
 	BatchSize        = "batch.size"
 	DefaultBatchSize = int(1)
@@ -42,6 +43,7 @@ const (
 	TableNameDefault  = "usertable"
 	FieldCount        = "fieldcount"
 	FieldCountDefault = int64(10)
+
 	// "uniform", "zipfian", "constant", "histogram"
 	FieldLengthDistribution        = "fieldlengthdistribution"
 	FieldLengthDistributionDefault = "constant"

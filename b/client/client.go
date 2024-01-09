@@ -28,7 +28,7 @@ func NewClient(p *properties.Properties, workload *workload.Workload, db db.DB, 
 // Run runs the workload to the target DB, and blocks until all workers end.
 func (c *Client) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	threadCount := c.p.GetInt(bconfig.ThreadCount, 1)
+	threadCount := c.p.ThreadCount
 
 	wg.Add(threadCount)
 	measureCtx, measureCancel := context.WithCancel(ctx)
@@ -38,7 +38,7 @@ func (c *Client) Run(ctx context.Context) {
 			measureCh <- struct{}{}
 		}()
 		// load stage no need to warm up
-		if c.p.GetBool(bconfig.DoTransactions, true) {
+		if c.p.DoTransactions {
 			dur := c.p.GetInt64(bconfig.WarmUpTime, 0)
 			select {
 			case <-ctx.Done():
@@ -76,10 +76,10 @@ func (c *Client) Run(ctx context.Context) {
 	}
 
 	wg.Wait()
-	if !c.p.GetBool(bconfig.DoTransactions, true) {
+	if !c.p.DoTransactions {
 		// when loading is finished, try to analyze table if possible.
 		if analyzeDB, ok := c.db.(db.AnalyzeDB); ok {
-			err := analyzeDB.Analyze(ctx, c.p.GetString(bconfig.TableName, bconfig.TableNameDefault))
+			err := analyzeDB.Analyze(ctx, c.p.TableName)
 			if err != nil {
 				panic(err)
 			}

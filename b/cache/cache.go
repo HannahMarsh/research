@@ -1,13 +1,19 @@
 package cache
 
-import "context"
+import (
+	bconfig "benchmark/config"
+	"context"
+)
 
 type Cache struct {
 	nodes []*CacheNode
+	p     *bconfig.Config
 }
 
-func New() *Cache {
-	return &Cache{}
+func NewCache(p *bconfig.Config) *Cache {
+	c := Cache{}
+	c.p = p
+	return &c
 }
 
 func (c *Cache) AddNode(url string, port string, maxSize int64, id int) {
