@@ -69,6 +69,7 @@ type Config struct {
 func NewConfig(yamlFileName string) (*Config, error) {
 	// initialize with default values
 	defaultConfig := Config{
+		MeasurementHistogramPercentileExportFilepath: "./",
 		InsertStart:                          0,
 		InsertCount:                          0,
 		OperationCount:                       0,
@@ -107,7 +108,7 @@ func NewConfig(yamlFileName string) (*Config, error) {
 		InsertionRetryInterval:               3,
 		ExponentialPercentile:                95.0,
 		ExponentialFrac:                      0.8571428571,
-		DebugPprof:                           ":6060",
+		DebugPprof:                           ": 6060",
 		Verbose:                              false,
 		DropData:                             false,
 		Silence:                              true,
@@ -118,13 +119,12 @@ func NewConfig(yamlFileName string) (*Config, error) {
 		Command:                              "",
 		OutputStyle:                          "plain",
 		MeasurementHistogramPercentileExport: false,
-		MeasurementHistogramPercentileExportFilepath: "./",
-		PasswordAuthenticator:                        false,
-		CassandraCluster:                             "127.0.0.1:9042",
-		CassandraKeyspace:                            "test",
-		CassandraConnections:                         2,
-		CassandraUsername:                            "",
-		CassandraPassword:                            "",
+		PasswordAuthenticator:                false,
+		CassandraCluster:                     "127.0.0.1: 9042",
+		CassandraKeyspace:                    "test",
+		CassandraConnections:                 2,
+		CassandraUsername:                    "",
+		CassandraPassword:                    "",
 	}
 
 	// Read YAML file
