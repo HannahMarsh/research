@@ -1,18 +1,40 @@
 #!/bin/bash
 
+usage() {
+    echo "Usage: $0 [-r] <property_name> [<type>] [<default_value>]"
+    echo "  -r: Remove the property. If this is set, only <property_name> is required"
+    exit 1
+}
+
+# File paths
+GO_FILE="/Users/hanma/cloud computing research/research/b/config/config.go"
+YAML_FILE="/Users/hanma/cloud computing research/research/b/tool/property_files/0.yaml"
+
+# Check if the first argument is -r
+if [ "$1" = "-r" ]; then
+    if [ "$#" -lt 2 ]; then
+        usage
+    fi
+    PROPERTY_NAME=$2
+    # Remove the property from the Go file
+    sed -i '' "/$PROPERTY_NAME[[:blank:]]*.*\`yaml:/d" "$GO_FILE"
+    sed -i '' "/$PROPERTY_NAME:.*,$/d" "$GO_FILE"
+
+    # Remove the property from the YAML file
+    sed -i '' "/$PROPERTY_NAME:/d" "$YAML_FILE"
+
+    echo "Property '$PROPERTY_NAME' removed successfully."
+    exit 0
+fi
+
 # Check for correct number of arguments
 if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 <property_name> <type> <default_value>"
-    exit 1
+    usage
 fi
 
 PROPERTY_NAME=$1
 TYPE=$2
 DEFAULT_VALUE=$3
-
-# File paths
-GO_FILE="/Users/hanma/cloud computing research/research/b/config/config.go"
-YAML_FILE="/Users/hanma/cloud computing research/research/b/tool/property_files/0.yaml"
 
 # Function to add spaces for alignment
 add_spaces() {
@@ -53,7 +75,11 @@ sed -i '' "/defaultConfig := Config{/a\\
 # Update the YAML file
 # Add the new property with its value and a newline after
 echo "$PROPERTY_NAME: $DEFAULT_VALUE" >> "$YAML_FILE"
-echo "" >> "$YAML_FILE"
+
+
+sort -f -b "$YAML_FILE" > "${YAML_FILE}.sorted"
+cp "${YAML_FILE}.sorted" "$YAML_FILE"
+rm "${YAML_FILE}.sorted"
 
 echo "Property '$PROPERTY_NAME' added successfully."
 

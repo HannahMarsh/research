@@ -23,7 +23,6 @@ type Config struct {
 	FieldLength                                  int64   `yaml:"FieldLength"`
 	FieldLengthDistribution                      string  `yaml:"FieldLengthDistribution"`
 	FieldLengthHistogramFile                     string  `yaml:"FieldLengthHistogramFile"`
-    HelloTest                                    string  `yaml:"HelloTest"`
 	HotspotDataFraction                          float64 `yaml:"HotspotDataFraction"`
 	HotspotOpnFraction                           float64 `yaml:"HotspotOpnFraction"`
 	InsertCount                                  int64   `yaml:"InsertCount"`
@@ -87,7 +86,6 @@ func NewConfig(yamlFileName string) (*Config, error) {
 		FieldLength:                          100,
 		FieldLengthDistribution:              "constant",
 		FieldLengthHistogramFile:             "hist.txt",
-        HelloTest:                                    "hello",
 		HotspotDataFraction:                  0.2,
 		HotspotOpnFraction:                   0.8,
 		InsertCount:                          0,

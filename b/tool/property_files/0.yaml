@@ -1,202 +1,56 @@
-InsertStart: 10000
-InsertCount: 0
-OperationCount: 0
-RecordCount: 0
-Workload: ""
-ThreadCount: 200
-Target: 500
-MaxExecutionTime: 0
-WarmUpTime: 0
-DoTransactions: false
-Status: ""
-Label: ""
 BatchSize: 1
-TableName: "usertable"
-FieldCount: 10
-FieldLengthDistribution: "constant"
-FieldLength: 100
-FieldLengthHistogramFile: "hist.txt"
-ReadAllFields: true
-WriteAllFields: false
-DataIntegrity: false
-ReadProportion: 0.95
-UpdateProportion: 0.05
-InsertProportion: 0.0
-ScanProportion: 0.0
-ReadModifyWriteProportion: 0.0
-RequestDistribution: "uniform"
-ZeroPadding: 1
-MinScanLength: 1
-MaxScanLength: 1000
-ScanLengthDistribution: "uniform"
-InsertOrder: "hashed"
-HotspotDataFraction: 0.2
-HotspotOpnFraction: 0.8
-InsertionRetryLimit: 0
-InsertionRetryInterval: 3
-ExponentialPercentile: 95.0
-ExponentialFrac: 0.8571428571
-DebugPprof: ":6060"
-Verbose: false
-DropData: false
-Silence: true
-KeyPrefix: "user"
-LogInterval: 0
-MeasurementType: "histogram"
-MeasurementRawOutputFile: ""
+CassandraCluster: "127.0.0.1:9042"
+CassandraConnections: 2
+CassandraKeyspace: "test"
+CassandraPassword: ""
+CassandraUsername: ""
 Command: ""
-OutputStyle: ""
+DataIntegrity: false
+DebugPprof: ":6060"
+DoTransactions: false
+DropData: false
+ExponentialFrac: 0.8571428571
+ExponentialPercentile: 95.0
+FieldCount: 10
+FieldLength: 100
+FieldLengthDistribution: "constant"
+FieldLengthHistogramFile: "hist.txt"
 HistogramPercentilesExport: false
 HistogramPercentilesExportFilepath: "./"
+HotspotDataFraction: 0.2
+HotspotOpnFraction: 0.8
+InsertCount: 0
+InsertionRetryInterval: 3
+InsertionRetryLimit: 0
+InsertOrder: "hashed"
+InsertProportion: 0.0
+InsertStart: 10000
+KeyPrefix: "user"
+Label: ""
+LogInterval: 0
+MaxExecutionTime: 0
+MaxScanLength: 1000
+MeasurementRawOutputFile: ""
+MeasurementType: "histogram"
+MinScanLength: 1
+OperationCount: 0
+OutputStyle: ""
 PasswordAuthenticator: false
-CassandraCluster: "127.0.0.1:9042"
-CassandraKeyspace: "test"
-CassandraConnections: 2
-CassandraUsername: ""
-CassandraPassword: ""
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Test: "hello"
-
-Aest: "hello"
-
-Aest: "hello"
-
-Aest: "hello"
-
-Aest: "hello"
-
-Aest: "hello"
-
-Aest: "hello"
-
-Aest: "hello"
-
-Aest: "hello"
-
-Aest: "hello"
-
-Aest: "hello"
-
-DeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-LeRest: "hello"
-
-Lerest: "hello"
-
-A: "hello"
-
-B: "hello"
-
-B: "hello"
-
-HelloTest: "hello"
-
-HelloTest: "hello"
-
+ReadAllFields: true
+ReadModifyWriteProportion: 0.0
+ReadProportion: 0.95
+RecordCount: 0
+RequestDistribution: "uniform"
+ScanLengthDistribution: "uniform"
+ScanProportion: 0.0
+Silence: true
+Status: ""
+TableName: "usertable"
+Target: 500
+ThreadCount: 200
+UpdateProportion: 0.05
+Verbose: false
+WarmUpTime: 0
+Workload: ""
+WriteAllFields: false
+ZeroPadding: 1
