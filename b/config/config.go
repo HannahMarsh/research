@@ -1,7 +1,6 @@
 package config
 
 import (
-	"benchmark/util"
 	"gopkg.in/yaml.v3"
 	"os"
 )
@@ -13,7 +12,7 @@ type Config struct {
 	RecordCount                                  int64   `yaml:"RecordCount"`
 	Workload                                     string  `yaml:"Workload"`
 	ThreadCount                                  int64   `yaml:"ThreadCount"`
-	Target                                       string  `yaml:"Target"`
+	Target                                       int64   `yaml:"Target"` // target operations per second
 	MaxExecutionTime                             int64   `yaml:"MaxExecutionTime"`
 	WarmUpTime                                   int64   `yaml:"WarmUpTime"`
 	DoTransactions                               bool    `yaml:"DoTransactions"`
@@ -75,7 +74,7 @@ func NewConfig(yamlFileName string) (*Config, error) {
 		RecordCount:                          0,
 		Workload:                             "",
 		ThreadCount:                          200,
-		Target:                               "",
+		Target:                               500,
 		MaxExecutionTime:                     0,
 		WarmUpTime:                           0,
 		DoTransactions:                       false,
@@ -116,9 +115,14 @@ func NewConfig(yamlFileName string) (*Config, error) {
 		MeasurementType:                      "histogram",
 		MeasurementRawOutputFile:             "",
 		Command:                              "",
-		OutputStyle:                          util.OutputStylePlain,
+		OutputStyle:                          "plain",
 		MeasurementHistogramPercentileExport: false,
 		MeasurementHistogramPercentileExportFilepath: "./",
+		CassandraCluster:     "127.0.0.1:9042",
+		CassandraKeyspace:    "test",
+		CassandraConnections: 2,
+		CassandraUsername:    "cassandra",
+		CassandraPassword:    "cassandra",
 	}
 
 	// Read YAML file

@@ -19,7 +19,7 @@ import (
 	"benchmark/measurement"
 	"fmt"
 	"github.com/spf13/cobra"
-	"strconv"
+	"reflect"
 	"time"
 )
 
@@ -27,30 +27,33 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	dbName := args[0]
 
 	initialGlobal(dbName, func() {
-		doTransFlag := "true"
+		doTransFlag := true
 		if !doTransactions {
-			doTransFlag = "false"
+			doTransFlag = false
 		}
-		globalProps.Set(bconfig.DoTransactions, doTransFlag)
-		globalProps.Set(bconfig.Command, command)
+		globalProps.DoTransactions = doTransFlag
+		globalProps.Command = command
 
 		if cmd.Flags().Changed("threads") {
 			// We set the threadArg via command line.
-			globalProps.Set(bconfig.ThreadCount, strconv.Itoa(threadsArg))
+			globalProps.ThreadCount = int64(threadsArg)
 		}
 
 		if cmd.Flags().Changed("target") {
-			globalProps.Set(bconfig.Target, strconv.Itoa(targetArg))
+			globalProps.Target = int64(targetArg)
 		}
 
 		if cmd.Flags().Changed("interval") {
-			globalProps.Set(bconfig.LogInterval, strconv.Itoa(reportInterval))
+			globalProps.LogInterval = int64(reportInterval)
 		}
 	})
 
 	fmt.Println("***************** properties *****************")
-	for key, value := range globalProps.Map() {
-		fmt.Printf("\"%s\"=\"%s\"\n", key, value)
+	r := reflect.ValueOf(globalProps)
+
+	for i := 0; i < r.NumField(); i++ {
+		field := r.Field(i)
+		fmt.Printf("\"%s\"=\"%v\"\n", r.Type().Field(i).Name, field.Interface())
 	}
 	fmt.Println("**********************************************")
 
@@ -77,7 +80,7 @@ var (
 )
 
 func initClientCommand(m *cobra.Command) {
-	m.Flags().StringSliceVarP(&propertyFiles, "property_file", "P", nil, "Spefify a property file")
+	m.Flags().StringVar(&propertyFile, "property_file", "P", "Specify a property file")
 	m.Flags().StringArrayVarP(&propertyValues, "prop", "p", nil, "Specify a property value with name=value")
 	m.Flags().StringVar(&tableName, "table", "", "Use the table name instead of the default \""+bconfig.TableNameDefault+"\"")
 	m.Flags().IntVar(&threadsArg, "threads", 1, "Execute using n threads - can also be specified as the \"threadcount\" property")

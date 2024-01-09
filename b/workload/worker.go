@@ -2,10 +2,10 @@ package workload
 
 import (
 	"benchmark/cache"
+	bconfig "benchmark/config"
 	"benchmark/db"
 	"context"
 	"fmt"
-	"github.com/magiconair/properties"
 	"github.com/pingcap/go-ycsb/pkg/prop"
 	"log"
 	"math/rand"
@@ -14,7 +14,7 @@ import (
 )
 
 type Worker struct {
-	p               *properties.Properties
+	p               *bconfig.Config
 	workDB          db.DB
 	cache           *cache.Cache
 	workload        *Workload
@@ -28,11 +28,11 @@ type Worker struct {
 	opsDone         int64
 }
 
-func NewWorker(p *properties.Properties, threadID int, threadCount int, workload *Workload, db db.DB, cache *cache.Cache) *Worker {
+func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workload, db db.DB, cache *cache.Cache) *Worker {
 	w := new(Worker)
 	w.p = p
-	w.doTransactions = p.GetBool(prop.DoTransactions, true)
-	w.batchSize = p.GetInt(prop.BatchSize, prop.DefaultBatchSize)
+	w.doTransactions = p.DoTransactions
+	w.batchSize = p.BatchSize
 	if w.batchSize > 1 {
 		w.doBatch = true
 	}
@@ -43,12 +43,12 @@ func NewWorker(p *properties.Properties, threadID int, threadCount int, workload
 
 	var totalOpCount int64
 	if w.doTransactions {
-		totalOpCount = p.GetInt64(prop.OperationCount, 0)
+		totalOpCount = p.OperationCount
 	} else {
-		if _, ok := p.Get(prop.InsertCount); ok {
-			totalOpCount = p.GetInt64(prop.InsertCount, 0)
+		if p.InsertCount > 0 {
+			totalOpCount = p.InsertCount
 		} else {
-			totalOpCount = p.GetInt64(prop.RecordCount, 0)
+			totalOpCount = p.RecordCount
 		}
 	}
 
@@ -69,7 +69,7 @@ func NewWorker(p *properties.Properties, threadID int, threadCount int, workload
 	}
 
 	targetPerThreadPerms := float64(-1)
-	if v := p.GetInt64(prop.Target, 0); v > 0 {
+	if v := p.Target; v > 0 {
 		targetPerThread := float64(v) / float64(threadCount)
 		targetPerThreadPerms = targetPerThread / 1000.0
 	}

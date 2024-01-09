@@ -7,13 +7,12 @@ import (
 	"benchmark/measurement"
 	"benchmark/workload"
 	"context"
-	"github.com/magiconair/properties"
 	"sync"
 	"time"
 )
 
 type Client struct {
-	p        *properties.Properties
+	p        *bconfig.Config
 	workload *workload.Workload
 	db       db.DB
 	cache    *cache.Cache
@@ -21,7 +20,7 @@ type Client struct {
 
 // NewClient returns a client with the given workload and DB.
 // The workload and db can't be nil.
-func NewClient(p *properties.Properties, workload *workload.Workload, db db.DB, cache_ *cache.Cache) *Client {
+func NewClient(p *bconfig.Config, workload *workload.Workload, db db.DB, cache_ *cache.Cache) *Client {
 	return &Client{p: p, workload: workload, db: db, cache: cache_}
 }
 
@@ -30,7 +29,7 @@ func (c *Client) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	threadCount := c.p.ThreadCount
 
-	wg.Add(threadCount)
+	wg.Add(int(threadCount))
 	measureCtx, measureCancel := context.WithCancel(ctx)
 	measureCh := make(chan struct{}, 1)
 	go func() {
@@ -39,7 +38,7 @@ func (c *Client) Run(ctx context.Context) {
 		}()
 		// load stage no need to warm up
 		if c.p.DoTransactions {
-			dur := c.p.GetInt64(bconfig.WarmUpTime, 0)
+			dur := c.p.WarmUpTime
 			select {
 			case <-ctx.Done():
 				return
@@ -49,7 +48,7 @@ func (c *Client) Run(ctx context.Context) {
 		// finish warming up
 		measurement.EnableWarmUp(false)
 
-		dur := c.p.GetInt64(bconfig.LogInterval, 10)
+		dur := c.p.LogInterval
 		t := time.NewTicker(time.Duration(dur) * time.Second)
 		defer t.Stop()
 
@@ -63,13 +62,13 @@ func (c *Client) Run(ctx context.Context) {
 		}
 	}()
 
-	for i := 0; i < threadCount; i++ {
+	for i := 0; i < int(threadCount); i++ {
 		go func(threadId int) {
 			defer wg.Done()
 
-			w := workload.NewWorker(c.p, threadId, threadCount, c.workload, c.db, c.cache)
-			ctx := c.workload.InitThread(ctx, threadId, threadCount)
-			ctx = c.db.InitThread(ctx, threadId, threadCount)
+			w := workload.NewWorker(c.p, threadId, int(threadCount), c.workload, c.db, c.cache)
+			ctx := c.workload.InitThread(ctx, threadId, int(threadCount))
+			ctx = c.db.InitThread(ctx, threadId, int(threadCount))
 			w.Run(ctx)
 			c.db.CleanupThread(ctx)
 		}(i)

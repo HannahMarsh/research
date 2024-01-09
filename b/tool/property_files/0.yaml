@@ -4,7 +4,7 @@ OperationCount: 0
 RecordCount: 0
 Workload: ""
 ThreadCount: 200
-Target: ""
+Target: 500
 MaxExecutionTime: 0
 WarmUpTime: 0
 DoTransactions: false
@@ -48,3 +48,8 @@ Command: ""
 OutputStyle: ""
 HistogramPercentilesExport: false
 HistogramPercentilesExportFilepath: "./"
+CassandraCluster: "127.0.0.1:9042"
+CassandraKeyspace: "test"
+CassandraConnections: 2
+CassandraUsername: "cassandra"
+CassandraPassword: "cassandra"
