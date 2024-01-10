@@ -17,10 +17,10 @@ type CacheNode struct {
 	id          int
 }
 
-func NewCacheWrapper(url string, port string, maxSize int64, id int) *CacheNode {
+func NewCacheWrapper(address string, maxSize int64, id int) *CacheNode {
 	c := new(CacheNode)
 	opts := &redis.Options{
-		Addr:     url + ":" + port,
+		Addr:     address,
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	}
@@ -66,7 +66,8 @@ func (c *CacheNode) Get(ctx context.Context, key string, fields []string) (map[s
 		return nil, errors.New("simulated failure - cache node is not available")
 	}
 
-	val, err := c.redisClient.Get(ctx, key).Result()
+	str := c.redisClient.Get(ctx, key)
+	val, err := str.Result()
 	if err == redis.Nil {
 		return nil, nil // Key does not exist, return nil map and no error
 	} else if err != nil {

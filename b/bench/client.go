@@ -18,7 +18,6 @@ import (
 	"benchmark/measurement"
 	"fmt"
 	"github.com/spf13/cobra"
-	"reflect"
 	"time"
 )
 
@@ -55,12 +54,13 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	})
 
 	fmt.Println("***************** properties *****************")
-	r := reflect.ValueOf(globalProps).Elem() // Dereference the pointer to get the struct
-
-	for i := 0; i < r.NumField(); i++ {
-		field := r.Field(i)
-		fmt.Printf("\t%s = %v\n", r.Type().Field(i).Name, field.Interface())
-	}
+	fmt.Printf("%s", globalProps.ToString())
+	//r := reflect.ValueOf(globalProps).Elem() // Dereference the pointer to get the struct
+	//
+	//for i := 0; i < r.NumField(); i++ {
+	//	field := r.Field(i)
+	//	fmt.Printf("\t%s = %v\n", r.Type().Field(i).Name, field.Interface())
+	//}
 
 	fmt.Println("**********************************************")
 

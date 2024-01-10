@@ -6,18 +6,26 @@ import (
 )
 
 type Cache struct {
-	nodes []*CacheNode
-	p     *bconfig.Config
+	nodes    []*CacheNode
+	p        *bconfig.Config
+	nodeRing *NodeRing
 }
 
 func NewCache(p *bconfig.Config) *Cache {
 	c := Cache{}
 	c.p = p
+	c.nodeRing = NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value)
+
+	for i := 0; i < len(p.Cache.Nodes); i++ {
+		nodeConfig := p.Cache.Nodes[i]
+		c.AddNode(nodeConfig.Address.Value, nodeConfig.MaxSize.Value, nodeConfig.NodeId.Value)
+	}
+
 	return &c
 }
 
-func (c *Cache) AddNode(url string, port string, maxSize int64, id int) {
-	node := NewCacheWrapper(url, port, maxSize, id)
+func (c *Cache) AddNode(address string, maxSize int, id int) {
+	node := NewCacheWrapper(address, int64(maxSize), id)
 	c.nodes = append(c.nodes, node)
 }
 
@@ -26,9 +34,11 @@ func (c *Cache) NumNodes() int {
 }
 
 func (c *Cache) Get(ctx context.Context, key string, fields []string) (map[string][]byte, error) {
-	return c.nodes[0].Get(ctx, key, fields)
+	nodeIndex := c.nodeRing.GetNode(key)
+	return c.nodes[nodeIndex].Get(ctx, key, fields)
 }
 
 func (c *Cache) Set(ctx context.Context, key string, value map[string][]byte) error {
-	return c.nodes[0].Set(ctx, key, value)
+	nodeIndex := c.nodeRing.GetNode(key)
+	return c.nodes[nodeIndex].Set(ctx, key, value)
 }

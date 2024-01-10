@@ -3,7 +3,7 @@ Database:
         Description: The host and port of the Cassandra cluster.
         Value: 127.0.0.1:9042
     CassandraConnections:
-        Description: The number of connections to the Cassandra cluster.
+        Description: The number of concurrent connections to establish with the Cassandra cluster.
         Value: 2
     CassandraKeyspace:
         Description: Keyspace to use within the Cassandra database.
@@ -12,25 +12,66 @@ Database:
         Description: Name of the table to use within the Cassandra keyspace.
         Value: usertable
     CassandraPassword:
-        Description: The password for authenticating with Cassandra, if required.
+        Description: The password for authenticating with Cassandra, if PasswordAuthenticator is enabled.
         Value: ""
     CassandraUsername:
-        Description: The username for authenticating with Cassandra, if required.
+        Description: The username for authenticating with Cassandra, if PasswordAuthenticator is enabled.
         Value: ""
     PasswordAuthenticator:
         Description: |-
             Enables the use of Cassandra's PasswordAuthenticator for client connections. If this is true,
             then the `CassandraUsername` and `CassandraPassword` properties must be non-empty and valid.
         Value: false
+    ReplicationStrategy:
+        Description: Replication strategy to use for the Cassandra keyspace.
+        Value: SimpleStrategy
+    ReplicationFactor:
+        Description: Replication factor to use for the Cassandra keyspace.
+        Value: 1
+Cache:
+    VirtualNodes:
+        Description: The number of virtual nodes.
+        Value: 500
+    Nodes:
+        - NodeId:
+            Description: The ID of the node.
+            Value: 1
+          Address:
+            Description: Address and port of redis server
+            Value: 0.0.0.0:6379
+          FailureIntervals:
+            - Start: 0
+              End: 0.1
+          MaxSize:
+            Description: The maximum number of records to store in the cache.
+            Value: 1000000
+          UseDefaultDatabase:
+            Description: Indicates whether to use the default database for the cache.
+            Value: true
+        - NodeId:
+            Description: The ID of the node.
+            Value: 2
+          Address:
+            Description: Address and port of redis server
+            Value: 0.0.0.0:6380
+          FailureIntervals:
+            - Start: 0
+              End: 0.1
+          MaxSize:
+            Description: The maximum number of records to store in the cache.
+            Value: 1000000
+          UseDefaultDatabase:
+            Description: Indicates whether to use the default database for the cache.
+            Value: true
 Performance:
     BatchSize:
-        Description: The number of operations to batch together in a single transaction. If this value is 1, then batching is disabled.
+        Description: The number of operations to batch together in a single transaction. Batch processing is disabled if set to 1.
         Value: 1
     PerformDataIntegrityChecks:
-        Description: Enables performing data integrity checks during operations. If enabled, `FieldSizeDistribution` must be constant.
+        Description: Enables verification of data integrity during database operations. Requires 'FieldSizeDistribution' to be set to 'constant'.
         Value: false
     EnableDroppingDataOnStart:
-        Description: Enables dropping any pre-existing database data upon startup.
+        Description: Enables dropping any pre-existing data in the database upon startup.
         Value: false
     MaxFields:
         Description: The maximum number of fields (columns) to include in the database table.
@@ -53,7 +94,7 @@ Performance:
         Description: The maximum number of times to retry a failed insert operation.
         Value: 0
     MaxExecutionTime:
-        Description: The maximum allowed time for the benchmark to run before it is forcibly stopped.
+        Description: The maximum time to run the benchmark before it is forcibly stopped.
         Value: 30
     MaxScanLength:
         Description: The maximum number of records to scan in a single operation.
@@ -73,30 +114,29 @@ Performance:
     ThreadCount:
         Description: The number of concurrent threads to use when executing the workload.
         Value: 200
-    VirtualNodes:
-        Description: The number of virtual nodes to simulate or use in the execution of the workload.
-        Value: 500
-Workload:
-    Workload:
-        Description: The name of the workload to be executed.
+WorkloadIdentifier:
+    WorkloadIdentifier:
+        Description: The name of the workload to be executed (for logging).
         Value: workload1
     Command:
         Description: The specific command to run as part of the workload. This is set automatically by the program.
         Value: <>
     DoTransactions:
-        Description: Indicates whether transactions should be executed.
+        Description: |-
+            Determines whether to perform a mix of different database operations or limit to insertion
+            operations only. Set to true for initial data loading.
         Value: false
     ExponentialFrac:
-        Description: The fraction of the exponential function used for generating workload distributions.
+        Description: Fraction parameter for generating distributions based on exponential function.
         Value: 0.8571428571
     ExponentialPercentile:
-        Description: The target percentile for the exponential distribution when generating workloads.
+        Description: The target percentile for the exponential distribution.
         Value: 95
     HotspotDataFraction:
         Description: The fraction of data that will be considered 'hot' for generating hotspots in the workload.
         Value: 0.2
     HotspotOpnFraction:
-        Description: The fraction of operations that will be focused on the 'hot' data.
+        Description: The fraction of operations that will target the 'hot' data.
         Value: 0.8
     HashInsertOrder:
         Description: Enables hashing the order in which records are inserted.
@@ -105,7 +145,7 @@ Workload:
         Description: The proportion of insert operations in the workload.
         Value: 0
     KeyRangeLowerBound:
-        Description: The starting point for insert operations in the workload.
+        Description: The starting point (lower bound) for key values used in insert operations.
         Value: 10000
     KeyPrefix:
         Description: The prefix to be used for keys in the workload.
@@ -136,17 +176,17 @@ Workload:
         Description: The proportion (from 0.0 to 1.0) of update operations in the workload. If the value is 0.0, then updating is disabled.
         Value: 0.05
     WriteAllFields:
-        Description: Indicates whether all fields should be written in write operations (as opposed to updating).
+        Description: Indicates whether all fields should be written in write operations.
         Value: false
 Measurements:
     MeasurementType:
         Description: Specifies the type of measurement for performance metrics. Valid values are 'histogram', 'raw', and 'csv'.
         Value: histogram
     RawOutputDir:
-        Description: The directory to output raw measurement data, if any.
-        Value: data/raw/
+        Description: Directory for outputting raw measurement data (if there is any).
+        Value: data/raw.txt
     HistogramPercentilesExport:
-        Description: Enables exporting percentile data to the directory given by `HistogramOutputDir`.
+        Description: Enables the export of percentile data from histogram measurements.
         Value: false
     HistogramOutputDir:
         Description: The directory where histogram percentile data files are to be saved.
@@ -158,7 +198,7 @@ Measurements:
         Description: Defines the formatting style for outputting measurement data. Valid values are 'plain' 'table', and 'json'.
         Value: table
     WarmUpTime:
-        Description: The duration in seconds before metrics collection starts (allows the system to reach a steady operational state).
+        Description: The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).
         Value: 2
     ZeroPadding:
         Description: The amount of zero-padding for numeric fields (for a fixed width representation).

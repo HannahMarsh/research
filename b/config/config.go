@@ -5,6 +5,8 @@ import (
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 )
 
 type IntProperty struct {
@@ -32,6 +34,11 @@ type ArrayProperty struct {
 	Value       int    `yaml:"Value"`
 }
 
+type FailureInterval struct {
+	Start float64 `yaml:"Start"`
+	End   float64 `yaml:"End"`
+}
+
 type DatabaseConfig struct {
 	CassandraCluster      StringProperty `yaml:"CassandraCluster"`
 	CassandraConnections  IntProperty    `yaml:"CassandraConnections"`
@@ -40,6 +47,21 @@ type DatabaseConfig struct {
 	CassandraPassword     StringProperty `yaml:"CassandraPassword"`
 	CassandraUsername     StringProperty `yaml:"CassandraUsername"`
 	PasswordAuthenticator BoolProperty   `yaml:"PasswordAuthenticator"`
+	ReplicationStrategy   StringProperty `yaml:"ReplicationStrategy"`
+	ReplicationFactor     IntProperty    `yaml:"ReplicationFactor"`
+}
+
+type NodeConfig struct {
+	NodeId             IntProperty       `yaml:"NodeId"`
+	Address            StringProperty    `yaml:"Address"`
+	FailureIntervals   []FailureInterval `yaml:"FailureIntervals"`
+	MaxSize            IntProperty       `yaml:"MaxSize"`
+	UseDefaultDatabase BoolProperty      `yaml:"UseDefaultDatabase"`
+}
+
+type CacheConfig struct {
+	VirtualNodes IntProperty  `yaml:"VirtualNodes"`
+	Nodes        []NodeConfig `yaml:"Nodes"`
 }
 
 type PerformanceConfig struct {
@@ -59,7 +81,6 @@ type PerformanceConfig struct {
 	RecordCount                IntProperty    `yaml:"RecordCount"`
 	TargetOperationsPerSec     IntProperty    `yaml:"TargetOperationsPerSec"`
 	ThreadCount                IntProperty    `yaml:"ThreadCount"`
-	VirtualNodes               IntProperty    `yaml:"VirtualNodes"`
 }
 
 type WorkloadConfig struct {
@@ -106,6 +127,7 @@ type LoggingConfig struct {
 
 type Config struct {
 	Database     DatabaseConfig     `yaml:"Database"`
+	Cache        CacheConfig        `yaml:"Cache"`
 	Performance  PerformanceConfig  `yaml:"Performance"`
 	Workload     WorkloadConfig     `yaml:"WorkloadIdentifier"`
 	Measurements MeasurementsConfig `yaml:"Measurements"`
@@ -141,6 +163,69 @@ var defaultConfig_ = Config{
 		PasswordAuthenticator: BoolProperty{
 			Value:       false,
 			Description: "Enables the use of Cassandra's PasswordAuthenticator for client connections. If this is true,\nthen the `CassandraUsername` and `CassandraPassword` properties must be non-empty and valid.",
+		},
+		ReplicationStrategy: StringProperty{
+			Description: "Replication strategy to use for the Cassandra keyspace.",
+			Value:       "SimpleStrategy",
+		},
+		ReplicationFactor: IntProperty{
+			Description: "Replication factor to use for the Cassandra keyspace.",
+			Value:       1,
+		},
+	},
+	Cache: CacheConfig{
+		Nodes: []NodeConfig{
+			{
+				NodeId: IntProperty{
+					Value:       1,
+					Description: "The ID of the node.",
+				},
+				Address: StringProperty{
+					Description: "Address and port of redis server",
+					Value:       "0.0.0.0:6379",
+				},
+				FailureIntervals: []FailureInterval{
+					{
+						Start: 0.0,
+						End:   0.1,
+					},
+				},
+				MaxSize: IntProperty{
+					Value:       1000000,
+					Description: "The maximum number of records to store in the cache.",
+				},
+				UseDefaultDatabase: BoolProperty{
+					Value:       true,
+					Description: "Indicates whether to use the default database for the cache.",
+				},
+			}, {
+				NodeId: IntProperty{
+					Value:       2,
+					Description: "The ID of the node.",
+				},
+				Address: StringProperty{
+					Description: "Address and port of redis server",
+					Value:       "0.0.0.0:6380",
+				},
+				FailureIntervals: []FailureInterval{
+					{
+						Start: 0.0,
+						End:   0.1,
+					},
+				},
+				MaxSize: IntProperty{
+					Value:       1000000,
+					Description: "The maximum number of records to store in the cache.",
+				},
+				UseDefaultDatabase: BoolProperty{
+					Value:       true,
+					Description: "Indicates whether to use the default database for the cache.",
+				},
+			},
+		},
+		VirtualNodes: IntProperty{
+			Value:       500,
+			Description: "The number of virtual nodes.",
 		},
 	},
 	Performance: PerformanceConfig{
@@ -203,10 +288,6 @@ var defaultConfig_ = Config{
 		ThreadCount: IntProperty{
 			Value:       200,
 			Description: "The number of concurrent threads to use when executing the workload.",
-		},
-		VirtualNodes: IntProperty{
-			Value:       500,
-			Description: "The number of virtual nodes to simulate or use in the execution of the workload.",
 		},
 	},
 	Workload: WorkloadConfig{
@@ -293,7 +374,7 @@ var defaultConfig_ = Config{
 			Description: "Specifies the type of measurement for performance metrics. Valid values are 'histogram', 'raw', and 'csv'.",
 		},
 		RawOutputDir: StringProperty{
-			Value:       "data/raw/",
+			Value:       "data/raw.txt",
 			Description: "Directory for outputting raw measurement data (if there is any).",
 		},
 		HistogramPercentilesExport: BoolProperty{
@@ -347,6 +428,43 @@ var defaultConfig_ = Config{
 			Description: "Enables verbose logging for debugging purposes.",
 		},
 	},
+}
+
+func (c *Config) ToString() string {
+	var sb strings.Builder
+	r := reflect.ValueOf(c).Elem() // Dereference the pointer to get the struct
+
+	for i := 0; i < r.NumField(); i++ {
+		field := r.Field(i)
+		fieldType := r.Type().Field(i)
+
+		sb.WriteString(fmt.Sprintf("%s:\n", fieldType.Name))
+
+		if field.Kind() == reflect.Struct {
+			for j := 0; j < field.NumField(); j++ {
+				nestedField := field.Field(j)
+				nestedFieldType := field.Type().Field(j)
+
+				sb.WriteString(fmt.Sprintf("  %s: ", nestedFieldType.Name))
+
+				if nestedField.Kind() == reflect.Slice {
+					sb.WriteString("[\n")
+					for k := 0; k < nestedField.Len(); k++ {
+						elem := nestedField.Index(k)
+						sb.WriteString(fmt.Sprintf("    %v\n", elem.Interface()))
+					}
+					sb.WriteString("  ]\n")
+				} else {
+					sb.WriteString(fmt.Sprintf("%v\n", nestedField.Interface()))
+				}
+			}
+		} else {
+			sb.WriteString(fmt.Sprintf("  %v\n", field.Interface()))
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
 }
 
 func GetDefaultConfig() Config {
