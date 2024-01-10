@@ -138,19 +138,22 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 	d := new(CassandraDB)
 	d.p = p
 
-	hosts := strings.Split(p.CassandraCluster, ",")
+	hosts := strings.Split(p.Database.CassandraCluster, ",")
 
 	cluster := gocql.NewCluster(hosts...)
 	d.keySpace = cluster.Keyspace
 
-	cluster.NumConns = p.CassandraConnections
+	cluster.NumConns = p.Database.CassandraConnections
 	cluster.Timeout = 30 * time.Second
 	cluster.Consistency = gocql.Quorum
 
-	if p.PasswordAuthenticator {
-		username := p.CassandraUsername
-		password := p.CassandraPassword
-		cluster.Authenticator = gocql.PasswordAuthenticator{Username: username, Password: password}
+	if p.Database.PasswordAuthenticator {
+		username := p.Database.CassandraUsername
+		password := p.Database.CassandraPassword
+		cluster.Authenticator = gocql.PasswordAuthenticator{
+			Username: username,
+			Password: password,
+		}
 	}
 
 	session, err := cluster.CreateSession()
@@ -158,7 +161,7 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 		return nil, err
 	}
 
-	d.verbose = p.Verbose
+	d.verbose = p.Logging.Verbose
 	d.session = session
 
 	d.bufPool = util.NewBufPool()
@@ -167,8 +170,8 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 		return nil, err
 	}
 
-	cluster.Keyspace = p.CassandraKeyspace
-	d.keySpace = p.CassandraKeyspace
+	cluster.Keyspace = p.Database.CassandraKeyspace
+	d.keySpace = p.Database.CassandraKeyspace
 
 	if err := d.createTableIfNotExists(); err != nil {
 		return nil, err
@@ -178,26 +181,26 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 }
 
 func (k *CassandraDB) createKeyspaceIfNotExists(replicationStrategy string, replicationFactor int) error {
-	query := fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': '%s', 'replication_factor': %d};", k.p.CassandraKeyspace, replicationStrategy, replicationFactor)
+	query := fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': '%s', 'replication_factor': %d};", k.p.Database.CassandraKeyspace, replicationStrategy, replicationFactor)
 
 	if err := k.session.Query(query).Exec(); err != nil {
-		log.Printf("Failed to create keyspace %s: %v", k.p.CassandraKeyspace, err)
+		log.Printf("Failed to create keyspace %s: %v", k.p.Database.CassandraKeyspace, err)
 		return err
 	}
-	log.Printf("Keyspace %s created successfully", k.p.CassandraKeyspace)
+	log.Printf("Keyspace %s created successfully", k.p.Database.CassandraKeyspace)
 	return nil
 }
 
 func (k *CassandraDB) createTableIfNotExists() error {
-	tableName := k.p.TableName
+	tableName := k.p.Database.CassandraTableName
 
-	if k.p.DropData {
+	if k.p.Database.DropData {
 		if err := k.session.Query(fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", k.keySpace, tableName)).Exec(); err != nil {
 			return err
 		}
 	}
 
-	fieldCount := k.p.FieldCount
+	fieldCount := k.p.Performance.FieldCount
 
 	k.fieldNames = make([]string, fieldCount)
 	for i := int64(0); i < fieldCount; i++ {

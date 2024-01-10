@@ -30,8 +30,8 @@ type Worker struct {
 func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workload, db db.DB, cache *cache.Cache) *Worker {
 	w := new(Worker)
 	w.p = p
-	w.doTransactions = p.DoTransactions
-	w.batchSize = p.BatchSize
+	w.doTransactions = p.Workload.DoTransactions
+	w.batchSize = p.Performance.BatchSize
 	if w.batchSize > 1 {
 		w.doBatch = true
 	}
@@ -42,20 +42,20 @@ func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workl
 
 	var totalOpCount int64
 	if w.doTransactions {
-		totalOpCount = p.OperationCount
+		totalOpCount = p.Performance.OperationCount
 	} else {
-		if p.InsertCount > 0 {
-			totalOpCount = p.InsertCount
+		if p.Performance.InsertCount > 0 {
+			totalOpCount = p.Performance.InsertCount
 		} else {
-			totalOpCount = p.RecordCount
+			totalOpCount = p.Performance.RecordCount
 		}
 	}
 
 	if totalOpCount < int64(threadCount) {
 		fmt.Printf("totalOpCount(%s/%s/%s): %d should be bigger than threadCount: %d",
-			p.OperationCount,
-			p.InsertCount,
-			p.RecordCount,
+			p.Performance.OperationCount,
+			p.Performance.InsertCount,
+			p.Performance.RecordCount,
 			totalOpCount,
 			threadCount)
 
@@ -68,7 +68,7 @@ func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workl
 	}
 
 	targetPerThreadPerms := float64(-1)
-	if v := p.TargetOperationsPerSec; v > 0 {
+	if v := p.Measurements.TargetOperationsPerSec; v > 0 {
 		targetPerThread := float64(v) / float64(threadCount)
 		targetPerThreadPerms = targetPerThread / 1000.0
 	}

@@ -1,57 +1,67 @@
-BatchSize: 1
-CassandraCluster: "127.0.0.1:9042"
-CassandraConnections: 2
-CassandraKeyspace: "test"
-CassandraPassword: ""
-CassandraUsername: ""
-Command: ""
-DataIntegrity: false
-DebugPprof: ":6060"
-DoTransactions: false
-DropData: false
-ExponentialFrac: 0.8571428571
-ExponentialPercentile: 95.0
-FieldCount: 10
-FieldLength: 100
-FieldLengthDistribution: "constant"
-FieldLengthHistogramFile: "hist.txt"
-HistogramPercentilesExport: false
-HistogramPercentilesExportFilepath: "./"
-HotspotDataFraction: 0.2
-HotspotOpnFraction: 0.8
-InsertCount: 10000
-InsertionRetryInterval: 3
-InsertionRetryLimit: 0
-InsertOrder: "hashed"
-InsertProportion: 0.0
-InsertStart: 10000
-KeyPrefix: "user"
-Label: ""
-LogInterval: 10
-MaxExecutionTime: 0
-MaxScanLength: 1000
-MeasurementRawOutputFile: ""
-MeasurementType: "histogram"
-MinScanLength: 1
-OperationCount: 10000
-OutputStyle: ""
-PasswordAuthenticator: false
-ReadAllFields: true
-ReadModifyWriteProportion: 0.0
-ReadProportion: 0.95
-RecordCount: 100000
-RequestDistribution: "uniform"
-ScanLengthDistribution: "uniform"
-ScanProportion: 0.0
-Silence: true
-Status: ""
-TableName: "usertable"
-TargetOperationsPerSec: 500
-ThreadCount: 200
-UpdateProportion: 0.05
-Verbose: false
-VirtualNodes: 500
-WarmUpTime: 0
-Workload: ""
-WriteAllFields: false
-ZeroPadding: 1
+Database:
+  CassandraCluster: "127.0.0.1:9042"
+  CassandraConnections: 2
+  CassandraKeyspace: "test"
+  CassandraTableName: "usertable"
+  CassandraPassword: ""
+  CassandraUsername: ""
+  DropData: false
+  PasswordAuthenticator: false
+
+Performance:
+  BatchSize: 1
+  DataIntegrity: false
+  FieldCount: 10
+  FieldLength: 100
+  FieldLengthDistribution: "constant"
+  InsertCount: 10000
+  InsertionRetryInterval: 3
+  InsertionRetryLimit: 0
+  MaxExecutionTime: 0
+  MaxScanLength: 1000
+  MinScanLength: 1
+  OperationCount: 10000
+  RecordCount: 100000
+  ThreadCount: 200
+  WarmUpTime: 0
+  VirtualNodes: 500
+
+Workload:
+  Workload: ""
+  Command: ""
+  DoTransactions: false
+  ExponentialFrac: 0.8571428571
+  ExponentialPercentile: 95.0
+  HotspotDataFraction: 0.2
+  HotspotOpnFraction: 0.8
+  InsertOrder: "hashed"
+  InsertProportion: 0.0
+  InsertStart: 10000
+  KeyPrefix: "user"
+  ReadAllFields: true
+  ReadModifyWriteProportion: 0.0
+  ReadProportion: 0.95
+  RequestDistribution: "uniform"
+  ScanLengthDistribution: "uniform"
+  ScanProportion: 0.0
+  UpdateProportion: 0.05
+  WriteAllFields: false
+
+
+Measurements:
+  MeasurementType: "histogram"
+  MeasurementRawOutputFile: ""
+  HistogramPercentilesExport: false
+  HistogramPercentilesExportFilepath: "./"
+  FieldLengthHistogramFile: "hist.txt"
+  TargetOperationsPerSec: 500
+  ZeroPadding: 1
+
+Logging:
+  DebugPprof: ":6060"
+  Label: ""
+  LogInterval: 10
+  OutputStyle: ""
+  Silence: true
+  Status: ""
+  Verbose: false

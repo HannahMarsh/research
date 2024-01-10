@@ -104,7 +104,7 @@ func parseDBStat(pathName string) (*dbStat, error) {
 		return nil, nil
 	}
 
-	s.workload = workload
+	s.Workload.workload = workload
 	file, err := os.Open(pathName)
 	if err != nil {
 		return nil, err
@@ -234,7 +234,7 @@ func main() {
 			continue
 		}
 
-		stats[s.workload] = append(stats[s.workload], s)
+		stats[s.Workload.workload] = append(stats[s.Workload.workload], s)
 	}
 
 	for workload, s := range stats {
