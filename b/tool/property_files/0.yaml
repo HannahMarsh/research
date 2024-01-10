@@ -1,67 +1,180 @@
 Database:
-  CassandraCluster: "127.0.0.1:9042"
-  CassandraConnections: 2
-  CassandraKeyspace: "test"
-  CassandraTableName: "usertable"
-  CassandraPassword: ""
-  CassandraUsername: ""
-  DropData: false
-  PasswordAuthenticator: false
+  CassandraCluster:
+    Value: "127.0.0.1:9042"
+    Description: ""
+  CassandraConnections:
+    Value: 2
+    Description: ""
+  CassandraKeyspace:
+    Value: "test"
+    Description: ""
+  CassandraTableName:
+    Value: "usertable"
+    Description: ""
+  CassandraPassword:
+    Value: ""
+    Description: ""
+  CassandraUsername:
+    Value: ""
+    Description: ""
+  DropData:
+    Value: false
+    Description: ""
+  PasswordAuthenticator:
+    Value: false
+    Description: ""
 
 Performance:
-  BatchSize: 1
-  DataIntegrity: false
-  FieldCount: 10
-  FieldLength: 100
-  FieldLengthDistribution: "constant"
-  InsertCount: 10000
-  InsertionRetryInterval: 3
-  InsertionRetryLimit: 0
-  MaxExecutionTime: 0
-  MaxScanLength: 1000
-  MinScanLength: 1
-  OperationCount: 10000
-  RecordCount: 100000
-  ThreadCount: 200
-  WarmUpTime: 0
-  VirtualNodes: 500
+  BatchSize:
+    Value: 1
+    Description: ""
+  DataIntegrity:
+    Value: false
+    Description: ""
+  FieldCount:
+    Value: 10
+    Description: ""
+  FieldLength:
+    Value: 100
+    Description: ""
+  FieldLengthDistribution:
+    Value: "constant"
+    Description: ""
+  InsertCount:
+    Value: 10000
+    Description: ""
+  InsertionRetryInterval:
+    Value: 3
+    Description: ""
+  InsertionRetryLimit:
+    Value: 0
+    Description: ""
+  MaxExecutionTime:
+    Value: 0
+    Description: ""
+  MaxScanLength:
+    Value: 1000
+    Description: ""
+  MinScanLength:
+    Value: 1
+    Description: ""
+  OperationCount:
+    Value: 10000
+    Description: ""
+  RecordCount:
+    Value: 100000
+    Description: ""
+  ThreadCount:
+    Value: 200
+    Description: ""
+  WarmUpTime:
+    Value: 0
+    Description: ""
+  VirtualNodes:
+    Value: 500
+    Description: ""
 
 Workload:
-  Workload: ""
-  Command: ""
-  DoTransactions: false
-  ExponentialFrac: 0.8571428571
-  ExponentialPercentile: 95.0
-  HotspotDataFraction: 0.2
-  HotspotOpnFraction: 0.8
-  InsertOrder: "hashed"
-  InsertProportion: 0.0
-  InsertStart: 10000
-  KeyPrefix: "user"
-  ReadAllFields: true
-  ReadModifyWriteProportion: 0.0
-  ReadProportion: 0.95
-  RequestDistribution: "uniform"
-  ScanLengthDistribution: "uniform"
-  ScanProportion: 0.0
-  UpdateProportion: 0.05
-  WriteAllFields: false
-
+  Workload:
+    Value: ""
+    Description: ""
+  Command:
+    Value: ""
+    Description: ""
+  DoTransactions:
+    Value: false
+    Description: ""
+  ExponentialFrac:
+    Value: 0.8571428571
+    Description: ""
+  ExponentialPercentile:
+    Value: 95.0
+    Description: ""
+  HotspotDataFraction:
+    Value: 0.2
+    Description: ""
+  HotspotOpnFraction:
+    Value: 0.8
+    Description: ""
+  InsertOrder:
+    Value: "hashed"
+    Description: ""
+  InsertProportion:
+    Value: 0.0
+    Description: ""
+  InsertStart:
+    Value: 10000
+    Description: ""
+  KeyPrefix:
+    Value: "user"
+    Description: ""
+  ReadAllFields:
+    Value: true
+    Description: ""
+  ReadModifyWriteProportion:
+    Value: 0.0
+    Description: ""
+  ReadProportion:
+    Value: 0.95
+    Description: ""
+  RequestDistribution:
+    Value: "uniform"
+    Description: ""
+  ScanLengthDistribution:
+    Value: "uniform"
+    Description: ""
+  ScanProportion:
+    Value: 0.0
+    Description: ""
+  UpdateProportion:
+    Value: 0.05
+    Description: ""
+  WriteAllFields:
+    Value: false
+    Description: ""
 
 Measurements:
-  MeasurementType: "histogram"
-  MeasurementRawOutputFile: ""
-  HistogramPercentilesExport: false
-  HistogramPercentilesExportFilepath: "./"
-  FieldLengthHistogramFile: "hist.txt"
-  TargetOperationsPerSec: 500
-  ZeroPadding: 1
+  MeasurementType:
+    Value: "histogram"
+    Description: ""
+  MeasurementRawOutputFile:
+    Value: ""
+    Description: ""
+  HistogramPercentilesExport:
+    Value: false
+    Description: ""
+  HistogramPercentilesExportFilepath:
+    Value: "./"
+    Description: ""
+  FieldLengthHistogramFile:
+    Value: "hist.txt"
+    Description: ""
+  TargetOperationsPerSec:
+    Value: 500
+    Description: ""
+  ZeroPadding:
+    Value: 1
+    Description: ""
 
 Logging:
-  DebugPprof: ":6060"
-  Label: ""
-  LogInterval: 10
-  OutputStyle: ""
-  Silence: true
-  Status: ""
-  Verbose: false
+  DebugPprof:
+    Value: ":6060"
+    Description: ""
+  Label:
+    Value: ""
+    Description: ""
+  LogInterval:
+    Value: 10
+    Description: ""
+  OutputStyle:
+    Value: ""
+    Description: ""
+  Silence:
+    Value: true
+    Description: ""
+  Status:
+    Value: ""
+    Description: ""
+  Verbose:
+    Value: false
+    Description: ""

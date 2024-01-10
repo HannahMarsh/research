@@ -58,7 +58,7 @@ func (m *measurement) output() {
 	m.RLock()
 	defer m.RUnlock()
 
-	outFile := m.p.Measurements.MeasurementRawOutputFile
+	outFile := m.p.Measurements.MeasurementRawOutputFile.Value
 	var w *bufio.Writer
 	if outFile == "" {
 		w = bufio.NewWriter(os.Stdout)
@@ -92,7 +92,7 @@ func (m *measurement) summary() {
 func InitMeasure(p *bconfig.Config) {
 	globalMeasure = new(measurement)
 	globalMeasure.p = p
-	measurementType := p.Measurements.MeasurementType
+	measurementType := p.Measurements.MeasurementType.Value
 	switch measurementType {
 	case "histogram":
 		globalMeasure.measurer = InitHistograms(p)
@@ -101,7 +101,7 @@ func InitMeasure(p *bconfig.Config) {
 	default:
 		panic("unsupported measurement type: " + measurementType)
 	}
-	EnableWarmUp(p.Performance.WarmUpTime > 0)
+	EnableWarmUp(p.Performance.WarmUpTime.Value > 0)
 }
 
 // Output prints the complete measurements.

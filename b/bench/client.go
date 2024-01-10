@@ -38,20 +38,20 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 		if !doTransactions {
 			doTransFlag = false
 		}
-		globalProps.Workload.DoTransactions = doTransFlag
-		globalProps.Workload.Command = command
+		globalProps.Workload.DoTransactions.Value = doTransFlag
+		globalProps.Workload.Command.Value = command
 
 		if cmd.Flags().Changed("threads") {
 			// We set the threadArg via command line.
-			globalProps.Performance.ThreadCount = int64(threadsArg)
+			globalProps.Performance.ThreadCount.Value = threadsArg
 		}
 
 		if cmd.Flags().Changed("target") {
-			globalProps.Measurements.TargetOperationsPerSec = int64(targetArg)
+			globalProps.Measurements.TargetOperationsPerSec.Value = targetArg
 		}
 
 		if cmd.Flags().Changed("interval") {
-			globalProps.Logging.LogInterval = int64(reportInterval)
+			globalProps.Logging.LogInterval.Value = reportInterval
 		}
 	})
 

@@ -57,7 +57,7 @@ func initialGlobal(onProperties func()) {
 		onProperties()
 	}
 
-	addr := globalProps.Logging.DebugPprof
+	addr := globalProps.Logging.DebugPprof.Value
 	go func() {
 		err := http.ListenAndServe(addr, nil)
 		if err != nil {
@@ -68,7 +68,7 @@ func initialGlobal(onProperties func()) {
 	measurement.InitMeasure(globalProps)
 
 	if len(tableName) == 0 {
-		tableName = globalProps.Database.CassandraTableName
+		tableName = globalProps.Database.CassandraTableName.Value
 	}
 
 	workloadName := globalProps.Workload.Workload

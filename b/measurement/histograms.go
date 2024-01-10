@@ -19,7 +19,7 @@ type Histograms struct {
 }
 
 func (h *Histograms) GenerateExtendedOutputs() {
-	exportHistograms := h.p.Measurements.HistogramPercentilesExport
+	exportHistograms := h.p.Measurements.HistogramPercentilesExport.Value
 	if exportHistograms {
 		exportHistogramsFilepath := h.p.Measurements.HistogramPercentilesExportFilepath
 		for op, opM := range h.histograms {
@@ -88,7 +88,7 @@ func (h *Histograms) Output(w io.Writer) error {
 		lines = append(lines, line)
 	}
 
-	outputStyle := h.p.Logging.OutputStyle
+	outputStyle := h.p.Logging.OutputStyle.Value
 	switch outputStyle {
 	case util.OutputStylePlain:
 		util.RenderString(w, "%-6s - %s\n", header, lines)

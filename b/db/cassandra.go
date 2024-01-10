@@ -138,18 +138,18 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 	d := new(CassandraDB)
 	d.p = p
 
-	hosts := strings.Split(p.Database.CassandraCluster, ",")
+	hosts := strings.Split(p.Database.CassandraCluster.Value, ",")
 
 	cluster := gocql.NewCluster(hosts...)
 	d.keySpace = cluster.Keyspace
 
-	cluster.NumConns = p.Database.CassandraConnections
+	cluster.NumConns = p.Database.CassandraConnections.Value
 	cluster.Timeout = 30 * time.Second
 	cluster.Consistency = gocql.Quorum
 
-	if p.Database.PasswordAuthenticator {
-		username := p.Database.CassandraUsername
-		password := p.Database.CassandraPassword
+	if p.Database.PasswordAuthenticator.Value {
+		username := p.Database.CassandraUsername.Value
+		password := p.Database.CassandraPassword.Value
 		cluster.Authenticator = gocql.PasswordAuthenticator{
 			Username: username,
 			Password: password,
@@ -161,7 +161,7 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 		return nil, err
 	}
 
-	d.verbose = p.Logging.Verbose
+	d.verbose = p.Logging.Verbose.Value
 	d.session = session
 
 	d.bufPool = util.NewBufPool()
@@ -170,8 +170,8 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 		return nil, err
 	}
 
-	cluster.Keyspace = p.Database.CassandraKeyspace
-	d.keySpace = p.Database.CassandraKeyspace
+	cluster.Keyspace = p.Database.CassandraKeyspace.Value
+	d.keySpace = p.Database.CassandraKeyspace.Value
 
 	if err := d.createTableIfNotExists(); err != nil {
 		return nil, err
@@ -194,13 +194,13 @@ func (k *CassandraDB) createKeyspaceIfNotExists(replicationStrategy string, repl
 func (k *CassandraDB) createTableIfNotExists() error {
 	tableName := k.p.Database.CassandraTableName
 
-	if k.p.Database.DropData {
+	if k.p.Database.DropData.Value {
 		if err := k.session.Query(fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", k.keySpace, tableName)).Exec(); err != nil {
 			return err
 		}
 	}
 
-	fieldCount := k.p.Performance.FieldCount
+	fieldCount := int64(k.p.Performance.FieldCount.Value)
 
 	k.fieldNames = make([]string, fieldCount)
 	for i := int64(0); i < fieldCount; i++ {
@@ -308,10 +308,10 @@ func (k *CassandraDB) Update(ctx context.Context, table string, key string, valu
 		}
 
 		buf.WriteString(p.Field)
-		buf.WriteString(`= ?`)
+		buf.WriteString(`=.Value ?`)
 		args = append(args, p.Value)
 	}
-	buf.WriteString(" WHERE key = ?")
+	buf.WriteString(".Value WHERE key = ?")
 
 	args = append(args, key)
 
@@ -334,10 +334,10 @@ func (k *CassandraDB) Insert(ctx context.Context, table string, key string, valu
 	pairs := util.NewFieldPairs(values)
 	for _, p := range pairs {
 		args = append(args, p.Value)
-		buf.WriteString(" ,")
+		buf.WriteString(".Value ,")
 		buf.WriteString(p.Field)
 	}
-	buf.WriteString(") VALUES (?")
+	buf.WriteString(".Value) VALUES (?")
 
 	for i := 0; i < len(pairs); i++ {
 		buf.WriteString(" ,?")

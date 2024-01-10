@@ -27,7 +27,7 @@ func NewClient(p *bconfig.Config, workload *workload.Workload, db db.DB, cache_ 
 // Run runs the workload to the target DB, and blocks until all workers end.
 func (c *Client) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	threadCount := c.p.Performance.ThreadCount
+	threadCount := c.p.Performance.ThreadCount.Value
 
 	wg.Add(int(threadCount))
 	measureCtx, measureCancel := context.WithCancel(ctx)
@@ -37,8 +37,8 @@ func (c *Client) Run(ctx context.Context) {
 			measureCh <- struct{}{}
 		}()
 		// load stage no need to warm up
-		if c.p.Workload.DoTransactions {
-			dur := c.p.Performance.WarmUpTime
+		if c.p.Workload.DoTransactions.Value {
+			dur := c.p.Performance.WarmUpTime.Value
 			select {
 			case <-ctx.Done():
 				return
@@ -48,7 +48,7 @@ func (c *Client) Run(ctx context.Context) {
 		// finish warming up
 		measurement.EnableWarmUp(false)
 
-		dur := c.p.Logging.LogInterval
+		dur := c.p.Logging.LogInterval.Value
 		if dur > 0 {
 			t := time.NewTicker(time.Duration(dur) * time.Second)
 			defer t.Stop()
@@ -77,10 +77,10 @@ func (c *Client) Run(ctx context.Context) {
 	}
 
 	wg.Wait()
-	if !c.p.Workload.DoTransactions {
+	if !c.p.Workload.DoTransactions.Value {
 		// when loading is finished, try to analyze table if possible.
 		if analyzeDB, ok := c.db.(db.AnalyzeDB); ok {
-			err := analyzeDB.Analyze(ctx, c.p.Database.CassandraTableName)
+			err := analyzeDB.Analyze(ctx, c.p.Database.CassandraTableName.Value)
 			if err != nil {
 				panic(err)
 			}
