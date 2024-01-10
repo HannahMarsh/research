@@ -14,7 +14,6 @@
 package main
 
 import (
-	bconfig "benchmark/config"
 	"benchmark/util"
 	"context"
 	"fmt"
@@ -36,7 +35,7 @@ func newShellCommand() *cobra.Command {
 	}
 	m.Flags().StringVar(&propertyFile, "property_file", "P", "Specify a property file")
 	m.Flags().StringSliceVarP(&propertyValues, "prop", "p", nil, "Specify a property value with name=value")
-	m.Flags().StringVar(&tableName, "table", "", "Use the table name instead of the default \""+bconfig.TableNameDefault+"\"")
+	m.Flags().StringVar(&tableName, "table", "", "Use the table name instead of the default \"usertable\"")
 	return m
 }
 

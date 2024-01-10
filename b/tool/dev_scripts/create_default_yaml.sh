@@ -24,11 +24,11 @@ import (
     "os"
     "gopkg.in/yaml.v3"
     "path/filepath"
-    "cloud computing research/research/b/config" // Adjust the import path as necessary
+    bconfig "benchmark/config"
 )
 
 func main() {
-    defaultConfig := config.NewConfig() // Replace with correct function call if it differs
+    defaultConfig := config.GetDefaultConfig()
     yamlData, err := yaml.Marshal(&defaultConfig)
     if err != nil {
         fmt.Println(err)

@@ -194,7 +194,7 @@ func (k *CassandraDB) createKeyspaceIfNotExists(replicationStrategy string, repl
 func (k *CassandraDB) createTableIfNotExists() error {
 	tableName := k.p.Database.CassandraTableName
 
-	if k.p.Database.DropData.Value {
+	if k.p.Performance.DropData.Value {
 		if err := k.session.Query(fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", k.keySpace, tableName)).Exec(); err != nil {
 			return err
 		}
