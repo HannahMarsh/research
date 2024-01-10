@@ -27,9 +27,8 @@ func NewClient(p *bconfig.Config, workload *workload.Workload, db db.DB, cache_ 
 // Run runs the workload to the target DB, and blocks until all workers end.
 func (c *Client) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	threadCount := c.p.Performance.ThreadCount.Value
 
-	wg.Add(int(threadCount))
+	wg.Add(c.p.Performance.ThreadCount.Value)
 	measureCtx, measureCancel := context.WithCancel(ctx)
 	measureCh := make(chan struct{}, 1)
 	go func() {
@@ -38,19 +37,18 @@ func (c *Client) Run(ctx context.Context) {
 		}()
 		// load stage no need to warm up
 		if c.p.Workload.DoTransactions.Value {
-			dur := c.p.Performance.WarmUpTime.Value
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(time.Duration(dur) * time.Second):
+			case <-time.After(time.Duration(c.p.Performance.WarmUpTime.Value) * time.Second):
 			}
 		}
 		// finish warming up
 		measurement.EnableWarmUp(false)
 
-		dur := c.p.Logging.LogInterval.Value
-		if dur > 0 {
-			t := time.NewTicker(time.Duration(dur) * time.Second)
+		//dur := c.p.Logging.LogInterval.Value
+		if c.p.Logging.LogInterval.Value > 0 {
+			t := time.NewTicker(time.Duration(c.p.Logging.LogInterval.Value) * time.Second)
 			defer t.Stop()
 
 			for {
@@ -64,13 +62,13 @@ func (c *Client) Run(ctx context.Context) {
 		}
 	}()
 
-	for i := 0; i < int(threadCount); i++ {
+	for i := 0; i < c.p.Performance.ThreadCount.Value; i++ {
 		go func(threadId int) {
 			defer wg.Done()
 
-			w := workload.NewWorker(c.p, threadId, int(threadCount), c.workload, c.db, c.cache)
-			ctx := c.workload.InitThread(ctx, threadId, int(threadCount))
-			ctx = c.db.InitThread(ctx, threadId, int(threadCount))
+			w := workload.NewWorker(c.p, threadId, c.p.Performance.ThreadCount.Value, c.workload, c.db, c.cache)
+			ctx := c.workload.InitThread(ctx, threadId, c.p.Performance.ThreadCount.Value)
+			ctx = c.db.InitThread(ctx, threadId, c.p.Performance.ThreadCount.Value)
 			w.Run(ctx)
 			c.db.CleanupThread(ctx)
 		}(i)

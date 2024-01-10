@@ -110,306 +110,250 @@ type Config struct {
 	Logging      LoggingConfig      `yaml:"Logging"`
 }
 
-//type Config struct {
-//	BatchSize                                    int     `yaml:"BatchSize"`
-//	CassandraCluster                             string  `yaml:"CassandraCluster"`
-//	CassandraConnections                         int     `yaml:"CassandraConnections"`
-//	CassandraKeyspace                            string  `yaml:"CassandraKeyspace"`
-//	CassandraPassword                            string  `yaml:"CassandraPassword"`
-//	CassandraUsername                            string  `yaml:"CassandraUsername"`
-//	Command                                      string  `yaml:"Command"`
-//	DataIntegrity                                bool    `yaml:"DataIntegrity"`
-//	DebugPprof                                   string  `yaml:"DebugPprof"`
-//	DoTransactions                               bool    `yaml:"DoTransactions"`
-//	DropData                                     bool    `yaml:"DropData"`
-//	ExponentialFrac                              float64 `yaml:"ExponentialFrac"`
-//	ExponentialPercentile                        float64 `yaml:"ExponentialPercentile"`
-//	FieldCount                                   int64   `yaml:"FieldCount"`
-//	FieldLength                                  int64   `yaml:"FieldLength"`
-//	FieldLengthDistribution                      string  `yaml:"FieldLengthDistribution"`
-//	FieldLengthHistogramFile                     string  `yaml:"FieldLengthHistogramFile"`
-//	HotspotDataFraction                          float64 `yaml:"HotspotDataFraction"`
-//	HotspotOpnFraction                           float64 `yaml:"HotspotOpnFraction"`
-//	InsertCount                                  int64   `yaml:"InsertCount"`
-//	InsertionRetryInterval                       int64   `yaml:"InsertionRetryInterval"`
-//	InsertionRetryLimit                          int64   `yaml:"InsertionRetryLimit"`
-//	InsertOrder                                  string  `yaml:"InsertOrder"`
-//	InsertProportion                             float64 `yaml:"InsertProportion"`
-//	InsertStart                                  int64   `yaml:"InsertStart"`
-//	KeyPrefix                                    string  `yaml:"KeyPrefix"`
-//	Label                                        string  `yaml:"Label"`
-//	LogInterval                                  int64   `yaml:"LogInterval"`
-//	MaxExecutionTime                             int64   `yaml:"MaxExecutionTime"`
-//	MaxScanLength                                int64   `yaml:"MaxScanLength"`
-//	MeasurementHistogramPercentileExport         bool    `yaml:"HistogramPercentilesExport"`
-//	MeasurementHistogramPercentileExportFilepath string  `yaml:"HistogramPercentilesExportFilepath"`
-//	MeasurementRawOutputFile                     string  `yaml:"MeasurementRawOutputFile"`
-//	MeasurementType                              string  `yaml:"MeasurementType"`
-//	MinScanLength                                int64   `yaml:"MinScanLength"`
-//	OperationCount                               int64   `yaml:"OperationCount"`
-//	OutputStyle                                  string  `yaml:"OutputStyle"`
-//	PasswordAuthenticator                        bool    `yaml:"PasswordAuthenticator"`
-//	ReadAllFields                                bool    `yaml:"ReadAllFields"`
-//	ReadModifyWriteProportion                    float64 `yaml:"ReadModifyWriteProportion"`
-//	ReadProportion                               float64 `yaml:"ReadProportion"`
-//	RecordCount                                  int64   `yaml:"RecordCount"`
-//	RequestDistribution                          string  `yaml:"RequestDistribution"`
-//	ScanLengthDistribution                       string  `yaml:"ScanLengthDistribution"`
-//	ScanProportion                               float64 `yaml:"ScanProportion"`
-//	Silence                                      bool    `yaml:"Silence"`
-//	Status                                       string  `yaml:"Status"`
-//	CassandraTableName                           string  `yaml:"CassandraTableName"`
-//	TargetOperationsPerSec                       int64   `yaml:"TargetOperationsPerSec"`
-//	ThreadCount                                  int64   `yaml:"ThreadCount"`
-//	UpdateProportion                             float64 `yaml:"UpdateProportion"`
-//	Verbose                                      bool    `yaml:"Verbose"`
-//	VirtualNodes                                 int64   `yaml:"VirtualNodes"`
-//	WarmUpTime                                   int64   `yaml:"WarmUpTime"`
-//	Workload                                     string  `yaml:"Workload"`
-//	WriteAllFields                               bool    `yaml:"WriteAllFields"`
-//	ZeroPadding                                  int64   `yaml:"ZeroPadding"`
-//}
-
-// NewConfig creates a new Config instance, populating it with values
-// from a YAML file or using default values if not present.
-func NewConfig(yamlFileName string) (*Config, error) {
-	// initialize with default values
-	defaultConfig := Config{
+func GetDefaultConfig() Config {
+	return Config{
 		Database: DatabaseConfig{
 			CassandraCluster: StringProperty{
 				Value:       "127.0.0.1:9042",
-				Description: "",
+				Description: "The host and port of the Cassandra cluster.",
 			},
 			CassandraConnections: IntProperty{
 				Value:       2,
-				Description: "",
+				Description: "The number of connections to the Cassandra cluster.",
 			},
 			CassandraKeyspace: StringProperty{
 				Value:       "test",
-				Description: "",
+				Description: "Keyspace to use within the Cassandra database.",
 			},
 			CassandraTableName: StringProperty{
 				Value:       "usertable",
-				Description: "",
+				Description: "Name of the table to use within the Cassandra keyspace.",
 			},
 			CassandraPassword: StringProperty{
 				Value:       "",
-				Description: "",
+				Description: "The password for authenticating with Cassandra, if required.",
 			},
 			CassandraUsername: StringProperty{
 				Value:       "",
-				Description: "",
+				Description: "The username for authenticating with Cassandra, if required.",
 			},
 			DropData: BoolProperty{
 				Value:       false,
-				Description: "",
+				Description: "Indicates whether to drop any pre-existing database data upon startup.",
 			},
 			PasswordAuthenticator: BoolProperty{
 				Value:       false,
-				Description: "",
+				Description: "Indicates if Cassandra's PasswordAuthenticator is used for client connections.",
 			},
 		},
 		Performance: PerformanceConfig{
 			BatchSize: IntProperty{
 				Value:       1,
-				Description: "",
+				Description: "The number of operations to batch together in a single transaction or request.",
 			},
 			DataIntegrity: BoolProperty{
 				Value:       false,
-				Description: "",
+				Description: "Whether to perform data integrity checks during operations.",
 			},
 			FieldCount: IntProperty{
 				Value:       10,
-				Description: "",
+				Description: "The number of fields (columns) to include in a database table or a data model.",
 			},
 			FieldLength: IntProperty{
 				Value:       100,
-				Description: "",
+				Description: "The fixed length of data to store in each field of the database.",
 			},
 			FieldLengthDistribution: StringProperty{
 				Value:       "constant",
-				Description: "",
+				Description: "The type of distribution used to vary the length of fields in data records.",
 			},
 			InsertCount: IntProperty{
 				Value:       10000,
-				Description: "",
+				Description: "The total number of records to insert during the workload execution.",
 			},
 			InsertionRetryInterval: IntProperty{
 				Value:       3,
-				Description: "",
+				Description: "The time in seconds to wait before retrying a failed insert operation.",
 			},
 			InsertionRetryLimit: IntProperty{
 				Value:       0,
-				Description: "",
+				Description: "The maximum number of retry attempts for a failed insert operation.",
 			},
 			MaxExecutionTime: IntProperty{
 				Value:       0,
-				Description: "",
+				Description: "The maximum allowed time for the benchmark to run before it is forcibly stopped.",
 			},
 			MaxScanLength: IntProperty{
 				Value:       1000,
-				Description: "",
+				Description: "The maximum number of records to scan in a single operation.",
 			},
 			MinScanLength: IntProperty{
 				Value:       1,
-				Description: "",
+				Description: "The minimum number of records to scan in a single operation.",
 			},
 			OperationCount: IntProperty{
 				Value:       10000,
-				Description: "",
+				Description: "The total number of operations to perform during the workload execution.",
 			},
 			ThreadCount: IntProperty{
 				Value:       200,
-				Description: "",
+				Description: "The number of concurrent threads to use when executing the workload.",
 			},
 			WarmUpTime: IntProperty{
 				Value:       0,
-				Description: "",
+				Description: "The duration in seconds to run the workload before measurement begins.",
 			},
 			VirtualNodes: IntProperty{
 				Value:       500,
-				Description: "",
+				Description: "The number of virtual nodes to simulate or use in the execution of the workload.",
 			},
 		},
 		Workload: WorkloadConfig{
 			Workload: StringProperty{
 				Value:       "",
-				Description: "",
+				Description: "The name of the workload to be executed.",
 			},
 			Command: StringProperty{
 				Value:       "",
-				Description: "",
+				Description: "The specific command to run as part of the workload.",
 			},
 			DoTransactions: BoolProperty{
 				Value:       false,
-				Description: "",
+				Description: "Indicates whether transactions should be executed.",
 			},
 			ExponentialFrac: FloatProperty{
 				Value:       0.8571428571,
-				Description: "",
+				Description: "The fraction of the exponential function used for generating workload distributions.",
 			},
 			ExponentialPercentile: FloatProperty{
 				Value:       95.0,
-				Description: "",
+				Description: "The target percentile for the exponential distribution when generating workloads.",
 			},
 			HotspotDataFraction: FloatProperty{
 				Value:       0.2,
-				Description: "",
+				Description: "The fraction of data that will be considered 'hot' for generating hotspots in the workload.",
 			},
 			HotspotOpnFraction: FloatProperty{
 				Value:       0.8,
-				Description: "",
+				Description: "The fraction of operations that will be focused on the 'hot' data.",
 			},
 			InsertOrder: StringProperty{
 				Value:       "hashed",
-				Description: "",
+				Description: "The order in which records are inserted, which can be 'hashed' or another specified order.",
 			},
 			InsertProportion: FloatProperty{
 				Value:       0.0,
-				Description: "",
+				Description: "The proportion of insert operations in the workload.",
 			},
 			InsertStart: IntProperty{
 				Value:       10000,
-				Description: "",
+				Description: "The starting point for insert operations in the workload.",
 			},
 			KeyPrefix: StringProperty{
 				Value:       "user",
-				Description: "",
+				Description: "The prefix to be used for keys in the workload.",
 			},
 			ReadAllFields: BoolProperty{
 				Value:       true,
-				Description: "",
+				Description: "Indicates whether all fields should be read in read operations.",
 			},
 			ReadModifyWriteProportion: FloatProperty{
 				Value:       0.0,
-				Description: "",
+				Description: "The proportion of read-modify-write operations in the workload.",
 			},
 			ReadProportion: FloatProperty{
 				Value:       0.95,
-				Description: "",
+				Description: "The proportion of read operations in the workload.",
 			},
 			RequestDistribution: StringProperty{
 				Value:       "uniform",
-				Description: "",
+				Description: "The distribution of request types in the workload, such as 'uniform'.",
 			},
 			ScanLengthDistribution: StringProperty{
 				Value:       "uniform",
-				Description: "",
+				Description: "The distribution used to determine scan lengths in scan operations.",
 			},
 			ScanProportion: FloatProperty{
 				Value:       0.0,
-				Description: "",
+				Description: "The proportion of scan operations in the workload.",
 			},
 			UpdateProportion: FloatProperty{
 				Value:       0.05,
-				Description: "",
+				Description: "The proportion of update operations in the workload.",
 			},
 			WriteAllFields: BoolProperty{
 				Value:       false,
-				Description: "",
+				Description: "Indicates whether all fields should be written in write operations.",
 			},
 		},
 		Measurements: MeasurementsConfig{
 			MeasurementType: StringProperty{
 				Value:       "histogram",
-				Description: "",
+				Description: "Specifies the type of measurement for performance metrics, e.g., 'histogram'.",
 			},
 			MeasurementRawOutputFile: StringProperty{
 				Value:       "",
-				Description: "",
+				Description: "The file path where raw measurement data will be output, if any.",
 			},
 			HistogramPercentilesExport: BoolProperty{
 				Value:       false,
-				Description: "",
+				Description: "Indicates whether percentile data should be exported from histogram measurements.",
 			},
 			HistogramPercentilesExportFilepath: StringProperty{
 				Value:       "./",
-				Description: "",
+				Description: "The directory path where histogram percentile data files are to be saved.",
 			},
 			FieldLengthHistogramFile: StringProperty{
 				Value:       "hist.txt",
-				Description: "",
+				Description: "The file path of the histogram file that defines the distribution of field lengths.",
 			},
 			TargetOperationsPerSec: IntProperty{
 				Value:       500,
-				Description: "",
+				Description: "The target number of operations per second that the workload should aim to achieve.",
 			},
 			ZeroPadding: IntProperty{
 				Value:       1,
-				Description: "",
+				Description: "The amount of zero-padding for numeric fields, ensuring a fixed width representation.",
 			},
 		},
 		Logging: LoggingConfig{
 			DebugPprof: StringProperty{
 				Value:       ":6060",
-				Description: "",
+				Description: "The address to bind the pprof debugging server to, for profiling and debugging purposes.",
 			},
 			Label: StringProperty{
 				Value:       "",
-				Description: "",
+				Description: "A label used to tag log entries for easier filtering and identification.",
 			},
 			LogInterval: IntProperty{
 				Value:       10,
-				Description: "",
+				Description: "The interval, in seconds, at which log entries should be written to the log output.",
 			},
 			OutputStyle: StringProperty{
 				Value:       "",
-				Description: "",
+				Description: "Defines the formatting style for the log output, such as 'json', 'plain', etc.",
 			},
 			Silence: BoolProperty{
 				Value:       true,
-				Description: "",
+				Description: "If set to true, suppresses the output of logs to the console or log files.",
 			},
 			Status: StringProperty{
 				Value:       "",
-				Description: "",
+				Description: "A field to log the current status of the application.",
 			},
 			Verbose: BoolProperty{
 				Value:       false,
-				Description: "",
+				Description: "Enables verbose logging for debugging purposes.",
 			},
 		},
 	}
+}
+
+// NewConfig creates a new Config instance, populating it with values
+// from a YAML file or using default values if not present.
+func NewConfig(yamlFileName string) (*Config, error) {
+	// initialize with default values
+	defaultConfig := GetDefaultConfig()
 
 	// Read YAML file
 	yamlFile, err := os.ReadFile(yamlFileName)

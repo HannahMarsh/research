@@ -164,21 +164,18 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 
 func getFieldLengthGenerator(p *bconfig.Config) generator.Generator {
 	var fieldLengthGenerator generator.Generator
-	fieldLengthDistribution := p.Performance.FieldLengthDistribution.Value
-	fieldLength := int64(p.Performance.FieldLength.Value)
-	fieldLengthHistogram := p.Measurements.FieldLengthHistogramFile.Value
 
-	switch strings.ToLower(fieldLengthDistribution) {
+	switch strings.ToLower(p.Performance.FieldLengthDistribution.Value) {
 	case "constant":
-		fieldLengthGenerator = generator.NewConstant(fieldLength)
+		fieldLengthGenerator = generator.NewConstant(int64(p.Performance.FieldLength.Value))
 	case "uniform":
-		fieldLengthGenerator = generator.NewUniform(1, fieldLength)
+		fieldLengthGenerator = generator.NewUniform(1, int64(p.Performance.FieldLength.Value))
 	case "zipfian":
-		fieldLengthGenerator = generator.NewZipfianWithRange(1, fieldLength, generator.ZipfianConstant)
+		fieldLengthGenerator = generator.NewZipfianWithRange(1, int64(p.Performance.FieldLength.Value), generator.ZipfianConstant)
 	case "histogram":
-		fieldLengthGenerator = generator.NewHistogramFromFile(fieldLengthHistogram)
+		fieldLengthGenerator = generator.NewHistogramFromFile(p.Measurements.FieldLengthHistogramFile.Value)
 	default:
-		util.Fatalf("unknown field length distribution %s", fieldLengthDistribution)
+		util.Fatalf("unknown field length distribution %s", p.Performance.FieldLengthDistribution.Value)
 	}
 
 	return fieldLengthGenerator

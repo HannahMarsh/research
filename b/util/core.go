@@ -22,9 +22,8 @@ import (
 // createFieldIndices is a helper function to create a field -> index mapping
 // for the core workload
 func createFieldIndices(p *bconfig.Config) map[string]int64 {
-	fieldCount := int64(p.Performance.FieldCount.Value)
-	m := make(map[string]int64, fieldCount)
-	for i := int64(0); i < fieldCount; i++ {
+	m := make(map[string]int64, int64(p.Performance.FieldCount.Value))
+	for i := int64(0); i < int64(p.Performance.FieldCount.Value); i++ {
 		field := fmt.Sprintf("field%d", i)
 		m[field] = i
 	}
@@ -33,9 +32,8 @@ func createFieldIndices(p *bconfig.Config) map[string]int64 {
 
 // allFields is a helper function to create all fields
 func allFields(p *bconfig.Config) []string {
-	fieldCount := int64(p.Performance.FieldCount.Value)
-	fields := make([]string, 0, fieldCount)
-	for i := int64(0); i < fieldCount; i++ {
+	fields := make([]string, 0, int64(p.Performance.FieldCount.Value))
+	for i := int64(0); i < int64(p.Performance.FieldCount.Value); i++ {
 		field := fmt.Sprintf("field%d", i)
 		fields = append(fields, field)
 	}
