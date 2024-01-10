@@ -24,35 +24,37 @@ Database:
         Value: false
 Performance:
     BatchSize:
-        Description: The number of operations to batch together in a single transaction or request.
+        Description: The number of operations to batch together in a single transaction. If this value is 1, then batching is disabled.
         Value: 1
-    DataIntegrity:
-        Description: Whether to perform data integrity checks during operations.
+    PerformDataIntegrityChecks:
+        Description: Enables performing data integrity checks during operations. If enabled, `FieldSizeDistribution` must be constant.
         Value: false
-    DropData:
+    EnableDroppingDataOnStart:
         Description: Enables dropping any pre-existing database data upon startup.
         Value: false
-    FieldCount:
-        Description: The number of fields (columns) to include in a database table or a data model.
+    MaxFields:
+        Description: The maximum number of fields (columns) to include in the database table.
         Value: 10
-    FieldLength:
-        Description: The fixed length of data to store in each field of the database.
+    AvFieldSizeBytes:
+        Description: The average size (in bytes) of each field stored in the database.
         Value: 100
-    FieldLengthDistribution:
-        Description: The type of distribution used to vary the length of fields in data records.
+    FieldSizeDistribution:
+        Description: The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'
         Value: constant
     InsertCount:
         Description: The total number of records to insert during the workload execution.
         Value: 10000
     InsertionRetryInterval:
-        Description: The time in seconds to wait before retrying a failed insert operation.
+        Description: |-
+            The time in seconds to wait before retrying a failed insert operation. This controls the
+            back-off strategy for handling write failures.
         Value: 3
     InsertionRetryLimit:
-        Description: The maximum number of retry attempts for a failed insert operation.
+        Description: The maximum number of times to retry a failed insert operation.
         Value: 0
     MaxExecutionTime:
         Description: The maximum allowed time for the benchmark to run before it is forcibly stopped.
-        Value: 0
+        Value: 30
     MaxScanLength:
         Description: The maximum number of records to scan in a single operation.
         Value: 1000
@@ -65,22 +67,22 @@ Performance:
     RecordCount:
         Description: ""
         Value: 0
+    TargetOperationsPerSec:
+        Description: The target number of operations per second that the workload should aim to achieve.
+        Value: 500
     ThreadCount:
         Description: The number of concurrent threads to use when executing the workload.
         Value: 200
-    WarmUpTime:
-        Description: The duration in seconds to run the workload before measurement begins.
-        Value: 0
     VirtualNodes:
         Description: The number of virtual nodes to simulate or use in the execution of the workload.
         Value: 500
 Workload:
     Workload:
         Description: The name of the workload to be executed.
-        Value: ""
+        Value: workload1
     Command:
-        Description: The specific command to run as part of the workload.
-        Value: ""
+        Description: The specific command to run as part of the workload. This is set automatically by the program.
+        Value: <>
     DoTransactions:
         Description: Indicates whether transactions should be executed.
         Value: false
@@ -118,10 +120,14 @@ Workload:
         Description: The proportion of read operations in the workload.
         Value: 0.95
     RequestDistribution:
-        Description: The distribution of request types in the workload, such as 'uniform'.
+        Description: |-
+            The distribution of request types in the workload (to simulate different access patterns on the dataset).
+            Options are 'uniform', 'sequential', 'zipfian', 'latest', 'hotspot', and 'exponential'.
         Value: uniform
     ScanLengthDistribution:
-        Description: The distribution used to determine scan lengths in scan operations.
+        Description: |-
+            The distribution for the number of records to scan during scan operations (to simulate
+            different data access spreads). Options are 'uniform' and 'zipfian'.
         Value: uniform
     ScanProportion:
         Description: The proportion of scan operations in the workload.
@@ -134,39 +140,39 @@ Workload:
         Value: false
 Measurements:
     MeasurementType:
-        Description: Specifies the type of measurement for performance metrics, e.g., 'histogram'.
+        Description: Specifies the type of measurement for performance metrics. Valid values are 'histogram', 'raw', and 'csv'.
         Value: histogram
-    MeasurementRawOutputFile:
-        Description: The file path where raw measurement data will be output, if any.
-        Value: ""
+    RawOutputDir:
+        Description: The directory to output raw measurement data, if there is any.
+        Value: data/raw/
     HistogramPercentilesExport:
-        Description: Indicates whether percentile data should be exported from histogram measurements.
+        Description: Enables exporting percentile data from histogram measurements.
         Value: false
-    HistogramPercentilesExportFilepath:
-        Description: The directory path where histogram percentile data files are to be saved.
-        Value: ./
+    HistogramOutputDir:
+        Description: The directory where histogram percentile data files are to be saved.
+        Value: data/histogram/percentiles/
     FieldLengthHistogramFile:
-        Description: The file path of the histogram file that defines the distribution of field lengths.
-        Value: hist.txt
-    TargetOperationsPerSec:
-        Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 500
+        Description: The file path of the histogram that has the generated field length distribution.
+        Value: data/histogram/field-lengths.txt
+    OutputStyle:
+        Description: Defines the formatting style for outputting measurement data. Valid values are 'plain' 'table', and 'json'.
+        Value: table
+    WarmUpTime:
+        Description: The duration in seconds before metrics collection starts (allows the system to reach a steady operational state).
+        Value: 2
     ZeroPadding:
-        Description: The amount of zero-padding for numeric fields, ensuring a fixed width representation.
+        Description: The amount of zero-padding for numeric fields (for a fixed width representation).
         Value: 1
 Logging:
     DebugPprof:
         Description: The address to bind the pprof debugging server to, for profiling and debugging purposes.
         Value: :6060
     Label:
-        Description: A label used to tag log entries for easier filtering and identification.
-        Value: ""
+        Description: A label to tag log entries for easier filtering.
+        Value: benchmark_log
     LogInterval:
         Description: The interval, in seconds, at which log entries should be written to the log output.
-        Value: 10
-    OutputStyle:
-        Description: Defines the formatting style for the log output, such as 'json', 'plain', etc.
-        Value: ""
+        Value: 3
     Silence:
         Description: If set to true, suppresses the output of logs to the console or log files.
         Value: true

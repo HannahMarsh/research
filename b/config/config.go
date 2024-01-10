@@ -43,23 +43,23 @@ type DatabaseConfig struct {
 }
 
 type PerformanceConfig struct {
-	BatchSize               IntProperty    `yaml:"BatchSize"`
-	DataIntegrity           BoolProperty   `yaml:"DataIntegrity"`
-	DropData                BoolProperty   `yaml:"DropData"`
-	FieldCount              IntProperty    `yaml:"FieldCount"`
-	FieldLength             IntProperty    `yaml:"FieldLength"`
-	FieldLengthDistribution StringProperty `yaml:"FieldLengthDistribution"`
-	InsertCount             IntProperty    `yaml:"InsertCount"`
-	InsertionRetryInterval  IntProperty    `yaml:"InsertionRetryInterval"`
-	InsertionRetryLimit     IntProperty    `yaml:"InsertionRetryLimit"`
-	MaxExecutionTime        IntProperty    `yaml:"MaxExecutionTime"`
-	MaxScanLength           IntProperty    `yaml:"MaxScanLength"`
-	MinScanLength           IntProperty    `yaml:"MinScanLength"`
-	OperationCount          IntProperty    `yaml:"OperationCount"`
-	RecordCount             IntProperty    `yaml:"RecordCount"`
-	ThreadCount             IntProperty    `yaml:"ThreadCount"`
-	WarmUpTime              IntProperty    `yaml:"WarmUpTime"`
-	VirtualNodes            IntProperty    `yaml:"VirtualNodes"`
+	BatchSize                  IntProperty    `yaml:"BatchSize"`
+	PerformDataIntegrityChecks BoolProperty   `yaml:"PerformDataIntegrityChecks"`
+	EnableDroppingDataOnStart  BoolProperty   `yaml:"EnableDroppingDataOnStart"`
+	MaxFields                  IntProperty    `yaml:"MaxFields"`
+	AvFieldSizeBytes           IntProperty    `yaml:"AvFieldSizeBytes"`
+	FieldSizeDistribution      StringProperty `yaml:"FieldSizeDistribution"`
+	InsertCount                IntProperty    `yaml:"InsertCount"`
+	InsertionRetryInterval     IntProperty    `yaml:"InsertionRetryInterval"`
+	InsertionRetryLimit        IntProperty    `yaml:"InsertionRetryLimit"`
+	MaxExecutionTime           IntProperty    `yaml:"MaxExecutionTime"`
+	MaxScanLength              IntProperty    `yaml:"MaxScanLength"`
+	MinScanLength              IntProperty    `yaml:"MinScanLength"`
+	OperationCount             IntProperty    `yaml:"OperationCount"`
+	RecordCount                IntProperty    `yaml:"RecordCount"`
+	TargetOperationsPerSec     IntProperty    `yaml:"TargetOperationsPerSec"`
+	ThreadCount                IntProperty    `yaml:"ThreadCount"`
+	VirtualNodes               IntProperty    `yaml:"VirtualNodes"`
 }
 
 type WorkloadConfig struct {
@@ -85,20 +85,20 @@ type WorkloadConfig struct {
 }
 
 type MeasurementsConfig struct {
-	MeasurementType                    StringProperty `yaml:"MeasurementType"`
-	MeasurementRawOutputFile           StringProperty `yaml:"MeasurementRawOutputFile"`
-	HistogramPercentilesExport         BoolProperty   `yaml:"HistogramPercentilesExport"`
-	HistogramPercentilesExportFilepath StringProperty `yaml:"HistogramPercentilesExportFilepath"`
-	FieldLengthHistogramFile           StringProperty `yaml:"FieldLengthHistogramFile"`
-	TargetOperationsPerSec             IntProperty    `yaml:"TargetOperationsPerSec"`
-	ZeroPadding                        IntProperty    `yaml:"ZeroPadding"`
+	MeasurementType            StringProperty `yaml:"MeasurementType"`
+	RawOutputDir               StringProperty `yaml:"RawOutputDir"`
+	HistogramPercentilesExport BoolProperty   `yaml:"HistogramPercentilesExport"`
+	HistogramOutputDir         StringProperty `yaml:"HistogramOutputDir"`
+	FieldLengthHistogramFile   StringProperty `yaml:"FieldLengthHistogramFile"`
+	OutputStyle                StringProperty `yaml:"OutputStyle"`
+	WarmUpTime                 IntProperty    `yaml:"WarmUpTime"`
+	ZeroPadding                IntProperty    `yaml:"ZeroPadding"`
 }
 
 type LoggingConfig struct {
 	DebugPprof  StringProperty `yaml:"DebugPprof"`
 	Label       StringProperty `yaml:"Label"`
 	LogInterval IntProperty    `yaml:"LogInterval"`
-	OutputStyle StringProperty `yaml:"OutputStyle"`
 	Silence     BoolProperty   `yaml:"Silence"`
 	Status      StringProperty `yaml:"Status"`
 	Verbose     BoolProperty   `yaml:"Verbose"`
@@ -138,7 +138,6 @@ var defaultConfig_ = Config{
 			Value:       "",
 			Description: "The username for authenticating with Cassandra, if required.",
 		},
-
 		PasswordAuthenticator: BoolProperty{
 			Value:       false,
 			Description: "Enables the use of Cassandra's PasswordAuthenticator for client connections. If this is true,\nthen the `CassandraUsername` and `CassandraPassword` properties must be non-empty and valid.",
@@ -147,27 +146,27 @@ var defaultConfig_ = Config{
 	Performance: PerformanceConfig{
 		BatchSize: IntProperty{
 			Value:       1,
-			Description: "The number of operations to batch together in a single transaction or request.",
+			Description: "The number of operations to batch together in a single transaction. If this value is 1, then batching is disabled.",
 		},
-		DataIntegrity: BoolProperty{
+		PerformDataIntegrityChecks: BoolProperty{
 			Value:       false,
-			Description: "Whether to perform data integrity checks during operations.",
+			Description: "Enables performing data integrity checks during operations. If enabled, `FieldSizeDistribution` must be constant.",
 		},
-		DropData: BoolProperty{
+		EnableDroppingDataOnStart: BoolProperty{
 			Value:       false,
 			Description: "Enables dropping any pre-existing database data upon startup.",
 		},
-		FieldCount: IntProperty{
+		MaxFields: IntProperty{
 			Value:       10,
-			Description: "The number of fields (columns) to include in a database table or a data model.",
+			Description: "The maximum number of fields (columns) to include in the database table.",
 		},
-		FieldLength: IntProperty{
+		AvFieldSizeBytes: IntProperty{
 			Value:       100,
-			Description: "The fixed length of data to store in each field of the database.",
+			Description: "The average size (in bytes) of each field stored in the database.",
 		},
-		FieldLengthDistribution: StringProperty{
+		FieldSizeDistribution: StringProperty{
 			Value:       "constant",
-			Description: "The type of distribution used to vary the length of fields in data records.",
+			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'",
 		},
 		InsertCount: IntProperty{
 			Value:       10000,
@@ -175,14 +174,14 @@ var defaultConfig_ = Config{
 		},
 		InsertionRetryInterval: IntProperty{
 			Value:       3,
-			Description: "The time in seconds to wait before retrying a failed insert operation.",
+			Description: "The time in seconds to wait before retrying a failed insert operation. This controls the\nback-off strategy for handling write failures.",
 		},
 		InsertionRetryLimit: IntProperty{
 			Value:       0,
-			Description: "The maximum number of retry attempts for a failed insert operation.",
+			Description: "The maximum number of times to retry a failed insert operation.",
 		},
 		MaxExecutionTime: IntProperty{
-			Value:       0,
+			Value:       30,
 			Description: "The maximum allowed time for the benchmark to run before it is forcibly stopped.",
 		},
 		MaxScanLength: IntProperty{
@@ -197,13 +196,13 @@ var defaultConfig_ = Config{
 			Value:       10000,
 			Description: "The total number of operations to perform during the workload execution.",
 		},
+		TargetOperationsPerSec: IntProperty{
+			Value:       500,
+			Description: "The target number of operations per second that the workload should aim to achieve.",
+		},
 		ThreadCount: IntProperty{
 			Value:       200,
 			Description: "The number of concurrent threads to use when executing the workload.",
-		},
-		WarmUpTime: IntProperty{
-			Value:       0,
-			Description: "The duration in seconds to run the workload before measurement begins.",
 		},
 		VirtualNodes: IntProperty{
 			Value:       500,
@@ -212,12 +211,12 @@ var defaultConfig_ = Config{
 	},
 	Workload: WorkloadConfig{
 		Workload: StringProperty{
-			Value:       "",
+			Value:       "workload1",
 			Description: "The name of the workload to be executed.",
 		},
 		Command: StringProperty{
-			Value:       "",
-			Description: "The specific command to run as part of the workload.",
+			Value:       "<>",
+			Description: "The specific command to run as part of the workload. This is set automatically by the program.",
 		},
 		DoTransactions: BoolProperty{
 			Value:       false,
@@ -269,53 +268,57 @@ var defaultConfig_ = Config{
 		},
 		RequestDistribution: StringProperty{
 			Value:       "uniform",
-			Description: "The distribution of request types in the workload, such as 'uniform'.",
+			Description: "The distribution of request types in the workload (to simulate different access patterns on the dataset).\nOptions are 'uniform', 'sequential', 'zipfian', 'latest', 'hotspot', and 'exponential'.",
 		},
 		ScanLengthDistribution: StringProperty{
 			Value:       "uniform",
-			Description: "The distribution used to determine scan lengths in scan operations.",
+			Description: "The distribution for the number of records to scan during scan operations (to simulate\ndifferent data access spreads). Options are 'uniform' and 'zipfian'.",
 		},
 		ScanProportion: FloatProperty{
 			Value:       0.0,
-			Description: "The proportion of scan operations in the workload.",
+			Description: "The proportion (from 0.0 to 1.0) of scan operations in the workload. If the value is 0.0, then scanning is disabled.",
 		},
 		UpdateProportion: FloatProperty{
 			Value:       0.05,
-			Description: "The proportion of update operations in the workload.",
+			Description: "The proportion (from 0.0 to 1.0) of update operations in the workload. If the value is 0.0, then updating is disabled.",
 		},
 		WriteAllFields: BoolProperty{
 			Value:       false,
-			Description: "Indicates whether all fields should be written in write operations.",
+			Description: "Indicates whether all fields should be written in write operations (as opposed to updating).",
 		},
 	},
 	Measurements: MeasurementsConfig{
 		MeasurementType: StringProperty{
 			Value:       "histogram",
-			Description: "Specifies the type of measurement for performance metrics, e.g., 'histogram'.",
+			Description: "Specifies the type of measurement for performance metrics. Valid values are 'histogram', 'raw', and 'csv'.",
 		},
-		MeasurementRawOutputFile: StringProperty{
-			Value:       "",
-			Description: "The file path where raw measurement data will be output, if any.",
+		RawOutputDir: StringProperty{
+			Value:       "data/raw/",
+			Description: "The directory to output raw measurement data, if any.",
 		},
 		HistogramPercentilesExport: BoolProperty{
 			Value:       false,
-			Description: "Indicates whether percentile data should be exported from histogram measurements.",
+			Description: "Enables exporting percentile data to the directory given by `HistogramOutputDir`.",
 		},
-		HistogramPercentilesExportFilepath: StringProperty{
-			Value:       "./",
-			Description: "The directory path where histogram percentile data files are to be saved.",
+		HistogramOutputDir: StringProperty{
+			Value:       "data/histogram/percentiles/",
+			Description: "The directory where histogram percentile data files are to be saved.",
 		},
 		FieldLengthHistogramFile: StringProperty{
-			Value:       "hist.txt",
-			Description: "The file path of the histogram file that defines the distribution of field lengths.",
+			Value:       "data/histogram/field-lengths.txt",
+			Description: "The file path of the histogram that has the generated field length distribution.",
 		},
-		TargetOperationsPerSec: IntProperty{
-			Value:       500,
-			Description: "The target number of operations per second that the workload should aim to achieve.",
+		OutputStyle: StringProperty{
+			Value:       "table",
+			Description: "Defines the formatting style for outputting measurement data. Valid values are 'plain' 'table', and 'json'.",
+		},
+		WarmUpTime: IntProperty{
+			Value:       2,
+			Description: "The duration in seconds before metrics collection starts (allows the system to reach a steady operational state).",
 		},
 		ZeroPadding: IntProperty{
 			Value:       1,
-			Description: "The amount of zero-padding for numeric fields, ensuring a fixed width representation.",
+			Description: "The amount of zero-padding for numeric fields (for a fixed width representation).",
 		},
 	},
 	Logging: LoggingConfig{
@@ -324,16 +327,12 @@ var defaultConfig_ = Config{
 			Description: "The address to bind the pprof debugging server to, for profiling and debugging purposes.",
 		},
 		Label: StringProperty{
-			Value:       "",
-			Description: "A label used to tag log entries for easier filtering and identification.",
+			Value:       "benchmark_log",
+			Description: "A label to tag log entries for easier filtering.",
 		},
 		LogInterval: IntProperty{
-			Value:       10,
+			Value:       3,
 			Description: "The interval, in seconds, at which log entries should be written to the log output.",
-		},
-		OutputStyle: StringProperty{
-			Value:       "",
-			Description: "Defines the formatting style for the log output, such as 'json', 'plain', etc.",
 		},
 		Silence: BoolProperty{
 			Value:       true,

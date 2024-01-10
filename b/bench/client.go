@@ -46,7 +46,7 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 		}
 
 		if cmd.Flags().Changed("target") {
-			globalProps.Measurements.TargetOperationsPerSec.Value = targetArg
+			globalProps.Performance.TargetOperationsPerSec.Value = targetArg
 		}
 
 		if cmd.Flags().Changed("interval") {

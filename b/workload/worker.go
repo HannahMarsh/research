@@ -17,9 +17,7 @@ type Worker struct {
 	workDB          db.DB
 	cache           *cache.Cache
 	workload        *Workload
-	doTransactions  bool
 	doBatch         bool
-	batchSize       int
 	opCount         int64
 	targetOpsPerMs  float64
 	threadID        int
@@ -30,9 +28,7 @@ type Worker struct {
 func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workload, db db.DB, cache *cache.Cache) *Worker {
 	w := new(Worker)
 	w.p = p
-	w.doTransactions = p.Workload.DoTransactions.Value
-	w.batchSize = p.Performance.BatchSize.Value
-	if w.batchSize > 1 {
+	if w.p.Performance.BatchSize.Value > 1 {
 		w.doBatch = true
 	}
 	w.threadID = threadID
@@ -41,7 +37,7 @@ func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workl
 	w.cache = cache
 
 	var totalOpCount int64
-	if w.doTransactions {
+	if w.p.Workload.DoTransactions.Value {
 		totalOpCount = int64(p.Performance.OperationCount.Value)
 	} else {
 		if p.Performance.InsertCount.Value > 0 {
@@ -68,7 +64,7 @@ func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workl
 	}
 
 	targetPerThreadPerms := float64(-1)
-	if v := p.Measurements.TargetOperationsPerSec.Value; v > 0 {
+	if v := p.Performance.TargetOperationsPerSec.Value; v > 0 {
 		targetPerThread := float64(v) / float64(threadCount)
 		targetPerThreadPerms = targetPerThread / 1000.0
 	}
@@ -108,17 +104,17 @@ func (w *Worker) Run(ctx context.Context) {
 	for w.opCount == 0 || w.opsDone < w.opCount {
 		var err error
 		opsCount := 1
-		if w.doTransactions {
+		if w.p.Workload.DoTransactions.Value {
 			if w.doBatch {
-				err = w.workload.DoBatchTransaction(ctx, w.batchSize, w.workDB, w.cache)
-				opsCount = w.batchSize
+				err = w.workload.DoBatchTransaction(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
+				opsCount = w.p.Performance.BatchSize.Value
 			} else {
 				err = w.workload.DoTransaction(ctx, w.workDB, w.cache)
 			}
 		} else {
 			if w.doBatch {
-				err = w.workload.DoBatchInsert(ctx, w.batchSize, w.workDB, w.cache)
-				opsCount = w.batchSize
+				err = w.workload.DoBatchInsert(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
+				opsCount = w.p.Performance.BatchSize.Value
 			} else {
 				err = w.workload.DoInsert(ctx, w.workDB, w.cache)
 			}

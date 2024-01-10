@@ -194,14 +194,14 @@ func (k *CassandraDB) createKeyspaceIfNotExists(replicationStrategy string, repl
 func (k *CassandraDB) createTableIfNotExists() error {
 	tableName := k.p.Database.CassandraTableName
 
-	if k.p.Performance.DropData.Value {
+	if k.p.Performance.EnableDroppingDataOnStart.Value {
 		if err := k.session.Query(fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", k.keySpace, tableName)).Exec(); err != nil {
 			return err
 		}
 	}
 
-	k.fieldNames = make([]string, int64(k.p.Performance.FieldCount.Value))
-	for i := int64(0); i < int64(k.p.Performance.FieldCount.Value); i++ {
+	k.fieldNames = make([]string, int64(k.p.Performance.MaxFields.Value))
+	for i := int64(0); i < int64(k.p.Performance.MaxFields.Value); i++ {
 		k.fieldNames[i] = fmt.Sprintf("field%d", i)
 	}
 
@@ -209,7 +209,7 @@ func (k *CassandraDB) createTableIfNotExists() error {
 	s := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s (key VARCHAR PRIMARY KEY", k.keySpace, tableName)
 	buf.WriteString(s)
 
-	for i := int64(0); i < int64(k.p.Performance.FieldCount.Value); i++ {
+	for i := int64(0); i < int64(k.p.Performance.MaxFields.Value); i++ {
 		buf.WriteString(fmt.Sprintf(", FIELD%d VARCHAR", i))
 	}
 

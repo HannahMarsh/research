@@ -40,7 +40,7 @@ func (c *Client) Run(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(time.Duration(c.p.Performance.WarmUpTime.Value) * time.Second):
+			case <-time.After(time.Duration(c.p.Measurements.WarmUpTime.Value) * time.Second):
 			}
 		}
 		// finish warming up

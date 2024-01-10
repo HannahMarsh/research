@@ -19,11 +19,9 @@ type Histograms struct {
 }
 
 func (h *Histograms) GenerateExtendedOutputs() {
-	exportHistograms := h.p.Measurements.HistogramPercentilesExport.Value
-	if exportHistograms {
-		exportHistogramsFilepath := h.p.Measurements.HistogramPercentilesExportFilepath
+	if h.p.Measurements.HistogramPercentilesExport.Value {
 		for op, opM := range h.histograms {
-			outFile := fmt.Sprintf("%s%s-percentiles.txt", exportHistogramsFilepath, op)
+			outFile := fmt.Sprintf("%s%s-percentiles.txt", h.p.Measurements.HistogramOutputDir, op)
 			fmt.Printf("Exporting the full latency spectrum for operation '%s' in percentile output format into file: %s.\n", op, outFile)
 			f, err := os.Create(outFile)
 			if err != nil {
@@ -88,7 +86,7 @@ func (h *Histograms) Output(w io.Writer) error {
 		lines = append(lines, line)
 	}
 
-	outputStyle := h.p.Logging.OutputStyle.Value
+	outputStyle := h.p.Measurements.OutputStyle.Value
 	switch outputStyle {
 	case util.OutputStylePlain:
 		util.RenderString(w, "%-6s - %s\n", header, lines)

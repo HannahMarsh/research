@@ -58,7 +58,7 @@ func (m *measurement) output() {
 	m.RLock()
 	defer m.RUnlock()
 
-	outFile := m.p.Measurements.MeasurementRawOutputFile.Value
+	outFile := m.p.Measurements.RawOutputDir.Value
 	var w *bufio.Writer
 	if outFile == "" {
 		w = bufio.NewWriter(os.Stdout)
@@ -101,7 +101,7 @@ func InitMeasure(p *bconfig.Config) {
 	default:
 		panic("unsupported measurement type: " + measurementType)
 	}
-	EnableWarmUp(p.Performance.WarmUpTime.Value > 0)
+	EnableWarmUp(p.Measurements.WarmUpTime.Value > 0)
 }
 
 // Output prints the complete measurements.

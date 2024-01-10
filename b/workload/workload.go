@@ -20,15 +20,11 @@ import (
 )
 
 type Workload struct {
-	p *bconfig.Config
-
-	table      string
-	fieldCount int64
+	p          *bconfig.Config
 	fieldNames []string
 
 	fieldLengthGenerator generator.Generator
 	readAllFields        bool
-	writeAllFields       bool
 	dataIntegrity        bool
 
 	keySequence                  generator.Generator
@@ -38,8 +34,6 @@ type Workload struct {
 	transactionInsertKeySequence generator.AcknowledgedCounter
 	scanLength                   generator.Generator
 	orderedInserts               bool
-	recordCount                  int64
-	zeroPadding                  int64
 	insertionRetryLimit          int64
 	insertionRetryInterval       int64
 
@@ -65,39 +59,23 @@ const (
 
 const stateKey = contextKey("core")
 
-// Create implements the WorkloadCreator Create interface.
+// NewWorkload implements the WorkloadCreator Create interface.
 func NewWorkload(p *bconfig.Config) (*Workload, error) {
 	c := new(Workload)
 	c.p = p
-	c.table = p.Database.CassandraTableName.Value
-	c.fieldCount = int64(p.Performance.FieldCount.Value)
-	c.fieldNames = make([]string, c.fieldCount)
-	for i := int64(0); i < c.fieldCount; i++ {
+	c.fieldNames = make([]string, int64(c.p.Performance.MaxFields.Value))
+	for i := int64(0); i < int64(c.p.Performance.MaxFields.Value); i++ {
 		c.fieldNames[i] = fmt.Sprintf("field%d", i)
 	}
 	c.fieldLengthGenerator = getFieldLengthGenerator(p)
-	c.recordCount = int64(p.Performance.RecordCount.Value)
-	if c.recordCount == 0 {
-		c.recordCount = int64(math.MaxInt32)
+	if c.p.Performance.RecordCount.Value == 0 {
+		c.p.Performance.RecordCount.Value = math.MaxInt32
 	}
-
-	requestDistrib := p.Workload.RequestDistribution.Value
-	minScanLength := int64(p.Performance.MinScanLength.Value)
-	maxScanLength := int64(p.Performance.MaxScanLength.Value)
-	scanLengthDistrib := p.Workload.ScanLengthDistribution.Value
-
-	insertStart := int64(p.Workload.InsertStart.Value)
-	insertCount := int64(p.Performance.InsertCount.Value)
-	if c.recordCount < insertStart+insertCount {
+	if int64(c.p.Performance.RecordCount.Value) < int64(p.Workload.InsertStart.Value)+int64(p.Performance.InsertCount.Value) {
 		util.Fatalf("record count %d must be bigger than insert start %d + count %d",
-			c.recordCount, insertStart, insertCount)
+			int64(c.p.Performance.RecordCount.Value), int64(p.Workload.InsertStart.Value), int64(p.Performance.InsertCount.Value))
 	}
-	c.zeroPadding = int64(p.Measurements.ZeroPadding.Value)
-	c.readAllFields = p.Workload.ReadAllFields.Value
-	c.writeAllFields = p.Workload.WriteAllFields.Value
-	c.dataIntegrity = p.Performance.DataIntegrity.Value
-	fieldLengthDistribution := p.Performance.FieldLengthDistribution.Value
-	if c.dataIntegrity && fieldLengthDistribution != "constant" {
+	if c.p.Performance.PerformDataIntegrityChecks.Value && p.Performance.FieldSizeDistribution.Value != "constant" {
 		util.Fatal("must have constant field size to check data integrity")
 	}
 
@@ -107,13 +85,13 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 		c.orderedInserts = true
 	}
 
-	c.keySequence = generator.NewCounter(insertStart)
+	c.keySequence = generator.NewCounter(int64(p.Workload.InsertStart.Value))
 	c.operationChooser = createOperationGenerator(p)
-	var keyrangeLowerBound int64 = insertStart
-	var keyrangeUpperBound int64 = insertStart + insertCount - 1
+	var keyrangeLowerBound int64 = int64(p.Workload.InsertStart.Value)
+	var keyrangeUpperBound int64 = int64(p.Workload.InsertStart.Value) + int64(p.Performance.InsertCount.Value) - 1
 
-	c.transactionInsertKeySequence = generator.NewAcknowledgedCounter(c.recordCount)
-	switch requestDistrib {
+	c.transactionInsertKeySequence = generator.NewAcknowledgedCounter(int64(c.p.Performance.RecordCount.Value))
+	switch p.Workload.RequestDistribution.Value {
 	case "uniform":
 		c.keyChooser = generator.NewUniform(keyrangeLowerBound, keyrangeUpperBound)
 	case "sequential":
@@ -122,7 +100,7 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 		insertProportion := p.Workload.InsertProportion.Value
 		opCount := p.Performance.OperationCount.Value
 		expectedNewKeys := int64(float64(opCount) * insertProportion * 2.0)
-		keyrangeUpperBound = insertStart + insertCount + expectedNewKeys
+		keyrangeUpperBound = int64(p.Workload.InsertStart.Value) + int64(p.Performance.InsertCount.Value) + expectedNewKeys
 		c.keyChooser = generator.NewScrambledZipfian(keyrangeLowerBound, keyrangeUpperBound, generator.ZipfianConstant)
 	case "latest":
 		c.keyChooser = generator.NewSkewedLatest(&c.transactionInsertKeySequence)
@@ -133,26 +111,26 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 	case "exponential":
 		percentile := p.Workload.ExponentialPercentile.Value
 		frac := p.Workload.ExponentialFrac.Value
-		c.keyChooser = generator.NewExponential(percentile, float64(c.recordCount)*frac)
+		c.keyChooser = generator.NewExponential(percentile, float64(int64(c.p.Performance.RecordCount.Value))*frac)
 	default:
-		util.Fatalf("unknown request distribution %s", requestDistrib)
+		util.Fatalf("unknown request distribution %s", p.Workload.RequestDistribution.Value)
 	}
-	fmt.Println(fmt.Sprintf("Using request distribution '%s' a keyrange of [%d %d]", requestDistrib, keyrangeLowerBound, keyrangeUpperBound))
+	fmt.Println(fmt.Sprintf("Using request distribution '%s' a keyrange of [%d %d]", p.Workload.RequestDistribution.Value, keyrangeLowerBound, keyrangeUpperBound))
 
-	c.fieldChooser = generator.NewUniform(0, c.fieldCount-1)
-	switch scanLengthDistrib {
+	c.fieldChooser = generator.NewUniform(0, int64(c.p.Performance.MaxFields.Value)-1)
+	switch p.Workload.ScanLengthDistribution.Value {
 	case "uniform":
-		c.scanLength = generator.NewUniform(minScanLength, maxScanLength)
+		c.scanLength = generator.NewUniform(int64(p.Performance.MinScanLength.Value), int64(p.Performance.MaxScanLength.Value))
 	case "zipfian":
-		c.scanLength = generator.NewZipfianWithRange(minScanLength, maxScanLength, generator.ZipfianConstant)
+		c.scanLength = generator.NewZipfianWithRange(int64(p.Performance.MinScanLength.Value), int64(p.Performance.MaxScanLength.Value), generator.ZipfianConstant)
 	default:
-		util.Fatalf("distribution %s not allowed for scan length", scanLengthDistrib)
+		util.Fatalf("distribution %s not allowed for scan length", p.Workload.ScanLengthDistribution.Value)
 	}
 
 	c.insertionRetryLimit = int64(p.Performance.InsertionRetryLimit.Value)
 	c.insertionRetryInterval = int64(p.Performance.InsertionRetryInterval.Value)
 
-	fieldLength := p.Performance.FieldLength.Value
+	fieldLength := p.Performance.AvFieldSizeBytes.Value
 	c.valuePool = sync.Pool{
 		New: func() interface{} {
 			return make([]byte, fieldLength)
@@ -165,17 +143,17 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 func getFieldLengthGenerator(p *bconfig.Config) generator.Generator {
 	var fieldLengthGenerator generator.Generator
 
-	switch strings.ToLower(p.Performance.FieldLengthDistribution.Value) {
+	switch strings.ToLower(p.Performance.FieldSizeDistribution.Value) {
 	case "constant":
-		fieldLengthGenerator = generator.NewConstant(int64(p.Performance.FieldLength.Value))
+		fieldLengthGenerator = generator.NewConstant(int64(p.Performance.AvFieldSizeBytes.Value))
 	case "uniform":
-		fieldLengthGenerator = generator.NewUniform(1, int64(p.Performance.FieldLength.Value))
+		fieldLengthGenerator = generator.NewUniform(1, int64(p.Performance.AvFieldSizeBytes.Value))
 	case "zipfian":
-		fieldLengthGenerator = generator.NewZipfianWithRange(1, int64(p.Performance.FieldLength.Value), generator.ZipfianConstant)
+		fieldLengthGenerator = generator.NewZipfianWithRange(1, int64(p.Performance.AvFieldSizeBytes.Value), generator.ZipfianConstant)
 	case "histogram":
 		fieldLengthGenerator = generator.NewHistogramFromFile(p.Measurements.FieldLengthHistogramFile.Value)
 	default:
-		util.Fatalf("unknown field length distribution %s", p.Performance.FieldLengthDistribution.Value)
+		util.Fatalf("unknown field length distribution %s", p.Performance.FieldSizeDistribution.Value)
 	}
 
 	return fieldLengthGenerator
@@ -229,7 +207,7 @@ func (c *Workload) buildKeyName(keyNum int64) string {
 	}
 
 	prefix := "key"
-	return fmt.Sprintf("%s%0[3]*[2]d", prefix, keyNum, c.zeroPadding)
+	return fmt.Sprintf("%s%0[3]*[2]d", prefix, keyNum, int64(c.p.Measurements.ZeroPadding.Value))
 }
 
 func (c *Workload) buildSingleValue(state *WorkloadState, key string) map[string][]byte {
@@ -239,7 +217,7 @@ func (c *Workload) buildSingleValue(state *WorkloadState, key string) map[string
 	fieldKey := state.fieldNames[c.fieldChooser.Next(r)]
 
 	var buf []byte
-	if c.dataIntegrity {
+	if c.p.Performance.PerformDataIntegrityChecks.Value {
 		buf = c.buildDeterministicValue(state, key, fieldKey)
 	} else {
 		buf = c.buildRandomValue(state)
@@ -251,11 +229,11 @@ func (c *Workload) buildSingleValue(state *WorkloadState, key string) map[string
 }
 
 func (c *Workload) buildValues(state *WorkloadState, key string) map[string][]byte {
-	values := make(map[string][]byte, c.fieldCount)
+	values := make(map[string][]byte, int64(c.p.Performance.MaxFields.Value))
 
 	for _, fieldKey := range state.fieldNames {
 		var buf []byte
-		if c.dataIntegrity {
+		if c.p.Performance.PerformDataIntegrityChecks.Value {
 			buf = c.buildDeterministicValue(state, key, fieldKey)
 		} else {
 			buf = c.buildRandomValue(state)
@@ -333,7 +311,7 @@ func (c *Workload) DoInsert(ctx context.Context, db db.DB, cache_ *cache.Cache) 
 
 	var err error
 	for {
-		err = db.Insert(ctx, c.table, dbKey, values)
+		err = db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values)
 		if err != nil {
 			break
 		}
@@ -392,7 +370,7 @@ func (c *Workload) DoBatchInsert(ctx context.Context, batchSize int, d db.DB, ca
 	numOfRetries := int64(0)
 	var err error
 	for {
-		err = batchDB.BatchInsert(ctx, c.table, keys, values)
+		err = batchDB.BatchInsert(ctx, c.p.Database.CassandraTableName.Value, keys, values)
 		if err != nil {
 			break
 		}
@@ -472,7 +450,7 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ *cach
 	keyName := c.buildKeyName(keyNum)
 
 	var fields []string
-	if !c.readAllFields {
+	if !c.p.Workload.ReadAllFields.Value {
 		fieldName := state.fieldNames[c.fieldChooser.Next(r)]
 		fields = append(fields, fieldName)
 	} else {
@@ -484,14 +462,14 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ *cach
 	if err == nil && cachedValue != nil {
 		// Cache hit, use the cachedValue
 		// todo  handle the cached value
-		if c.dataIntegrity {
+		if c.p.Performance.PerformDataIntegrityChecks.Value {
 			c.verifyRow(state, keyName, cachedValue)
 		}
 		return nil
 	}
 
 	// cache miss
-	values, err := db.Read(ctx, c.table, keyName, fields)
+	values, err := db.Read(ctx, c.p.Database.CassandraTableName.Value, keyName, fields)
 	if err != nil {
 		return err
 	}
@@ -501,7 +479,7 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ *cach
 		return err
 	}
 
-	if c.dataIntegrity {
+	if c.p.Performance.PerformDataIntegrityChecks.Value {
 		c.verifyRow(state, keyName, values)
 	}
 
@@ -519,7 +497,7 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, c
 	keyName := c.buildKeyName(keyNum)
 
 	var fields []string
-	if !c.readAllFields {
+	if !c.p.Workload.ReadAllFields.Value {
 		fieldName := state.fieldNames[c.fieldChooser.Next(r)]
 		fields = append(fields, fieldName)
 	} else {
@@ -527,26 +505,26 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, c
 	}
 
 	var values map[string][]byte
-	if c.writeAllFields {
+	if c.p.Workload.WriteAllFields.Value {
 		values = c.buildValues(state, keyName)
 	} else {
 		values = c.buildSingleValue(state, keyName)
 	}
 	defer c.putValues(values)
 
-	readValues, err := db.Read(ctx, c.table, keyName, fields)
+	readValues, err := db.Read(ctx, c.p.Database.CassandraTableName.Value, keyName, fields)
 	if err != nil {
 		return err
 	}
 
-	if err := db.Update(ctx, c.table, keyName, values); err != nil {
+	if err := db.Update(ctx, c.p.Database.CassandraTableName.Value, keyName, values); err != nil {
 		return err
 	}
 	if err := cache_.Set(ctx, keyName, values); err != nil {
 		return err
 	}
 
-	if c.dataIntegrity {
+	if c.p.Performance.PerformDataIntegrityChecks.Value {
 		c.verifyRow(state, keyName, readValues)
 	}
 
@@ -561,7 +539,7 @@ func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ *ca
 	values := c.buildValues(state, dbKey)
 	defer c.putValues(values)
 
-	if err := db.Insert(ctx, c.table, dbKey, values); err != nil {
+	if err := db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values); err != nil {
 		return err
 	}
 	if err := cache_.Set(ctx, dbKey, values); err != nil {
@@ -579,7 +557,7 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ *cach
 	scanLen := c.scanLength.Next(r)
 
 	var fields []string
-	if !c.readAllFields {
+	if !c.p.Workload.ReadAllFields.Value {
 		fieldName := state.fieldNames[c.fieldChooser.Next(r)]
 		fields = append(fields, fieldName)
 	} else {
@@ -598,14 +576,14 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ *cach
 			break
 		}
 		values = append(values, value)
-		if c.dataIntegrity {
+		if c.p.Performance.PerformDataIntegrityChecks.Value {
 			c.verifyRow(state, keyName, value)
 		}
 	}
 
 	if cacheMiss {
 		// Perform the scan in the database if any key is not in cache
-		dbValues, err := db.Scan(ctx, c.table, startKeyName, int(scanLen), fields)
+		dbValues, err := db.Scan(ctx, c.p.Database.CassandraTableName.Value, startKeyName, int(scanLen), fields)
 		if err != nil {
 			return err
 		}
@@ -623,7 +601,7 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ *cach
 
 	return nil
 
-	// if _, err := db.Scan(ctx, c.table, startKeyName, int(scanLen), fields); err != nil {
+	// if _, err := db.Scan(ctx, c.p.Database.CassandraTableName.Value, startKeyName, int(scanLen), fields); err != nil {
 	//		return err
 	//	}
 }
@@ -652,7 +630,7 @@ func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ *ca
 	keyName := c.buildKeyName(keyNum)
 
 	var values map[string][]byte
-	if c.writeAllFields {
+	if c.p.Workload.WriteAllFields.Value {
 		values = c.buildValues(state, keyName)
 	} else {
 		values = c.buildSingleValue(state, keyName)
@@ -661,7 +639,7 @@ func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ *ca
 	defer c.putValues(values)
 
 	// Perform the update to the database
-	err := db.Update(ctx, c.table, keyName, values)
+	err := db.Update(ctx, c.p.Database.CassandraTableName.Value, keyName, values)
 	if err != nil {
 		return err
 	}
@@ -679,7 +657,7 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 	r := state.r
 	var fields []string
 
-	if !c.readAllFields {
+	if !c.p.Workload.ReadAllFields.Value {
 		fieldName := state.fieldNames[c.fieldChooser.Next(r)]
 		fields = append(fields, fieldName)
 	} else {
@@ -701,7 +679,7 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 		if err == nil && cachedValue != nil {
 			// Cache hit, use the cachedValue
 			values = append(values, cachedValue)
-			if c.dataIntegrity {
+			if c.p.Performance.PerformDataIntegrityChecks.Value {
 				// Verify the integrity of the cached value
 				c.verifyRow(state, key, cachedValue)
 			}
@@ -716,7 +694,7 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 
 	// If there were cache misses, read from the database
 	if len(cacheMissKeys) > 0 {
-		dbValues, err := db.BatchRead(ctx, c.table, cacheMissKeys, fields)
+		dbValues, err := db.BatchRead(ctx, c.p.Database.CassandraTableName.Value, cacheMissKeys, fields)
 		if err != nil {
 			return err
 		}
@@ -724,7 +702,7 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 		// Add database read values to the total values
 		values = append(values, dbValues...)
 
-		if c.dataIntegrity {
+		if c.p.Performance.PerformDataIntegrityChecks.Value {
 			// Verify the integrity of the values read from the database
 			for _, dbValue := range dbValues {
 				key := dbValue["key"] // Assuming "key" is the identifier in the returned map
@@ -744,7 +722,7 @@ func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, 
 		keyNum := c.transactionInsertKeySequence.Next(r)
 		keyName := c.buildKeyName(keyNum)
 		keys[i] = keyName
-		if c.writeAllFields {
+		if c.p.Workload.WriteAllFields.Value {
 			values[i] = c.buildValues(state, keyName)
 		} else {
 			values[i] = c.buildSingleValue(state, keyName)
@@ -759,7 +737,7 @@ func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, 
 	}()
 
 	// Perform the batch insert to the database
-	err := db.BatchInsert(ctx, c.table, keys, values)
+	err := db.BatchInsert(ctx, c.p.Database.CassandraTableName.Value, keys, values)
 	if err != nil {
 		return err
 	}
@@ -782,7 +760,7 @@ func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, 
 		keyNum := c.nextKeyNum(state)
 		keyName := c.buildKeyName(keyNum)
 		keys[i] = keyName
-		if c.writeAllFields {
+		if c.p.Workload.WriteAllFields.Value {
 			values[i] = c.buildValues(state, keyName)
 		} else {
 			values[i] = c.buildSingleValue(state, keyName)
@@ -796,7 +774,7 @@ func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, 
 	}()
 
 	// Perform the batch update to the database
-	err := db.BatchUpdate(ctx, c.table, keys, values)
+	err := db.BatchUpdate(ctx, c.p.Database.CassandraTableName.Value, keys, values)
 	if err != nil {
 		return err
 	}
