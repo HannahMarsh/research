@@ -46,7 +46,7 @@ ScanProportion: 0.0
 Silence: true
 Status: ""
 TableName: "usertable"
-Target: 500
+TargetOperationsPerSec: 500
 ThreadCount: 200
 UpdateProportion: 0.05
 Verbose: false
