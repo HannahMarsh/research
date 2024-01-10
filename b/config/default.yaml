@@ -98,13 +98,13 @@ Workload:
     HotspotOpnFraction:
         Description: The fraction of operations that will be focused on the 'hot' data.
         Value: 0.8
-    InsertOrder:
-        Description: The order in which records are inserted, which can be 'hashed' or another specified order.
-        Value: hashed
+    HashInsertOrder:
+        Description: Enables hashing the order in which records are inserted.
+        Value: true
     InsertProportion:
         Description: The proportion of insert operations in the workload.
         Value: 0
-    InsertStart:
+    KeyRangeLowerBound:
         Description: The starting point for insert operations in the workload.
         Value: 10000
     KeyPrefix:
@@ -130,23 +130,23 @@ Workload:
             different data access spreads). Options are 'uniform' and 'zipfian'.
         Value: uniform
     ScanProportion:
-        Description: The proportion of scan operations in the workload.
+        Description: The proportion (from 0.0 to 1.0) of scan operations in the workload. If the value is 0.0, then scanning is disabled.
         Value: 0
     UpdateProportion:
-        Description: The proportion of update operations in the workload.
+        Description: The proportion (from 0.0 to 1.0) of update operations in the workload. If the value is 0.0, then updating is disabled.
         Value: 0.05
     WriteAllFields:
-        Description: Indicates whether all fields should be written in write operations.
+        Description: Indicates whether all fields should be written in write operations (as opposed to updating).
         Value: false
 Measurements:
     MeasurementType:
         Description: Specifies the type of measurement for performance metrics. Valid values are 'histogram', 'raw', and 'csv'.
         Value: histogram
     RawOutputDir:
-        Description: The directory to output raw measurement data, if there is any.
+        Description: The directory to output raw measurement data, if any.
         Value: data/raw/
     HistogramPercentilesExport:
-        Description: Enables exporting percentile data from histogram measurements.
+        Description: Enables exporting percentile data to the directory given by `HistogramOutputDir`.
         Value: false
     HistogramOutputDir:
         Description: The directory where histogram percentile data files are to be saved.

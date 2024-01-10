@@ -63,16 +63,16 @@ type PerformanceConfig struct {
 }
 
 type WorkloadConfig struct {
-	Workload                  StringProperty `yaml:"Workload"`
+	WorkloadIdentifier        StringProperty `yaml:"WorkloadIdentifier"`
 	Command                   StringProperty `yaml:"Command"`
 	DoTransactions            BoolProperty   `yaml:"DoTransactions"`
 	ExponentialFrac           FloatProperty  `yaml:"ExponentialFrac"`
 	ExponentialPercentile     FloatProperty  `yaml:"ExponentialPercentile"`
 	HotspotDataFraction       FloatProperty  `yaml:"HotspotDataFraction"`
 	HotspotOpnFraction        FloatProperty  `yaml:"HotspotOpnFraction"`
-	InsertOrder               StringProperty `yaml:"InsertOrder"`
+	HashInsertOrder           BoolProperty   `yaml:"HashInsertOrder"`
 	InsertProportion          FloatProperty  `yaml:"InsertProportion"`
-	InsertStart               IntProperty    `yaml:"InsertStart"`
+	KeyRangeLowerBound        IntProperty    `yaml:"KeyRangeLowerBound"`
 	KeyPrefix                 StringProperty `yaml:"KeyPrefix"`
 	ReadAllFields             BoolProperty   `yaml:"ReadAllFields"`
 	ReadModifyWriteProportion FloatProperty  `yaml:"ReadModifyWriteProportion"`
@@ -107,7 +107,7 @@ type LoggingConfig struct {
 type Config struct {
 	Database     DatabaseConfig     `yaml:"Database"`
 	Performance  PerformanceConfig  `yaml:"Performance"`
-	Workload     WorkloadConfig     `yaml:"Workload"`
+	Workload     WorkloadConfig     `yaml:"WorkloadIdentifier"`
 	Measurements MeasurementsConfig `yaml:"Measurements"`
 	Logging      LoggingConfig      `yaml:"Logging"`
 }
@@ -120,7 +120,7 @@ var defaultConfig_ = Config{
 		},
 		CassandraConnections: IntProperty{
 			Value:       2,
-			Description: "The number of connections to the Cassandra cluster.",
+			Description: "The number of concurrent connections to establish with the Cassandra cluster.",
 		},
 		CassandraKeyspace: StringProperty{
 			Value:       "test",
@@ -132,11 +132,11 @@ var defaultConfig_ = Config{
 		},
 		CassandraPassword: StringProperty{
 			Value:       "",
-			Description: "The password for authenticating with Cassandra, if required.",
+			Description: "The password for authenticating with Cassandra, if PasswordAuthenticator is enabled.",
 		},
 		CassandraUsername: StringProperty{
 			Value:       "",
-			Description: "The username for authenticating with Cassandra, if required.",
+			Description: "The username for authenticating with Cassandra, if PasswordAuthenticator is enabled.",
 		},
 		PasswordAuthenticator: BoolProperty{
 			Value:       false,
@@ -146,15 +146,15 @@ var defaultConfig_ = Config{
 	Performance: PerformanceConfig{
 		BatchSize: IntProperty{
 			Value:       1,
-			Description: "The number of operations to batch together in a single transaction. If this value is 1, then batching is disabled.",
+			Description: "The number of operations to batch together in a single transaction. Batch processing is disabled if set to 1.",
 		},
 		PerformDataIntegrityChecks: BoolProperty{
 			Value:       false,
-			Description: "Enables performing data integrity checks during operations. If enabled, `FieldSizeDistribution` must be constant.",
+			Description: "Enables verification of data integrity during database operations. Requires 'FieldSizeDistribution' to be set to 'constant'.",
 		},
 		EnableDroppingDataOnStart: BoolProperty{
 			Value:       false,
-			Description: "Enables dropping any pre-existing database data upon startup.",
+			Description: "Enables dropping any pre-existing data in the database upon startup.",
 		},
 		MaxFields: IntProperty{
 			Value:       10,
@@ -182,7 +182,7 @@ var defaultConfig_ = Config{
 		},
 		MaxExecutionTime: IntProperty{
 			Value:       30,
-			Description: "The maximum allowed time for the benchmark to run before it is forcibly stopped.",
+			Description: "The maximum time to run the benchmark before it is forcibly stopped.",
 		},
 		MaxScanLength: IntProperty{
 			Value:       1000,
@@ -210,9 +210,9 @@ var defaultConfig_ = Config{
 		},
 	},
 	Workload: WorkloadConfig{
-		Workload: StringProperty{
+		WorkloadIdentifier: StringProperty{
 			Value:       "workload1",
-			Description: "The name of the workload to be executed.",
+			Description: "The name of the workload to be executed (for logging).",
 		},
 		Command: StringProperty{
 			Value:       "<>",
@@ -220,15 +220,15 @@ var defaultConfig_ = Config{
 		},
 		DoTransactions: BoolProperty{
 			Value:       false,
-			Description: "Indicates whether transactions should be executed.",
+			Description: "Determines whether to perform a mix of different database operations or limit to insertion\noperations only. Set to true for initial data loading.",
 		},
 		ExponentialFrac: FloatProperty{
 			Value:       0.8571428571,
-			Description: "The fraction of the exponential function used for generating workload distributions.",
+			Description: "Fraction parameter for generating distributions based on exponential function.",
 		},
 		ExponentialPercentile: FloatProperty{
 			Value:       95.0,
-			Description: "The target percentile for the exponential distribution when generating workloads.",
+			Description: "The target percentile for the exponential distribution.",
 		},
 		HotspotDataFraction: FloatProperty{
 			Value:       0.2,
@@ -236,19 +236,15 @@ var defaultConfig_ = Config{
 		},
 		HotspotOpnFraction: FloatProperty{
 			Value:       0.8,
-			Description: "The fraction of operations that will be focused on the 'hot' data.",
+			Description: "The fraction of operations that will target the 'hot' data.",
 		},
-		InsertOrder: StringProperty{
-			Value:       "hashed",
-			Description: "The order in which records are inserted, which can be 'hashed' or another specified order.",
+		HashInsertOrder: BoolProperty{
+			Value:       true,
+			Description: "Enables hashing the order in which records are inserted.",
 		},
-		InsertProportion: FloatProperty{
-			Value:       0.0,
-			Description: "The proportion of insert operations in the workload.",
-		},
-		InsertStart: IntProperty{
+		KeyRangeLowerBound: IntProperty{
 			Value:       10000,
-			Description: "The starting point for insert operations in the workload.",
+			Description: "The starting point (lower bound) for key values used in insert operations.",
 		},
 		KeyPrefix: StringProperty{
 			Value:       "user",
@@ -258,6 +254,10 @@ var defaultConfig_ = Config{
 			Value:       true,
 			Description: "Indicates whether all fields should be read in read operations.",
 		},
+		WriteAllFields: BoolProperty{
+			Value:       false,
+			Description: "Indicates whether all fields should be written in write operations.",
+		},
 		ReadModifyWriteProportion: FloatProperty{
 			Value:       0.0,
 			Description: "The proportion of read-modify-write operations in the workload.",
@@ -265,6 +265,18 @@ var defaultConfig_ = Config{
 		ReadProportion: FloatProperty{
 			Value:       0.95,
 			Description: "The proportion of read operations in the workload.",
+		},
+		InsertProportion: FloatProperty{
+			Value:       0.0,
+			Description: "The proportion of insert operations in the workload.",
+		},
+		UpdateProportion: FloatProperty{
+			Value:       0.05,
+			Description: "The proportion (from 0.0 to 1.0) of update operations in the workload. If the value is 0.0, then updating is disabled.",
+		},
+		ScanProportion: FloatProperty{
+			Value:       0.0,
+			Description: "The proportion (from 0.0 to 1.0) of scan operations in the workload. If the value is 0.0, then scanning is disabled.",
 		},
 		RequestDistribution: StringProperty{
 			Value:       "uniform",
@@ -274,18 +286,6 @@ var defaultConfig_ = Config{
 			Value:       "uniform",
 			Description: "The distribution for the number of records to scan during scan operations (to simulate\ndifferent data access spreads). Options are 'uniform' and 'zipfian'.",
 		},
-		ScanProportion: FloatProperty{
-			Value:       0.0,
-			Description: "The proportion (from 0.0 to 1.0) of scan operations in the workload. If the value is 0.0, then scanning is disabled.",
-		},
-		UpdateProportion: FloatProperty{
-			Value:       0.05,
-			Description: "The proportion (from 0.0 to 1.0) of update operations in the workload. If the value is 0.0, then updating is disabled.",
-		},
-		WriteAllFields: BoolProperty{
-			Value:       false,
-			Description: "Indicates whether all fields should be written in write operations (as opposed to updating).",
-		},
 	},
 	Measurements: MeasurementsConfig{
 		MeasurementType: StringProperty{
@@ -294,11 +294,11 @@ var defaultConfig_ = Config{
 		},
 		RawOutputDir: StringProperty{
 			Value:       "data/raw/",
-			Description: "The directory to output raw measurement data, if any.",
+			Description: "Directory for outputting raw measurement data (if there is any).",
 		},
 		HistogramPercentilesExport: BoolProperty{
 			Value:       false,
-			Description: "Enables exporting percentile data to the directory given by `HistogramOutputDir`.",
+			Description: "Enables the export of percentile data from histogram measurements.",
 		},
 		HistogramOutputDir: StringProperty{
 			Value:       "data/histogram/percentiles/",
@@ -314,7 +314,7 @@ var defaultConfig_ = Config{
 		},
 		WarmUpTime: IntProperty{
 			Value:       2,
-			Description: "The duration in seconds before metrics collection starts (allows the system to reach a steady operational state).",
+			Description: "The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).",
 		},
 		ZeroPadding: IntProperty{
 			Value:       1,

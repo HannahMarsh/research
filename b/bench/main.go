@@ -71,7 +71,7 @@ func initialGlobal(onProperties func()) {
 		tableName = globalProps.Database.CassandraTableName.Value
 	}
 
-	workloadName := globalProps.Workload.Workload
+	workloadName := globalProps.Workload.WorkloadIdentifier
 
 	if globalWorkload, err = workload.NewWorkload(globalProps); err != nil {
 		util.Fatalf("create workload %s failed %v", workloadName, err)

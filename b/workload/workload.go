@@ -33,14 +33,11 @@ type Workload struct {
 	fieldChooser                 generator.Generator
 	transactionInsertKeySequence generator.AcknowledgedCounter
 	scanLength                   generator.Generator
-	orderedInserts               bool
-	insertionRetryLimit          int64
-	insertionRetryInterval       int64
 
 	valuePool sync.Pool
 }
 
-type WorkloadState struct {
+type State struct {
 	r *rand.Rand
 	// fieldNames is a copy of core.fieldNames to be goroutine-local
 	fieldNames []string
@@ -71,24 +68,18 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 	if c.p.Performance.RecordCount.Value == 0 {
 		c.p.Performance.RecordCount.Value = math.MaxInt32
 	}
-	if int64(c.p.Performance.RecordCount.Value) < int64(p.Workload.InsertStart.Value)+int64(p.Performance.InsertCount.Value) {
+	if int64(c.p.Performance.RecordCount.Value) < int64(p.Workload.KeyRangeLowerBound.Value)+int64(p.Performance.InsertCount.Value) {
 		util.Fatalf("record count %d must be bigger than insert start %d + count %d",
-			int64(c.p.Performance.RecordCount.Value), int64(p.Workload.InsertStart.Value), int64(p.Performance.InsertCount.Value))
+			int64(c.p.Performance.RecordCount.Value), int64(p.Workload.KeyRangeLowerBound.Value), int64(p.Performance.InsertCount.Value))
 	}
 	if c.p.Performance.PerformDataIntegrityChecks.Value && p.Performance.FieldSizeDistribution.Value != "constant" {
 		util.Fatal("must have constant field size to check data integrity")
 	}
 
-	if p.Workload.InsertOrder.Value == "hashed" {
-		c.orderedInserts = false
-	} else {
-		c.orderedInserts = true
-	}
-
-	c.keySequence = generator.NewCounter(int64(p.Workload.InsertStart.Value))
+	c.keySequence = generator.NewCounter(int64(p.Workload.KeyRangeLowerBound.Value))
 	c.operationChooser = createOperationGenerator(p)
-	var keyrangeLowerBound int64 = int64(p.Workload.InsertStart.Value)
-	var keyrangeUpperBound int64 = int64(p.Workload.InsertStart.Value) + int64(p.Performance.InsertCount.Value) - 1
+	var keyrangeLowerBound = int64(p.Workload.KeyRangeLowerBound.Value)
+	var keyrangeUpperBound = int64(p.Workload.KeyRangeLowerBound.Value) + int64(p.Performance.InsertCount.Value) - 1
 
 	c.transactionInsertKeySequence = generator.NewAcknowledgedCounter(int64(c.p.Performance.RecordCount.Value))
 	switch p.Workload.RequestDistribution.Value {
@@ -100,7 +91,7 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 		insertProportion := p.Workload.InsertProportion.Value
 		opCount := p.Performance.OperationCount.Value
 		expectedNewKeys := int64(float64(opCount) * insertProportion * 2.0)
-		keyrangeUpperBound = int64(p.Workload.InsertStart.Value) + int64(p.Performance.InsertCount.Value) + expectedNewKeys
+		keyrangeUpperBound = int64(p.Workload.KeyRangeLowerBound.Value) + int64(p.Performance.InsertCount.Value) + expectedNewKeys
 		c.keyChooser = generator.NewScrambledZipfian(keyrangeLowerBound, keyrangeUpperBound, generator.ZipfianConstant)
 	case "latest":
 		c.keyChooser = generator.NewSkewedLatest(&c.transactionInsertKeySequence)
@@ -118,6 +109,7 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 	fmt.Println(fmt.Sprintf("Using request distribution '%s' a keyrange of [%d %d]", p.Workload.RequestDistribution.Value, keyrangeLowerBound, keyrangeUpperBound))
 
 	c.fieldChooser = generator.NewUniform(0, int64(c.p.Performance.MaxFields.Value)-1)
+
 	switch p.Workload.ScanLengthDistribution.Value {
 	case "uniform":
 		c.scanLength = generator.NewUniform(int64(p.Performance.MinScanLength.Value), int64(p.Performance.MaxScanLength.Value))
@@ -126,14 +118,9 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 	default:
 		util.Fatalf("distribution %s not allowed for scan length", p.Workload.ScanLengthDistribution.Value)
 	}
-
-	c.insertionRetryLimit = int64(p.Performance.InsertionRetryLimit.Value)
-	c.insertionRetryInterval = int64(p.Performance.InsertionRetryInterval.Value)
-
-	fieldLength := p.Performance.AvFieldSizeBytes.Value
 	c.valuePool = sync.Pool{
 		New: func() interface{} {
-			return make([]byte, fieldLength)
+			return make([]byte, c.p.Performance.AvFieldSizeBytes.Value)
 		},
 	}
 
@@ -194,7 +181,7 @@ func (c *Workload) InitThread(ctx context.Context, _ int, _ int) context.Context
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	fieldNames := make([]string, len(c.fieldNames))
 	copy(fieldNames, c.fieldNames)
-	state := &WorkloadState{
+	state := &State{
 		r:          r,
 		fieldNames: fieldNames,
 	}
@@ -202,7 +189,7 @@ func (c *Workload) InitThread(ctx context.Context, _ int, _ int) context.Context
 }
 
 func (c *Workload) buildKeyName(keyNum int64) string {
-	if !c.orderedInserts {
+	if c.p.Workload.HashInsertOrder.Value {
 		keyNum = util.Hash64(keyNum)
 	}
 
@@ -210,7 +197,7 @@ func (c *Workload) buildKeyName(keyNum int64) string {
 	return fmt.Sprintf("%s%0[3]*[2]d", prefix, keyNum, int64(c.p.Measurements.ZeroPadding.Value))
 }
 
-func (c *Workload) buildSingleValue(state *WorkloadState, key string) map[string][]byte {
+func (c *Workload) buildSingleValue(state *State, key string) map[string][]byte {
 	values := make(map[string][]byte, 1)
 
 	r := state.r
@@ -228,7 +215,7 @@ func (c *Workload) buildSingleValue(state *WorkloadState, key string) map[string
 	return values
 }
 
-func (c *Workload) buildValues(state *WorkloadState, key string) map[string][]byte {
+func (c *Workload) buildValues(state *State, key string) map[string][]byte {
 	values := make(map[string][]byte, int64(c.p.Performance.MaxFields.Value))
 
 	for _, fieldKey := range state.fieldNames {
@@ -259,7 +246,7 @@ func (c *Workload) putValues(values map[string][]byte) {
 	}
 }
 
-func (c *Workload) buildRandomValue(state *WorkloadState) []byte {
+func (c *Workload) buildRandomValue(state *State) []byte {
 	// TODO: use pool for the buffer
 	r := state.r
 	buf := c.getValueBuffer(int(c.fieldLengthGenerator.Next(r)))
@@ -267,7 +254,7 @@ func (c *Workload) buildRandomValue(state *WorkloadState) []byte {
 	return buf
 }
 
-func (c *Workload) buildDeterministicValue(state *WorkloadState, key string, fieldKey string) []byte {
+func (c *Workload) buildDeterministicValue(state *State, key string, fieldKey string) []byte {
 	// TODO: use pool for the buffer
 	r := state.r
 	size := c.fieldLengthGenerator.Next(r)
@@ -285,7 +272,7 @@ func (c *Workload) buildDeterministicValue(state *WorkloadState, key string, fie
 	return b.Bytes()
 }
 
-func (c *Workload) verifyRow(state *WorkloadState, key string, values map[string][]byte) {
+func (c *Workload) verifyRow(state *State, key string, values map[string][]byte) {
 	if len(values) == 0 {
 		// null data here, need panic?
 		return
@@ -300,7 +287,7 @@ func (c *Workload) verifyRow(state *WorkloadState, key string, values map[string
 }
 
 func (c *Workload) DoInsert(ctx context.Context, db db.DB, cache_ *cache.Cache) error {
-	state := ctx.Value(stateKey).(*WorkloadState)
+	state := ctx.Value(stateKey).(*State)
 	r := state.r
 	keyNum := c.keySequence.Next(r)
 	dbKey := c.buildKeyName(keyNum)
@@ -333,12 +320,12 @@ func (c *Workload) DoInsert(ctx context.Context, db db.DB, cache_ *cache.Cache) 
 		// even if one single insertion fails. User can optionally configure
 		// an insertion retry limit (default is 0) to enable retry.
 		numOfRetries++
-		if numOfRetries > c.insertionRetryLimit {
+		if numOfRetries > int64(c.p.Performance.InsertionRetryLimit.Value) {
 			break
 		}
 
 		// Sleep for a random time betweensz [0.8, 1.2)*insertionRetryInterval
-		sleepTimeMs := float64((c.insertionRetryInterval * 1000)) * (0.8 + 0.4*r.Float64())
+		sleepTimeMs := float64((int64(c.p.Performance.InsertionRetryInterval.Value) * 1000)) * (0.8 + 0.4*r.Float64())
 
 		time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
 	}
@@ -351,7 +338,7 @@ func (c *Workload) DoBatchInsert(ctx context.Context, batchSize int, d db.DB, ca
 	if !ok {
 		return fmt.Errorf("the %T does't implement the batchDB interface", d)
 	}
-	state := ctx.Value(stateKey).(*WorkloadState)
+	state := ctx.Value(stateKey).(*State)
 	r := state.r
 	var keys []string
 	var values []map[string][]byte
@@ -395,12 +382,12 @@ func (c *Workload) DoBatchInsert(ctx context.Context, batchSize int, d db.DB, ca
 		// even if one single insertion fails. User can optionally configure
 		// an insertion retry limit (default is 0) to enable retry.
 		numOfRetries++
-		if numOfRetries > c.insertionRetryLimit {
+		if numOfRetries > int64(c.p.Performance.InsertionRetryLimit.Value) {
 			break
 		}
 
 		// Sleep for a random time betweensz [0.8, 1.2)*insertionRetryInterval
-		sleepTimeMs := float64((c.insertionRetryInterval * 1000)) * (0.8 + 0.4*r.Float64())
+		sleepTimeMs := float64((int64(c.p.Performance.InsertionRetryInterval.Value) * 1000)) * (0.8 + 0.4*r.Float64())
 
 		time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
 	}
@@ -412,7 +399,7 @@ func (c *Workload) DoBatchTransaction(ctx context.Context, batchSize int, d db.D
 	if !ok {
 		return fmt.Errorf("the %T does't implement the batchDB interface", d)
 	}
-	state := ctx.Value(stateKey).(*WorkloadState)
+	state := ctx.Value(stateKey).(*State)
 	r := state.r
 
 	operation := operationType(c.operationChooser.Next(r))
@@ -430,7 +417,7 @@ func (c *Workload) DoBatchTransaction(ctx context.Context, batchSize int, d db.D
 	}
 }
 
-func (c *Workload) nextKeyNum(state *WorkloadState) int64 {
+func (c *Workload) nextKeyNum(state *State) int64 {
 	r := state.r
 	keyNum := int64(0)
 	if _, ok := c.keyChooser.(*generator.Exponential); ok {
@@ -444,7 +431,7 @@ func (c *Workload) nextKeyNum(state *WorkloadState) int64 {
 	return keyNum
 }
 
-func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
+func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ *cache.Cache, state *State) error {
 	r := state.r
 	keyNum := c.nextKeyNum(state)
 	keyName := c.buildKeyName(keyNum)
@@ -486,7 +473,7 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ *cach
 	return nil
 }
 
-func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
+func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ *cache.Cache, state *State) error {
 	start := time.Now()
 	defer func() {
 		measurement.Measure("READ_MODIFY_WRITE", start, time.Now().Sub(start))
@@ -531,7 +518,7 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, c
 	return nil
 }
 
-func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
+func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ *cache.Cache, state *State) error {
 	r := state.r
 	keyNum := c.transactionInsertKeySequence.Next(r)
 	defer c.transactionInsertKeySequence.Acknowledge(keyNum)
@@ -549,7 +536,7 @@ func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ *ca
 }
 
 // If all keys are in the cache, it uses those values. However, if any key is missing, it should perform a scan operation on the database for the entire range.
-func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
+func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ *cache.Cache, state *State) error {
 	r := state.r
 	keyNum := c.nextKeyNum(state)
 	startKeyName := c.buildKeyName(keyNum)
@@ -607,7 +594,7 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ *cach
 }
 
 func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ *cache.Cache) error {
-	state := ctx.Value(stateKey).(*WorkloadState)
+	state := ctx.Value(stateKey).(*State)
 	r := state.r
 
 	operation := operationType(c.operationChooser.Next(r))
@@ -625,7 +612,7 @@ func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ *cache.Ca
 	}
 }
 
-func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ *cache.Cache, state *WorkloadState) error {
+func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ *cache.Cache, state *State) error {
 	keyNum := c.nextKeyNum(state)
 	keyName := c.buildKeyName(keyNum)
 
@@ -653,7 +640,7 @@ func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ *ca
 	return nil
 }
 
-func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db db.BatchDB, cache_ *cache.Cache, state *WorkloadState) error {
+func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db db.BatchDB, cache_ *cache.Cache, state *State) error {
 	r := state.r
 	var fields []string
 
@@ -714,7 +701,7 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 	return nil
 }
 
-func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, db db.BatchDB, cache_ *cache.Cache, state *WorkloadState) error {
+func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, db db.BatchDB, cache_ *cache.Cache, state *State) error {
 	r := state.r
 	keys := make([]string, batchSize)
 	values := make([]map[string][]byte, batchSize)
@@ -753,7 +740,7 @@ func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, 
 	return nil
 }
 
-func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, db db.BatchDB, cache_ *cache.Cache, state *WorkloadState) error {
+func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, db db.BatchDB, cache_ *cache.Cache, state *State) error {
 	keys := make([]string, batchSize)
 	values := make([]map[string][]byte, batchSize)
 	for i := 0; i < batchSize; i++ {
