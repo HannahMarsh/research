@@ -49,15 +49,17 @@ func (c *Client) Run(ctx context.Context) {
 		measurement.EnableWarmUp(false)
 
 		dur := c.p.LogInterval
-		t := time.NewTicker(time.Duration(dur) * time.Second)
-		defer t.Stop()
+		if dur > 0 {
+			t := time.NewTicker(time.Duration(dur) * time.Second)
+			defer t.Stop()
 
-		for {
-			select {
-			case <-t.C:
-				measurement.Summary()
-			case <-measureCtx.Done():
-				return
+			for {
+				select {
+				case <-t.C:
+					measurement.Summary()
+				case <-measureCtx.Done():
+					return
+				}
 			}
 		}
 	}()

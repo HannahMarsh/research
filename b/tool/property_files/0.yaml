@@ -19,7 +19,7 @@ HistogramPercentilesExport: false
 HistogramPercentilesExportFilepath: "./"
 HotspotDataFraction: 0.2
 HotspotOpnFraction: 0.8
-InsertCount: 0
+InsertCount: 10000
 InsertionRetryInterval: 3
 InsertionRetryLimit: 0
 InsertOrder: "hashed"
@@ -27,7 +27,7 @@ InsertProportion: 0.0
 InsertStart: 10000
 KeyPrefix: "user"
 Label: ""
-LogInterval: 0
+LogInterval: 10
 MaxExecutionTime: 0
 MaxScanLength: 1000
 MeasurementRawOutputFile: ""
