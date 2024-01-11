@@ -237,58 +237,51 @@ func (plt *plotInfo) makePlot() {
 		// Aggregate metrics into buckets based on the timeSlice
 		countsPerSlice := make(map[int64]int)
 		mtrcs := Filter(cat.filter)
+		pts := make(plotter.XYs, int(resolution))
+		var mean float64
 		if mtrcs == nil {
-
-			pts := make(plotter.XYs, int(resolution))
 			for i := 0; i < int(resolution); i++ {
 				pts[i].Y = 0
 				pts[i].X = float64(i) * timeSlice.Seconds()
 			}
-			line, err := plotter.NewLine(pts)
-			if err != nil {
-				log.Panic(err)
+		} else {
+
+			for _, m := range mtrcs {
+				bucket := int64(math.Ceil(float64(m.timestamp.Sub(plt.start).Nanoseconds()) / float64(timeSlice.Nanoseconds())))
+				countsPerSlice[bucket]++
 			}
-			p.Add(line)
-			continue
-			// todo fill with all 0;s
-		}
 
-		for _, m := range mtrcs {
-			bucket := int64(math.Ceil(float64(m.timestamp.Sub(plt.start).Microseconds()) / float64(timeSlice.Microseconds())))
-			countsPerSlice[bucket]++
-		}
+			// Create a plotter.XYs to hold the request counts
+			maxPerSecond := 0.0
+			sum := 0.0
+			count2 := 0.0
 
-		// Create a plotter.XYs to hold the request counts
-		pts := make(plotter.XYs, int(resolution))
-		maxPerSecond := 0.0
-		sum := 0.0
-		count2 := 0.0
-
-		// Fill the pts with the request counts
-		for i := 0; i < int(resolution); i++ {
-			if count, ok := countsPerSlice[int64(i)]; ok {
-				countPerSecond := float64(count) / timeSlice.Seconds()
-				maxPerSecond = math.Max(maxPerSecond, countPerSecond)
-				pts[i].Y = countPerSecond
-				sum += countPerSecond
-				count2 += 1.0
+			// Fill the pts with the request counts
+			for i := 0; i < int(resolution); i++ {
+				if count, ok := countsPerSlice[int64(i)]; ok {
+					countPerSecond := float64(count) / timeSlice.Seconds()
+					maxPerSecond = math.Max(maxPerSecond, countPerSecond)
+					pts[i].Y = countPerSecond
+					sum += countPerSecond
+					count2 += 1.0
+				}
+				pts[i].X = float64(i) * timeSlice.Seconds()
 			}
-			pts[i].X = float64(i) * timeSlice.Seconds()
+			mean = sum / count2
+
+			p.Y.Max = math.Max(p.Y.Max, maxPerSecond*1.2)
 		}
-		mean := sum / count2
-
-		p.Y.Max = math.Max(p.Y.Max, maxPerSecond*1.2)
-
 		// Create a line chart
-		line, err := plotter.NewLine(pts)
-		if err != nil {
+		if line, err := plotter.NewLine(pts); err == nil {
+			line.Color = cat.color
+			p.Add(line)
+			p.Legend.Add(cat.plotLabel, line)
+			if mtrcs != nil && mean != math.NaN() {
+				addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), cat.color)
+			}
+		} else {
 			log.Panic(err)
 		}
-
-		addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), cat.color)
-
-		p.Add(line)
-
 	}
 
 	plt.plotNodeFailures(p)
