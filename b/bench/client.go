@@ -15,7 +15,6 @@ package main
 
 import (
 	"benchmark/client"
-	"benchmark/measurement"
 	"fmt"
 	"github.com/spf13/cobra"
 	"time"
@@ -69,7 +68,7 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	c.Run(globalContext)
 	fmt.Println("**********************************************")
 	fmt.Printf("Run finished, takes %s\n", time.Now().Sub(start))
-	measurement.Output()
+	//measurement.Output()
 }
 
 func runLoadCommandFunc(cmd *cobra.Command, args []string) {

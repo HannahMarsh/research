@@ -17,7 +17,6 @@ import (
 	"benchmark/client"
 	bconfig "benchmark/config"
 	"benchmark/db"
-	"benchmark/measurement"
 	"benchmark/metrics"
 	"benchmark/util"
 	"benchmark/workload"
@@ -65,7 +64,7 @@ func initialGlobal(onProperties func()) {
 		}
 	}()
 
-	measurement.InitMeasure(globalProps)
+	//measurement.InitMeasure(globalProps)
 
 	metrics.Init(globalProps)
 

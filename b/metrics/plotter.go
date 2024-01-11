@@ -155,7 +155,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 		var row []string
 		for c := 0; c < cols; c++ {
 			if r == 0 && c == 0 {
-				plotConfig(start, end, path+"config.png")
+				plotConfig(start, end, path+"individual/config.png")
 				row = append(row, path+"individual/config.png")
 			} else {
 				if curIndex < len(pi) {

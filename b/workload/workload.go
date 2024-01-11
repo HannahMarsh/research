@@ -5,7 +5,7 @@ import (
 	bconfig "benchmark/config"
 	"benchmark/db"
 	"benchmark/generator"
-	"benchmark/measurement"
+	metrics2 "benchmark/metrics"
 	"benchmark/util"
 	"bytes"
 	"context"
@@ -473,10 +473,31 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 	return nil
 }
 
-func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) error {
+func workloadMeasure(start time.Time, operationType string, err error) {
+	latency := time.Now().Sub(start)
+	if err != nil {
+		metrics2.AddMeasurement(metrics2.TRANSACTION, start,
+			map[string]interface{}{
+				metrics2.SUCCESSFUL: false,
+				metrics2.OPERATION:  operationType,
+				metrics2.ERROR:      err.Error(),
+				metrics2.LATENCY:    latency.Seconds(),
+			})
+		return
+	} else {
+		metrics2.AddMeasurement(metrics2.CACHE_OPERATION, start,
+			map[string]interface{}{
+				metrics2.SUCCESSFUL: true,
+				metrics2.OPERATION:  operationType,
+				metrics2.LATENCY:    latency.Seconds(),
+			})
+	}
+}
+
+func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (err error) {
 	start := time.Now()
 	defer func() {
-		measurement.Measure("READ_MODIFY_WRITE", start, time.Now().Sub(start))
+		workloadMeasure(start, "READ_MODIFY_WRITE", err)
 	}()
 
 	r := state.r

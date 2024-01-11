@@ -3,7 +3,6 @@ package client
 import (
 	bconfig "benchmark/config"
 	"benchmark/db"
-	"benchmark/measurement"
 	"benchmark/workload"
 	"context"
 	"sync"
@@ -30,6 +29,7 @@ func (c *Client) Run(ctx context.Context) {
 	wg.Add(c.p.Performance.ThreadCount.Value)
 	measureCtx, measureCancel := context.WithCancel(ctx)
 	measureCh := make(chan struct{}, 1)
+	//start := time.Now()
 	go func() {
 		defer func() {
 			measureCh <- struct{}{}
@@ -43,7 +43,7 @@ func (c *Client) Run(ctx context.Context) {
 			}
 		}
 		// finish warming up
-		measurement.EnableWarmUp(false)
+		//measurement.EnableWarmUp(false)
 
 		//dur := c.p.Logging.LogInterval.Value
 		if c.p.Logging.LogInterval.Value > 0 {
@@ -53,7 +53,7 @@ func (c *Client) Run(ctx context.Context) {
 			for {
 				select {
 				case <-t.C:
-					measurement.Summary()
+					//metrics.PlotMetrics(start, time.Now(), "data/")
 				case <-measureCtx.Done():
 					return
 				}
