@@ -463,7 +463,7 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 
 	err = cache_.Set(ctx, keyName, values)
 	if err != nil {
-		return err
+		//return err
 	}
 
 	if c.p.Performance.PerformDataIntegrityChecks.Value {
@@ -508,7 +508,7 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, c
 		return err
 	}
 	if err := cache_.Set(ctx, keyName, values); err != nil {
-		return err
+		//return err
 	}
 
 	if c.p.Performance.PerformDataIntegrityChecks.Value {
@@ -530,7 +530,7 @@ func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cac
 		return err
 	}
 	if err := cache_.Set(ctx, dbKey, values); err != nil {
-		return err
+		//return err
 	}
 	return nil
 }
@@ -634,7 +634,7 @@ func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ cac
 	// Update the cache with the new values after a successful database insert
 	cacheErr := cache_.Set(ctx, keyName, values)
 	if cacheErr != nil {
-		return err
+		//return err
 	}
 
 	return nil
@@ -733,7 +733,7 @@ func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, 
 	for i, key := range keys {
 		cacheErr := cache_.Set(ctx, key, values[i])
 		if cacheErr != nil {
-			return err
+			//return err
 		}
 	}
 
@@ -770,7 +770,7 @@ func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, 
 	for i, key := range keys {
 		cacheErr := cache_.Set(ctx, key, values[i])
 		if cacheErr != nil {
-			return err
+			//return err
 		}
 	}
 

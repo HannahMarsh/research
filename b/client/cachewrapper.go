@@ -5,7 +5,6 @@ import (
 	bconfig "benchmark/config"
 	metrics2 "benchmark/metrics"
 	"context"
-	"fmt"
 	"time"
 )
 
@@ -48,13 +47,9 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 
 	for i := 0; i < len(p.Cache.Nodes); i++ {
 		nodeConfig := p.Cache.Nodes[i]
-		c.addNode(nodeConfig.Address.Value, nodeConfig.MaxSize.Value, nodeConfig.NodeId.Value)
+		c.addNode(nodeConfig.Address.Value, nodeConfig.MaxSize.Value, nodeConfig.NodeId.Value, ctx)
 		c.scheduleFailures(i, nodeConfig.FailureIntervals)
 	}
-
-	t := EstimateRunningTime(p)
-	fmt.Printf("Estimated running time: %v\n", t)
-
 	return &c
 }
 
@@ -112,8 +107,8 @@ func (c *CacheWrapper) scheduleFailures(nodeIndex int, intervals []bconfig.Failu
 	}
 }
 
-func (c *CacheWrapper) addNode(address string, maxSize int, id int) {
-	node := cache.NewNode(address, int64(maxSize), id)
+func (c *CacheWrapper) addNode(address string, maxSize int, id int, ctx context.Context) {
+	node := cache.NewNode(address, int64(maxSize), id, ctx)
 	c.nodes = append(c.nodes, node)
 }
 

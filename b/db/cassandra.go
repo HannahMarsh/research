@@ -181,10 +181,10 @@ func (k *CassandraDB) createKeyspaceIfNotExists() error {
 	query := fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': '%s', 'replication_factor': %d};", k.p.Database.CassandraKeyspace.Value, k.p.Database.ReplicationStrategy.Value, k.p.Database.ReplicationFactor.Value)
 
 	if err := k.session.Query(query).Exec(); err != nil {
-		log.Printf("Failed to create keyspace %s: %v", k.p.Database.CassandraKeyspace, err)
+		log.Printf("Failed to create keyspace %s: %v", k.p.Database.CassandraKeyspace.Value, err)
 		return err
 	}
-	log.Printf("Keyspace %s created successfully", k.p.Database.CassandraKeyspace)
+	log.Printf("Keyspace %s created successfully", k.p.Database.CassandraKeyspace.Value)
 	return nil
 }
 

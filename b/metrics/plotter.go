@@ -110,7 +110,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 			},
 			start:      start,
 			end:        end,
-			path:       path + "requests_per_second.png",
+			path:       path + "individual/requests_per_second.png",
 			numBuckets: numBuckets,
 		},
 		{
@@ -134,7 +134,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 			},
 			start:      start,
 			end:        end,
-			path:       path + "cache_requests.png",
+			path:       path + "individual/cache_requests.png",
 			numBuckets: numBuckets,
 		},
 		//initPlotInfo(start, end, GetMetricsByType(DATABASE_OPERATION), "Database Requests per Second as a Function of Time", "Requests per second", path+"requests_per_second.png"),
@@ -156,7 +156,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 		for c := 0; c < cols; c++ {
 			if r == 0 && c == 0 {
 				plotConfig(start, end, path+"config.png")
-				row = append(row, path+"config.png")
+				row = append(row, path+"individual/config.png")
 			} else {
 				if curIndex < len(pi) {
 					pi[curIndex].makePlot()
@@ -169,23 +169,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 		piPath = append(piPath, row)
 	}
 
-	tilePlots(path+"tiled.png", piPath)
-
-	//dbRequests := initPlotInfo(start, end, "Database Requests per Second as a Function of Time", "Requests per second", path+"requests_per_second.png")
-	//allRequests := initPlotInfo(start, end, "Total Requests per Second As a Function of Time", "Requests per second", path+"all_requests_per_second.png")
-	//cacheHits := initPlotInfo(start, end, "Cache Hit Ratio as a Function of Time", "Cache Hit Ratio", path+"cache_hit_ratio.png")
-	//latency := initPlotInfo(start, end, "Request Latency As a Function of Time", "Average Latency (ms)", path+"latency.png")
-	//keyspace := initPlotInfo(start, end, "Keyspace Popularity as a Function of Time", "Requests per second", path+"keyspace.png")
-	//cacheReq := initPlotInfo(start, end, "Cache Requests as a Function of Time", "Requests per second", path+"cache_requests.png")
-	//cacheSize := initPlotInfo(start, end, "Cache Sizes as a Function of Time", "Number of Items", path+"cacheSizes.png")
-	//m.plotConfig(start, end, path+"config.png")
-	//
-	//tilePlots(path+"tiled.png", [][]string{
-	//	{path + "config.png", allRequests.path},
-	//	{keyspace.path, dbRequests.path},
-	//	{latency.path, cacheHits.path},
-	//	{cacheSize.path, cacheReq.path},
-	//})
+	tilePlots(path+"results.png", piPath)
 }
 
 func (plt *plotInfo) makePlot() {
@@ -279,8 +263,8 @@ func (plt *plotInfo) plotNodeFailures(p *plot.Plot) {
 
 	for _, node := range globalMetrics.config.Cache.Nodes {
 		for _, interval := range node.FailureIntervals {
-			iStart := time.Duration(interval.Start * float64(duration.Nanoseconds())).Seconds()
-			iEnd := time.Duration(interval.End * float64(duration.Nanoseconds())).Seconds()
+			iStart := time.Duration(interval.Start * float64(time.Second)).Seconds()
+			iEnd := time.Duration(interval.End * float64(time.Second)).Seconds()
 			if iStart < duration.Seconds() {
 				addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed", node.NodeId.Value), LIGHT_COLORS[i])
 				if iEnd < duration.Seconds() {
@@ -392,7 +376,7 @@ func plotConfig(start time.Time, end time.Time, filename string) {
 	addLabel(img, leftIndent+40, 270, fmt.Sprintf("Key Range: %d to %d", config.Workload.KeyRangeLowerBound.Value, config.Workload.KeyRangeLowerBound.Value+config.Performance.InsertCount.Value-1), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 300, fmt.Sprintf("Concurrency: %v", config.Performance.ThreadCount.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 330, fmt.Sprintf("Warmup Time: %d", config.Measurements.WarmUpTime.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 360, fmt.Sprintf("Request Distribution: %d", config.Workload.RequestDistribution.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
+	addLabel(img, leftIndent+40, 360, fmt.Sprintf("Request Distribution: %s", config.Workload.RequestDistribution.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 
 	// Save the image to file
 	saveImage(filename, img)

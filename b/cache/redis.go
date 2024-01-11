@@ -22,7 +22,7 @@ type Cache interface {
 	Set(ctx context.Context, key string, value map[string][]byte) error
 }
 
-func NewNode(address string, maxSize int64, id int) *Node {
+func NewNode(address string, maxSize int64, id int, ctx context.Context) *Node {
 	c := new(Node)
 	opts := &redis.Options{
 		Addr:     address,
@@ -36,6 +36,11 @@ func NewNode(address string, maxSize int64, id int) *Node {
 	c.isFailed = false
 	c.maxSize = maxSize
 	c.id = id
+
+	err := c.redisClient.FlushDB(ctx).Err()
+	if err != nil {
+		log.Printf("Failed to clear cache: %v", err)
+	}
 
 	return c
 }
@@ -106,9 +111,15 @@ func (c *Node) Set(ctx context.Context, key string, value map[string][]byte) err
 	if c.isFailed {
 		return errors.New("simulated failure - cache node is not available")
 	}
-	size, _ := c.Size(ctx)
-	if size >= c.maxSize {
-		return errors.New("cache is full")
+	if size, err := c.Size(ctx); err == nil {
+		if size >= c.maxSize {
+			// cache is full, flush it
+			err = c.redisClient.FlushDB(ctx).Err()
+			if err != nil {
+				log.Printf("Failed to clear cache: %v", err)
+				return err
+			}
+		}
 	}
 	// Serialize the map into a JSON string for storage
 	serializedValue, err := json.Marshal(value)
