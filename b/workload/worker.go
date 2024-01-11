@@ -15,7 +15,7 @@ import (
 type Worker struct {
 	p               *bconfig.Config
 	workDB          db.DB
-	cache           *cache.Cache
+	cache           cache.Cache
 	workload        *Workload
 	doBatch         bool
 	opCount         int64
@@ -25,7 +25,7 @@ type Worker struct {
 	opsDone         int64
 }
 
-func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workload, db db.DB, cache *cache.Cache) *Worker {
+func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workload, db db.DB, cache cache.Cache) *Worker {
 	w := new(Worker)
 	w.p = p
 	if w.p.Performance.BatchSize.Value > 1 {

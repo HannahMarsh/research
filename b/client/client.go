@@ -1,7 +1,6 @@
 package client
 
 import (
-	"benchmark/cache"
 	bconfig "benchmark/config"
 	"benchmark/db"
 	"benchmark/measurement"
@@ -15,12 +14,12 @@ type Client struct {
 	p        *bconfig.Config
 	workload *workload.Workload
 	db       db.DB
-	cache    *cache.Cache
+	cache    *CacheWrapper
 }
 
 // NewClient returns a client with the given workload and DB.
 // The workload and db can't be nil.
-func NewClient(p *bconfig.Config, workload *workload.Workload, db db.DB, cache_ *cache.Cache) *Client {
+func NewClient(p *bconfig.Config, workload *workload.Workload, db db.DB, cache_ *CacheWrapper) *Client {
 	return &Client{p: p, workload: workload, db: db, cache: cache_}
 }
 

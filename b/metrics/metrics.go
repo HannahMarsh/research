@@ -1,4 +1,4 @@
-package main
+package metrics
 
 import (
 	bconfig "benchmark/config"
@@ -9,6 +9,11 @@ import (
 
 var globalMetrics *metrics
 
+var (
+	DATABASE_OPERATION = "DATABASE_OPERATION"
+	CACHE_OPERATION    = "CACHE_OPERATION"
+)
+
 type metrics struct {
 	config     *bconfig.Config                     // configuration for the benchmark
 	start      time.Time                           // start time of simulation
@@ -16,7 +21,7 @@ type metrics struct {
 	allMetrics map[string]*threadSafeSortedMetrics // dynamically hold different metric types
 }
 
-func innit(config *bconfig.Config) {
+func Init(config *bconfig.Config) {
 	globalMetrics = newMetrics(time.Now(), config)
 }
 
@@ -90,14 +95,14 @@ func (ts *threadSafeSortedMetrics) insertTimestampWithLabel(newTimestamp time.Ti
 	})
 }
 
-func (m *metrics) getMetricsByType(metricType string) []Metric {
-	if tsMetrics, exists := m.allMetrics[metricType]; exists {
+type MetricSlice []Metric
+
+func GetMetricsByType(metricType string) MetricSlice {
+	if tsMetrics, exists := globalMetrics.allMetrics[metricType]; exists {
 		return tsMetrics.getMetrics()
 	}
 	return nil
 }
-
-type MetricSlice []Metric
 
 // getMetrics safely returns a copy of the list of metrics
 func (ts *threadSafeSortedMetrics) getMetrics() MetricSlice {

@@ -14,11 +14,11 @@
 package main
 
 import (
-	"benchmark/cache"
 	"benchmark/client"
 	bconfig "benchmark/config"
 	"benchmark/db"
 	"benchmark/measurement"
+	"benchmark/metrics"
 	"benchmark/util"
 	"benchmark/workload"
 	"context"
@@ -44,7 +44,7 @@ var (
 	globalCancel  context.CancelFunc
 
 	globalDB       db.DB
-	globalCache    *cache.Cache
+	globalCache    *client.CacheWrapper
 	globalWorkload *workload.Workload
 	globalProps    *bconfig.Config
 )
@@ -67,6 +67,8 @@ func initialGlobal(onProperties func()) {
 
 	measurement.InitMeasure(globalProps)
 
+	metrics.Init(globalProps)
+
 	if len(tableName) == 0 {
 		tableName = globalProps.Database.CassandraTableName.Value
 	}
@@ -81,7 +83,7 @@ func initialGlobal(onProperties func()) {
 		util.Fatalf("create db failed: %v", err)
 	}
 	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
-	globalCache = cache.NewCache(globalProps)
+	globalCache = client.NewCache(globalProps)
 
 	// todo add each cache node from config
 }
