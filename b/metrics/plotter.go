@@ -237,6 +237,21 @@ func (plt *plotInfo) makePlot() {
 		// Aggregate metrics into buckets based on the timeSlice
 		countsPerSlice := make(map[int64]int)
 		mtrcs := Filter(cat.filter)
+		if mtrcs == nil {
+
+			pts := make(plotter.XYs, int(resolution))
+			for i := 0; i < int(resolution); i++ {
+				pts[i].Y = 0
+				pts[i].X = float64(i) * timeSlice.Seconds()
+			}
+			line, err := plotter.NewLine(pts)
+			if err != nil {
+				log.Panic(err)
+			}
+			p.Add(line)
+			continue
+			// todo fill with all 0;s
+		}
 
 		for _, m := range mtrcs {
 			bucket := int64(math.Ceil(float64(m.timestamp.Sub(plt.start).Microseconds()) / float64(timeSlice.Microseconds())))
@@ -262,7 +277,7 @@ func (plt *plotInfo) makePlot() {
 		}
 		mean := sum / count2
 
-		p.Y.Max = maxPerSecond * 1.2
+		p.Y.Max = math.Max(p.Y.Max, maxPerSecond*1.2)
 
 		// Create a line chart
 		line, err := plotter.NewLine(pts)
