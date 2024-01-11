@@ -38,7 +38,7 @@ var (
 )
 
 type plotInfo struct {
-	metrics    MetricSlice
+	categories []category
 	numBuckets int
 	title      string
 	yAxis      string
@@ -47,24 +47,115 @@ type plotInfo struct {
 	end        time.Time
 }
 
+func getStringValue(a interface{}) (string, bool) {
+	if val, ok := a.(string); ok {
+		return val, true
+	}
+	return "", false
+}
+
+func getFloatValue(a interface{}) (float64, bool) {
+	if val, ok := a.(float64); ok {
+		return val, true
+	}
+	return -1.0, false
+}
+
+var STRING = "string"
+var FLOAT = "float"
+
+type category struct {
+	filter    func(Metric) bool
+	plotLabel string
+	color     color.RGBA
+}
+
+func equal(a interface{}, b interface{}) bool {
+	switch val := a.(type) {
+	case string:
+		if val2, ok := b.(string); ok {
+			return val == val2
+		}
+	case int:
+		if val2, ok := b.(int); ok {
+			return val == val2
+		}
+	case int64:
+		if val2, ok := b.(int64); ok {
+			return val == val2
+		}
+	case int32:
+		if val2, ok := b.(int32); ok {
+			return val == val2
+		}
+	case float64:
+		if val2, ok := b.(float64); ok {
+			return val == val2
+		}
+	case bool:
+		if val2, ok := b.(bool); ok {
+			return val == val2
+		}
+	}
+	return false
+}
+
+func has(m Metric, label string, value interface{}) bool {
+	if val, exists := m.tags[label]; exists {
+		return equal(val, value)
+	}
+	return false
+}
+
 func PlotMetrics(start time.Time, end time.Time, path string) {
+	GatherAllMetrics()
 	numBuckets := 30
 	var pi = []*plotInfo{
 		{
-			title:      "Database Requests per Second as a Function of Time",
-			yAxis:      "Requests per second",
+			title: "Database Requests per Second as a Function of Time",
+			yAxis: "Requests per second",
+			categories: []category{
+				{
+					filter: func(m Metric) bool {
+						return m.metricType == DATABASE_OPERATION && has(m, SUCCESSFUL, true)
+					},
+					plotLabel: "Successful",
+					color:     DARK_GREEN,
+				},
+				{
+					filter: func(m Metric) bool {
+						return m.metricType == DATABASE_OPERATION && has(m, SUCCESSFUL, false)
+					},
+					plotLabel: "Unsuccessful",
+					color:     DARK_RED,
+				},
+			},
 			start:      start,
 			end:        end,
-			metrics:    GetMetricsByType(DATABASE_OPERATION),
 			path:       path + "requests_per_second.png",
 			numBuckets: numBuckets,
 		},
 		{
-			title:      "Cache Requests as a Function of Time",
-			yAxis:      "Requests per second",
+			title: "Cache Requests as a Function of Time",
+			yAxis: "Requests per second",
+			categories: []category{
+				{
+					filter: func(m Metric) bool {
+						return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, true)
+					},
+					plotLabel: "Successful",
+					color:     DARK_GREEN,
+				},
+				{
+					filter: func(m Metric) bool {
+						return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, false)
+					},
+					plotLabel: "Unsuccessful",
+					color:     DARK_RED,
+				},
+			},
 			start:      start,
 			end:        end,
-			metrics:    GetMetricsByType(CACHE_OPERATION),
 			path:       path + "cache_requests.png",
 			numBuckets: numBuckets,
 		},
@@ -141,36 +232,49 @@ func (plt *plotInfo) makePlot() {
 	resolution := float64(plt.numBuckets)
 	timeSlice := time.Duration(float64(duration.Nanoseconds()) / resolution)
 
-	// Aggregate metrics into buckets based on the timeSlice
-	countsPerSlice := make(map[int64]int)
-	mtrcs := plt.metrics
-	for _, metric := range mtrcs {
-		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(plt.start).Microseconds()) / float64(timeSlice.Microseconds())))
-		countsPerSlice[bucket]++
-	}
+	for _, cat := range plt.categories {
 
-	// Create a plotter.XYs to hold the request counts
-	pts := make(plotter.XYs, int(resolution))
-	maxPerSecond := 0.0
+		// Aggregate metrics into buckets based on the timeSlice
+		countsPerSlice := make(map[int64]int)
+		mtrcs := Filter(cat.filter)
 
-	// Fill the pts with the request counts
-	for i := 0; i < int(resolution); i++ {
-		if count, ok := countsPerSlice[int64(i)]; ok {
-			countPerSecond := float64(count) / timeSlice.Seconds()
-			maxPerSecond = math.Max(maxPerSecond, countPerSecond)
-			pts[i].Y = countPerSecond
+		for _, m := range mtrcs {
+			bucket := int64(math.Ceil(float64(m.timestamp.Sub(plt.start).Microseconds()) / float64(timeSlice.Microseconds())))
+			countsPerSlice[bucket]++
 		}
-		pts[i].X = float64(i) * timeSlice.Seconds()
-	}
-	p.Y.Max = maxPerSecond * 1.2
 
-	// Create a line chart
-	line, err := plotter.NewLine(pts)
-	if err != nil {
-		log.Panic(err)
-	}
+		// Create a plotter.XYs to hold the request counts
+		pts := make(plotter.XYs, int(resolution))
+		maxPerSecond := 0.0
+		sum := 0.0
+		count2 := 0.0
 
-	p.Add(line)
+		// Fill the pts with the request counts
+		for i := 0; i < int(resolution); i++ {
+			if count, ok := countsPerSlice[int64(i)]; ok {
+				countPerSecond := float64(count) / timeSlice.Seconds()
+				maxPerSecond = math.Max(maxPerSecond, countPerSecond)
+				pts[i].Y = countPerSecond
+				sum += countPerSecond
+				count2 += 1.0
+			}
+			pts[i].X = float64(i) * timeSlice.Seconds()
+		}
+		mean := sum / count2
+
+		p.Y.Max = maxPerSecond * 1.2
+
+		// Create a line chart
+		line, err := plotter.NewLine(pts)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), cat.color)
+
+		p.Add(line)
+
+	}
 
 	plt.plotNodeFailures(p)
 
@@ -396,6 +500,30 @@ func addLabel(img *image.RGBA, x, y int, label string, fontPath string, size flo
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGBA) {
+	horizontalLine, err := plotter.NewLine(plotter.XYs{{X: p.X.Min, Y: yValue}, {X: p.X.Max, Y: yValue}})
+	if err != nil {
+		panic(err)
+	}
+	horizontalLine.Color = clr
+	horizontalLine.Dashes = []vg.Length{vg.Points(5), vg.Points(5)} // Dashed line
+
+	// Add a legend for the line
+	labels, _ := plotter.NewLabels(plotter.XYLabels{
+		XYs: []plotter.XY{
+			{X: p.X.Max, Y: yValue},
+		},
+		Labels: []string{label},
+	})
+	labels.TextStyle[0].Color = clr           // Set the label color
+	labels.TextStyle[0].YAlign = text.YCenter // Align the label above the line
+	labels.TextStyle[0].XAlign = text.XLeft   // Align the label right of the line
+	labels.Offset = vg.Point{X: 3, Y: 0}      // Adjust the X offset to move label closer to the line
+
+	p.Add(horizontalLine)
+	p.Add(labels)
 }
 
 //
@@ -975,28 +1103,3 @@ func addLabel(img *image.RGBA, x, y int, label string, fontPath string, size flo
 //	p.Add(line)
 //}
 //
-
-//
-//func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGBA) {
-//	horizontalLine, err := plotter.NewLine(plotter.XYs{{X: p.X.Min, Y: yValue}, {X: p.X.Max, Y: yValue}})
-//	if err != nil {
-//		panic(err)
-//	}
-//	horizontalLine.Color = clr
-//	horizontalLine.Dashes = []vg.Length{vg.Points(5), vg.Points(5)} // Dashed line
-//
-//	// Add a legend for the line
-//	labels, _ := plotter.NewLabels(plotter.XYLabels{
-//		XYs: []plotter.XY{
-//			{X: p.X.Max, Y: yValue},
-//		},
-//		Labels: []string{label},
-//	})
-//	labels.TextStyle[0].Color = clr           // Set the label color
-//	labels.TextStyle[0].YAlign = text.YCenter // Align the label above the line
-//	labels.TextStyle[0].XAlign = text.XLeft   // Align the label right of the line
-//	labels.Offset = vg.Point{X: 3, Y: 0}      // Adjust the X offset to move label closer to the line
-//
-//	p.Add(horizontalLine)
-//	p.Add(labels)
-//}

@@ -9,9 +9,16 @@ import (
 
 var globalMetrics *metrics
 
+var globalAllMetrics []Metric
+
 var (
+	// metric types
 	DATABASE_OPERATION = "DATABASE_OPERATION"
 	CACHE_OPERATION    = "CACHE_OPERATION"
+	// labels
+	SUCCESSFUL = "SUCCESSFUL"
+	OPERATION  = "OPERATION"
+	ERROR      = "ERROR"
 )
 
 type metrics struct {
@@ -39,24 +46,9 @@ type threadSafeSortedMetrics struct {
 }
 
 type Metric struct {
-	metricType   string
-	timestamp    time.Time
-	stringValues map[string]string
-	floatValues  map[string]float64
-}
-
-func (mtrc *Metric) TestStringValue(str string, test func(string) bool) bool {
-	if val, exists := mtrc.stringValues[str]; exists {
-		return test(val)
-	}
-	return false
-}
-
-func (mtrc *Metric) TestFloatValue(str string, test func(float64) bool) bool {
-	if val, exists := mtrc.floatValues[str]; exists {
-		return test(val)
-	}
-	return false
+	metricType string
+	timestamp  time.Time
+	tags       map[string]interface{}
 }
 
 func (mtrc *Metric) TestTimestamp(test func(time2 time.Time) bool) bool {
@@ -67,11 +59,11 @@ func (mtrc *Metric) IsType(type_ string) bool {
 	return mtrc.metricType == type_
 }
 
-func AddMeasurement(metricType string, timestamp time.Time, stringValues map[string]string, floatValues map[string]float64) {
-	globalMetrics.addMetric(metricType, timestamp, stringValues, floatValues)
+func AddMeasurement(metricType string, timestamp time.Time, values map[string]interface{}) {
+	globalMetrics.addMetric(metricType, timestamp, values)
 }
 
-func (m *metrics) addMetric(metricType string, timestamp time.Time, stringValues map[string]string, floatValues map[string]float64) {
+func (m *metrics) addMetric(metricType string, timestamp time.Time, values map[string]interface{}) {
 	// insert the metric concurrently
 	go func() {
 		tsMetrics, exists := m.allMetrics[metricType]
@@ -79,17 +71,17 @@ func (m *metrics) addMetric(metricType string, timestamp time.Time, stringValues
 			tsMetrics = &threadSafeSortedMetrics{}
 			m.allMetrics[metricType] = tsMetrics
 		}
-		tsMetrics.insertTimestampWithLabel(timestamp, metricType, stringValues, floatValues)
+		tsMetrics.insertTimestampWithLabel(timestamp, metricType, values)
 	}()
 }
 
 // insertTimestampWithLabel safely inserts a new timestamp into the slice in sorted order
-func (ts *threadSafeSortedMetrics) insertTimestampWithLabel(newTimestamp time.Time, name string, stringValues map[string]string, floatValues map[string]float64) {
+func (ts *threadSafeSortedMetrics) insertTimestampWithLabel(newTimestamp time.Time, name string, values map[string]interface{}) {
 	ts.mu.Lock() // maintain exclusive access to the slice
 	defer ts.mu.Unlock()
 
 	// Append and sort - todo sorting isn't efficient for large slices
-	ts.metrics = append(ts.metrics, Metric{timestamp: newTimestamp, metricType: name, stringValues: stringValues, floatValues: floatValues})
+	ts.metrics = append(ts.metrics, Metric{timestamp: newTimestamp, metricType: name, tags: values})
 	sort.Slice(ts.metrics, func(i, j int) bool {
 		return ts.metrics[i].timestamp.Before(ts.metrics[j].timestamp)
 	})
@@ -133,16 +125,22 @@ func (ms MetricSlice) Filter(tests ...func(Metric) bool) MetricSlice {
 	return result
 }
 
-func (ms MetricSlice) FilterByStringValue(label string, test func(string) bool) MetricSlice {
-	return ms.Filter(func(m Metric) bool {
-		return m.TestStringValue(label, test)
-	})
+func GatherAllMetrics() {
+	for _, tsMetrics := range globalMetrics.allMetrics {
+		for _, m := range tsMetrics.getMetrics() {
+			globalAllMetrics = append(globalAllMetrics, m)
+		}
+	}
 }
 
-func (ms MetricSlice) FilterByFloatValue(label string, test func(float64) bool) MetricSlice {
-	return ms.Filter(func(m Metric) bool {
-		return m.TestFloatValue(label, test)
-	})
+func Filter(tests ...func(Metric) bool) MetricSlice {
+	var mtrcs MetricSlice
+	for _, m := range globalAllMetrics {
+		if allTests(m, tests...) {
+			mtrcs = append(mtrcs, m)
+		}
+	}
+	return mtrcs
 }
 
 func (ms MetricSlice) FilterByTimestamp(test func(time2 time.Time) bool) MetricSlice {

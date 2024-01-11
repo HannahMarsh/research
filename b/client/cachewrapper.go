@@ -12,25 +12,21 @@ func cacheMeasure(start time.Time, nodeIndex int, operationType string, err erro
 	latency := time.Now().Sub(start)
 	if err != nil {
 		metrics2.AddMeasurement(metrics2.CACHE_OPERATION, start,
-			map[string]string{
-				"successful": "false",
+			map[string]interface{}{
+				"successful": false,
 				"operation":  operationType,
 				"error":      err.Error(),
-			},
-			map[string]float64{
-				"latency":   latency.Seconds(),
-				"nodeIndex": float64(nodeIndex),
+				"latency":    latency.Seconds(),
+				"nodeIndex":  nodeIndex,
 			})
 		return
 	} else {
 		metrics2.AddMeasurement(metrics2.CACHE_OPERATION, start,
-			map[string]string{
-				"successful": "true",
+			map[string]interface{}{
+				"successful": true,
 				"operation":  operationType,
-			},
-			map[string]float64{
-				"latency":   latency.Seconds(),
-				"nodeIndex": float64(nodeIndex),
+				"latency":    latency.Seconds(),
+				"nodeIndex":  nodeIndex,
 			})
 	}
 }

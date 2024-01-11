@@ -30,29 +30,21 @@ func dbMeasure(start time.Time, operationType string, err error) {
 	latency := time.Now().Sub(start)
 	if err != nil {
 		metrics2.AddMeasurement(metrics2.DATABASE_OPERATION, start,
-			map[string]string{
-				"successful": "false",
-				"operation":  operationType,
-				"error":      err.Error(),
-			},
-			map[string]float64{
-				"latency": latency.Seconds(),
+			map[string]interface{}{
+				metrics2.SUCCESSFUL: false,
+				metrics2.OPERATION:  operationType,
+				metrics2.ERROR:      err.Error(),
+				"latency":           latency.Seconds(),
 			})
-		//measurement.Measure(fmt.Sprintf("%s_ERROR", operationType), start, latency)
 		return
 	} else {
 		metrics2.AddMeasurement(metrics2.DATABASE_OPERATION, start,
-			map[string]string{
-				"successful": "true",
-				"operation":  operationType,
-			},
-			map[string]float64{
-				"latency": latency.Seconds(),
+			map[string]interface{}{
+				metrics2.SUCCESSFUL: true,
+				metrics2.OPERATION:  operationType,
+				"latency":           latency.Seconds(),
 			})
 	}
-
-	//measurement.Measure(operationType, start, latency)
-	//measurement.Measure("TOTAL", start, latency)
 }
 
 func (d DbWrapper) Close() error {
