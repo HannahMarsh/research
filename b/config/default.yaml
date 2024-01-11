@@ -179,6 +179,9 @@ WorkloadIdentifier:
         Description: Indicates whether all fields should be written in write operations.
         Value: false
 Measurements:
+    MetricsOutputDir:
+        Description: The directory where measurement data files are to be saved.
+        Value: data/
     MeasurementType:
         Description: Specifies the type of measurement for performance metrics. Valid values are 'histogram', 'raw', and 'csv'.
         Value: histogram

@@ -106,6 +106,7 @@ type WorkloadConfig struct {
 }
 
 type MeasurementsConfig struct {
+	MetricsOutputDir           StringProperty `yaml:"MetricsOutputDir"`
 	MeasurementType            StringProperty `yaml:"MeasurementType"`
 	RawOutputDir               StringProperty `yaml:"RawOutputDir"`
 	HistogramPercentilesExport BoolProperty   `yaml:"HistogramPercentilesExport"`
@@ -369,6 +370,10 @@ var defaultConfig_ = Config{
 		},
 	},
 	Measurements: MeasurementsConfig{
+		MetricsOutputDir: StringProperty{
+			Value:       "data/",
+			Description: "The directory where measurement data files are to be saved.",
+		},
 		MeasurementType: StringProperty{
 			Value:       "histogram",
 			Description: "Specifies the type of measurement for performance metrics. Valid values are 'histogram', 'raw', and 'csv'.",

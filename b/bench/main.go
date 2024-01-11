@@ -131,6 +131,8 @@ func main() {
 
 	cobra.EnablePrefixMatching = true
 
+	start := time.Now()
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(rootCmd.UsageString())
 	}
@@ -144,4 +146,8 @@ func main() {
 	}
 
 	closeDone <- struct{}{}
+
+	end := time.Now()
+
+	metrics.PlotMetrics(start, end, globalProps.Measurements.MetricsOutputDir.Value)
 }
