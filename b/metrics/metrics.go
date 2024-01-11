@@ -22,6 +22,17 @@ var (
 	ERROR      = "ERROR"
 	LATENCY    = "LATENCY"
 	NODE_INDEX = "NODE_INDEX"
+	DATABASE   = "DATABASE"
+
+	// string values
+	BATCH_READ        = "BATCH_READ"
+	BATCH_INSERT      = "BATCH_INSERT"
+	BATCH_UPDATE      = "BATCH_UPDATE"
+	READ              = "READ"
+	UPDATE            = "UPDATE"
+	SCAN              = "SCAN"
+	INSERT            = "INSERT"
+	READ_MODIFY_WRITE = "READ_MODIFY_WRITE"
 )
 
 type metrics struct {

@@ -106,10 +106,10 @@ func (w *Worker) Run(ctx context.Context) {
 		opsCount := 1
 		if w.p.Workload.DoTransactions.Value {
 			if w.doBatch {
-				err = w.workload.DoBatchTransaction(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
+				err, _ = w.workload.DoBatchTransaction(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
 				opsCount = w.p.Performance.BatchSize.Value
 			} else {
-				err = w.workload.DoTransaction(ctx, w.workDB, w.cache)
+				err, _ = w.workload.DoTransaction(ctx, w.workDB, w.cache)
 			}
 		} else {
 			if w.doBatch {

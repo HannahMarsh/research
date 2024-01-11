@@ -20,6 +20,7 @@ import (
 
 var (
 	DARK_RED     = color.RGBA{R: 139, G: 0, B: 0, A: 255}     // Dark red
+	DARK_ORANGE  = color.RGBA{R: 200, G: 100, B: 0, A: 255}   // Dark orange
 	LIGHT_RED    = color.RGBA{R: 255, G: 50, B: 50, A: 255}   // Light red
 	DARK_PINK    = color.RGBA{R: 200, G: 40, B: 75, A: 255}   // Dark red
 	LIGHT_PINK   = color.RGBA{R: 255, G: 50, B: 150, A: 255}  // Light red
@@ -38,19 +39,22 @@ var (
 )
 
 type plotInfo struct {
-	categories []category
-	numBuckets int
-	title      string
-	yAxis      string
-	path       string
-	start      time.Time
-	end        time.Time
+	categories       []category
+	numBuckets       int
+	title            string
+	yAxis            string
+	path             string
+	start            time.Time
+	end              time.Time
+	showNodeFailures bool
 }
 
 type category struct {
-	filter    func(Metric) bool
+	filters   []func(Metric) bool
+	reduce    func([][]Metric, time.Duration) float64
 	plotLabel string
 	color     color.RGBA
+	showMean  bool
 }
 
 func has(m Metric, label string, b interface{}) bool {
@@ -85,57 +89,244 @@ func has(m Metric, label string, b interface{}) bool {
 	return false
 }
 
+func sum(m []Metric) {
+
+}
+
+func divideFirstBySecond(m [][]Metric, timeSlice time.Duration) float64 {
+	first := len(m[0])
+	second := len(m[1])
+	if second == 0 {
+		return 0
+	}
+	return float64(first) / float64(second)
+}
+
+func countPerSecond(m [][]Metric, timeSlice time.Duration) float64 {
+	return float64(len(m[0])) / timeSlice.Seconds()
+}
+
 func PlotMetrics(start time.Time, end time.Time, path string) {
 	GatherAllMetrics()
 	numBuckets := 30
+
+	var nodeCategories []category
+	for _, node := range globalMetrics.config.Cache.Nodes {
+		nodeIndex := node.NodeId.Value - 1
+		nodeCategories = append(nodeCategories, category{
+			filters: []func(m Metric) bool{
+				func(m Metric) bool {
+					return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, true) && has(m, NODE_INDEX, nodeIndex)
+				},
+				func(m Metric) bool {
+					return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex)
+				},
+			},
+			reduce:    divideFirstBySecond,
+			plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+			color:     DARK_COLORS[nodeIndex],
+			showMean:  false,
+		})
+	}
+
 	var pi = []*plotInfo{
+		{
+			title: "Workload (Transactions per Second) as a Function of Time",
+			yAxis: "Fraction of Read Requests",
+			categories: []category{
+				{
+					plotLabel: "Read Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && has(m, OPERATION, READ)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_RED,
+					showMean: true,
+				},
+				{
+					plotLabel: "Batch Read Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && has(m, OPERATION, BATCH_READ)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_YELLOW,
+					showMean: true,
+				},
+				{
+					plotLabel: "Insert Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && has(m, OPERATION, INSERT)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_GREEN,
+					showMean: true,
+				},
+				{
+					plotLabel: "Batch Insert Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && has(m, OPERATION, BATCH_INSERT)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_BLUE,
+					showMean: true,
+				},
+				{
+					plotLabel: "Scan Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && has(m, OPERATION, SCAN)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_PURPLE,
+					showMean: true,
+				},
+				{
+					plotLabel: "Read/Modify/Write Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && has(m, OPERATION, READ_MODIFY_WRITE)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_PINK,
+					showMean: true,
+				},
+				{
+					plotLabel: "Update Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && has(m, OPERATION, UPDATE)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_ORANGE,
+					showMean: true,
+				},
+				{
+					plotLabel: "Batch Update Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && has(m, OPERATION, BATCH_UPDATE)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    GREY,
+					showMean: true,
+				},
+			},
+			start:            start,
+			end:              end,
+			path:             path + "individual/all_transactions.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
 		{
 			title: "Database Requests per Second as a Function of Time",
 			yAxis: "Requests per second",
 			categories: []category{
 				{
-					filter: func(m Metric) bool {
-						return m.metricType == DATABASE_OPERATION && has(m, SUCCESSFUL, true)
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == DATABASE_OPERATION && has(m, SUCCESSFUL, true)
+						},
 					},
+					reduce:    countPerSecond,
 					plotLabel: "Successful",
 					color:     DARK_GREEN,
+					showMean:  true,
 				},
 				{
-					filter: func(m Metric) bool {
-						return m.metricType == DATABASE_OPERATION && has(m, SUCCESSFUL, false)
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == DATABASE_OPERATION && has(m, SUCCESSFUL, false)
+						},
 					},
+					reduce:    countPerSecond,
 					plotLabel: "Unsuccessful",
 					color:     DARK_RED,
+					showMean:  true,
 				},
 			},
-			start:      start,
-			end:        end,
-			path:       path + "individual/requests_per_second.png",
-			numBuckets: numBuckets,
+			start:            start,
+			end:              end,
+			path:             path + "individual/requests_per_second.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
 		},
 		{
-			title: "Cache Requests as a Function of Time",
+			title: "All Cache Requests as a Function of Time",
 			yAxis: "Requests per second",
 			categories: []category{
 				{
-					filter: func(m Metric) bool {
-						return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, true)
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, true)
+						},
 					},
-					plotLabel: "Successful",
+					reduce:    countPerSecond,
+					plotLabel: "Total Hits Per Second",
 					color:     DARK_GREEN,
+					showMean:  false,
 				},
 				{
-					filter: func(m Metric) bool {
-						return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, false)
-					},
-					plotLabel: "Unsuccessful",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, false)
+						}},
+					reduce:    countPerSecond,
+					plotLabel: "Total Misses Per Second",
 					color:     DARK_RED,
+					showMean:  false,
 				},
 			},
-			start:      start,
-			end:        end,
-			path:       path + "individual/cache_requests.png",
-			numBuckets: numBuckets,
+			start:            start,
+			end:              end,
+			path:             path + "individual/cache_requests.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
+			title:            "Cache Hits Ratio as a Function of Time",
+			yAxis:            "Average Hit Ratio per Second",
+			categories:       nodeCategories,
+			start:            start,
+			end:              end,
+			path:             path + "individual/node_cache_hits.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
+			title: "Proportion of Read Transactions that go to the Database as a Function of Time",
+			yAxis: "Fraction of Read Requests",
+			categories: []category{
+				{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && (has(m, OPERATION, READ) || has(m, OPERATION, BATCH_READ) || has(m, OPERATION, SCAN)) && has(m, DATABASE, true)
+						},
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && (has(m, OPERATION, READ) || has(m, OPERATION, BATCH_READ) || has(m, OPERATION, SCAN))
+						},
+					},
+					reduce:   divideFirstBySecond,
+					color:    DARK_BLUE,
+					showMean: true,
+				},
+			},
+			start:            start,
+			end:              end,
+			path:             path + "individual/db_request_proportion.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
 		},
 		//initPlotInfo(start, end, GetMetricsByType(DATABASE_OPERATION), "Database Requests per Second as a Function of Time", "Requests per second", path+"requests_per_second.png"),
 		//initPlotInfo(start, end, GetMetricsByType(CACHE_OPERATION), "Cache Requests as a Function of Time", "Requests per second", path+"cache_requests.png"),
@@ -173,10 +364,13 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 }
 
 func (plt *plotInfo) makePlot() {
+
+	extraPadding := 10.0 + float64(len(plt.categories))*10.0
+
 	duration := plt.end.Sub(plt.start)
 	p := plot.New()
 	p.Title.Text = plt.title
-	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
+	p.Title.Padding = vg.Points(extraPadding) // Increase the padding to create more space
 	p.Title.TextStyle.Font.Size = 15
 	p.X.Label.Text = "Time (s)"
 	p.Y.Label.Text = plt.yAxis
@@ -184,11 +378,21 @@ func (plt *plotInfo) makePlot() {
 	p.X.Max = duration.Seconds()
 	p.Y.Min = 0.0
 
+	//legendPadding := vg.Points(15) // Base padding for the legend
+	//for _, _ = range plt.categories {
+	//	// Assume each category will use about 15 points of vertical space
+	//	legendPadding += vg.Points(15)
+	//}
+	//
+	//// Apply the calculated padding to the plot
+	//p.Legend.Top = true
+	//p.Legend.Padding = legendPadding
+
 	// Adjust legend position
-	p.Legend.Top = true            // Position the legend at the top of the plot
-	p.Legend.Left = true           // Position the legend to the left side of the plot
-	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
-	p.Legend.YOffs = vg.Points(30) // Move the legend up
+	p.Legend.Top = true                           // Position the legend at the top of the plot
+	p.Legend.Left = true                          // Position the legend to the left side of the plot
+	p.Legend.XOffs = vg.Points(5)                 // Move the legend to the right
+	p.Legend.YOffs = vg.Points(extraPadding - 10) // Move the legend up
 
 	// Define the resolution and calculate timeSlice
 	resolution := float64(plt.numBuckets)
@@ -197,59 +401,70 @@ func (plt *plotInfo) makePlot() {
 	for _, cat := range plt.categories {
 
 		// Aggregate metrics into buckets based on the timeSlice
-		countsPerSlice := make(map[int64]int)
-		mtrcs := Filter(cat.filter)
-		pts := make(plotter.XYs, int(resolution))
-		var mean float64
-		if mtrcs == nil {
-			for i := 0; i < int(resolution); i++ {
-				pts[i].Y = 0
-				pts[i].X = float64(i) * timeSlice.Seconds()
-			}
-		} else {
+		//countsPerSlice := make(map[int64]int)
 
-			for _, m := range mtrcs {
-				bucket := int64(math.Ceil(float64(m.timestamp.Sub(plt.start).Nanoseconds()) / float64(timeSlice.Nanoseconds())))
-				countsPerSlice[bucket]++
-			}
-
-			// Create a plotter.XYs to hold the request counts
-			maxPerSecond := 0.0
-			sum := 0.0
-			count2 := 0.0
-
-			// Fill the pts with the request counts
-			for i := 0; i < int(resolution); i++ {
-				if count, ok := countsPerSlice[int64(i)]; ok {
-					countPerSecond := float64(count) / timeSlice.Seconds()
-					maxPerSecond = math.Max(maxPerSecond, countPerSecond)
-					pts[i].Y = countPerSecond
-					sum += countPerSecond
-					count2 += 1.0
+		mtrcsMultiple := make(map[int64][][]Metric)
+		filterIndex := 0
+		for _, filter := range cat.filters {
+			if mtrcs := Filter(filter); mtrcs != nil {
+				for _, m := range mtrcs {
+					bucket := int64(math.Ceil(float64(m.timestamp.Sub(plt.start).Nanoseconds()) / float64(timeSlice.Nanoseconds())))
+					// Initialize the inner slice if it hasn't been already
+					if _, ok := mtrcsMultiple[bucket]; !ok {
+						mtrcsMultiple[bucket] = make([][]Metric, len(cat.filters))
+					}
+					mtrcsMultiple[bucket][filterIndex] = append(mtrcsMultiple[bucket][filterIndex], m)
 				}
-				pts[i].X = float64(i) * timeSlice.Seconds()
 			}
-			mean = sum / count2
-
-			p.Y.Max = math.Max(p.Y.Max, maxPerSecond*1.2)
+			filterIndex++
 		}
-		// Create a line chart
+		pts := make(plotter.XYs, int(resolution))
+		maxY := 0.0
+		count := 0
+		sum_ := 0.0
+		for i := 0; i < int(resolution); i++ {
+			if mtrcs, ok := mtrcsMultiple[int64(i)]; ok {
+				pts[i].Y = cat.reduce(mtrcs, timeSlice)
+				if math.IsNaN(pts[i].Y) {
+					pts[i].Y = 0
+				}
+				maxY = math.Max(maxY, pts[i].Y)
+				sum_ += pts[i].Y
+				count++
+			} else {
+				pts[i].Y = 0
+			}
+			pts[i].X = float64(i) * timeSlice.Seconds()
+		}
+		mean := sum_ / float64(count)
+		p.Y.Max = math.Max(p.Y.Max, maxY*1.2)
 		if line, err := plotter.NewLine(pts); err == nil {
 			line.Color = cat.color
 			p.Add(line)
-			p.Legend.Add(cat.plotLabel, line)
-			if mtrcs != nil && mean != math.NaN() {
-				addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), cat.color)
+			if cat.plotLabel != "" {
+				p.Legend.Add(cat.plotLabel, line)
+			}
+			if cat.showMean && !math.IsNaN(mean) {
+				if mean > 0 && mean < 1.0 {
+					addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.2f)", mean), cat.color)
+				} else {
+					addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), cat.color)
+				}
+
 			}
 		} else {
 			log.Panic(err)
 		}
 	}
 
-	plt.plotNodeFailures(p)
+	if plt.showNodeFailures {
+		plt.plotNodeFailures(p)
+	}
+
+	height := vg.Length(4.0 * (1 + (0.03 * float64(len(plt.categories)))))
 
 	// Save the plot to a PNG file
-	if err := p.Save(8*vg.Inch, 4*vg.Inch, plt.path); err != nil {
+	if err := p.Save(8*vg.Inch, height*vg.Inch, plt.path); err != nil {
 		log.Panic(err)
 	}
 
@@ -498,14 +713,14 @@ func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGB
 
 //
 //
-//func (plt *Plotter_) getCountsPerTimeSlice(metrics []Metric, filter func(Metric) bool) (plotter.XYs, float64, float64) {
+//func (plt *Plotter_) getCountsPerTimeSlice(metrics []Metric, filters func(Metric) bool) (plotter.XYs, float64, float64) {
 //	// Define the resolution and calculate timeSlice
 //	resolution := 30
 //	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
 //
 //	countsPerSlice := make(map[int64]int)
 //	for _, metric := range metrics {
-//		if filter(metric) {
+//		if filters(metric) {
 //			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(plt.m.start).Microseconds()) / float64(timeSlice.Microseconds())))
 //			countsPerSlice[bucket]++
 //		}
@@ -532,7 +747,7 @@ func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGB
 //	return pts, maxCountPerSecond, 0
 //}
 //
-//func (plt *Plotter_) getAveragePerTimeSlice(metrics []Metric, filter func(Metric) bool) (plotter.XYs, float64, float64) {
+//func (plt *Plotter_) getAveragePerTimeSlice(metrics []Metric, filters func(Metric) bool) (plotter.XYs, float64, float64) {
 //	// Define the resolution and calculate timeSlice
 //	resolution := 30
 //	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
@@ -541,7 +756,7 @@ func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGB
 //	averagePerSlice := make(map[int64]float64)
 //
 //	for _, metric := range metrics {
-//		if filter(metric) {
+//		if filters(metric) {
 //			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(plt.m.start).Microseconds()) / float64(timeSlice.Microseconds())))
 //			countsPerSlice[bucket]++
 //			sumPerSlice[bucket] += int64(metric.floatValues["size"])

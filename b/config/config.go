@@ -188,7 +188,7 @@ var defaultConfig_ = Config{
 				FailureIntervals: []FailureInterval{
 					{
 						Start: 5.0,
-						End:   7.0,
+						End:   15.0,
 					},
 				},
 				MaxSize: IntProperty{
@@ -210,8 +210,8 @@ var defaultConfig_ = Config{
 				},
 				FailureIntervals: []FailureInterval{
 					{
-						Start: 8.0,
-						End:   10.0,
+						Start: 7.0,
+						End:   13.0,
 					},
 				},
 				MaxSize: IntProperty{
@@ -234,8 +234,8 @@ var defaultConfig_ = Config{
 				},
 				FailureIntervals: []FailureInterval{
 					{
-						Start: 15.0,
-						End:   17.0,
+						Start: 9.0,
+						End:   11.0,
 					},
 				},
 				MaxSize: IntProperty{

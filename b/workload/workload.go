@@ -394,10 +394,10 @@ func (c *Workload) DoBatchInsert(ctx context.Context, batchSize int, d db.DB, ca
 	return err
 }
 
-func (c *Workload) DoBatchTransaction(ctx context.Context, batchSize int, d db.DB, cache_ cache.Cache) error {
+func (c *Workload) DoBatchTransaction(ctx context.Context, batchSize int, d db.DB, cache_ cache.Cache) (error, bool) {
 	batchDB, ok := d.(db.BatchDB)
 	if !ok {
-		return fmt.Errorf("the %T does't implement the batchDB interface", d)
+		return fmt.Errorf("the %T does't implement the batchDB interface", d), false
 	}
 	state := ctx.Value(stateKey).(*State)
 	r := state.r
@@ -413,7 +413,7 @@ func (c *Workload) DoBatchTransaction(ctx context.Context, batchSize int, d db.D
 	case scan:
 		panic("The batch mode doesn't support the scan operation")
 	default:
-		return nil
+		return nil, false
 	}
 }
 
@@ -431,7 +431,11 @@ func (c *Workload) nextKeyNum(state *State) int64 {
 	return keyNum
 }
 
-func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) error {
+func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
+	start := time.Now()
+	defer func() {
+		workloadMeasure(start, metrics2.READ, errr, hitDatabase)
+	}()
 	r := state.r
 	keyNum := c.nextKeyNum(state)
 	keyName := c.buildKeyName(keyNum)
@@ -452,13 +456,13 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 		if c.p.Performance.PerformDataIntegrityChecks.Value {
 			c.verifyRow(state, keyName, cachedValue)
 		}
-		return nil
+		return nil, false
 	}
 
 	// cache miss
 	values, err := db.Read(ctx, c.p.Database.CassandraTableName.Value, keyName, fields)
 	if err != nil {
-		return err
+		return err, true
 	}
 
 	err = cache_.Set(ctx, keyName, values)
@@ -470,10 +474,10 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 		c.verifyRow(state, keyName, values)
 	}
 
-	return nil
+	return nil, true
 }
 
-func workloadMeasure(start time.Time, operationType string, err error) {
+func workloadMeasure(start time.Time, operationType string, err error, hitDatabase bool) {
 	latency := time.Now().Sub(start)
 	if err != nil {
 		metrics2.AddMeasurement(metrics2.TRANSACTION, start,
@@ -482,22 +486,24 @@ func workloadMeasure(start time.Time, operationType string, err error) {
 				metrics2.OPERATION:  operationType,
 				metrics2.ERROR:      err.Error(),
 				metrics2.LATENCY:    latency.Seconds(),
+				metrics2.DATABASE:   hitDatabase,
 			})
 		return
 	} else {
-		metrics2.AddMeasurement(metrics2.CACHE_OPERATION, start,
+		metrics2.AddMeasurement(metrics2.TRANSACTION, start,
 			map[string]interface{}{
 				metrics2.SUCCESSFUL: true,
 				metrics2.OPERATION:  operationType,
 				metrics2.LATENCY:    latency.Seconds(),
+				metrics2.DATABASE:   hitDatabase,
 			})
 	}
 }
 
-func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (err error) {
+func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (err error, hitDatabase bool) {
 	start := time.Now()
 	defer func() {
-		workloadMeasure(start, "READ_MODIFY_WRITE", err)
+		workloadMeasure(start, metrics2.READ_MODIFY_WRITE, err, hitDatabase)
 	}()
 
 	r := state.r
@@ -522,11 +528,11 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, c
 
 	readValues, err := db.Read(ctx, c.p.Database.CassandraTableName.Value, keyName, fields)
 	if err != nil {
-		return err
+		return err, true
 	}
 
 	if err := db.Update(ctx, c.p.Database.CassandraTableName.Value, keyName, values); err != nil {
-		return err
+		return err, true
 	}
 	if err := cache_.Set(ctx, keyName, values); err != nil {
 		//return err
@@ -536,10 +542,14 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, c
 		c.verifyRow(state, keyName, readValues)
 	}
 
-	return nil
+	return nil, true
 }
 
-func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) error {
+func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (err error, hitDatabase bool) {
+	start := time.Now()
+	defer func() {
+		workloadMeasure(start, metrics2.INSERT, err, hitDatabase)
+	}()
 	r := state.r
 	keyNum := c.transactionInsertKeySequence.Next(r)
 	defer c.transactionInsertKeySequence.Acknowledge(keyNum)
@@ -547,17 +557,21 @@ func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cac
 	values := c.buildValues(state, dbKey)
 	defer c.putValues(values)
 
-	if err := db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values); err != nil {
-		return err
+	if err_ := db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values); err_ != nil {
+		return err_, true
 	}
-	if err := cache_.Set(ctx, dbKey, values); err != nil {
+	if err_ := cache_.Set(ctx, dbKey, values); err_ != nil {
 		//return err
 	}
-	return nil
+	return nil, true
 }
 
 // If all keys are in the cache, it uses those values. However, if any key is missing, it should perform a scan operation on the database for the entire range.
-func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) error {
+func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (err error, hitDatabase bool) {
+	start := time.Now()
+	defer func() {
+		workloadMeasure(start, metrics2.SCAN, err, hitDatabase)
+	}()
 	r := state.r
 	keyNum := c.nextKeyNum(state)
 	startKeyName := c.buildKeyName(keyNum)
@@ -591,9 +605,9 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ cache
 
 	if cacheMiss {
 		// Perform the scan in the database if any key is not in cache
-		dbValues, err := db.Scan(ctx, c.p.Database.CassandraTableName.Value, startKeyName, int(scanLen), fields)
-		if err != nil {
-			return err
+		dbValues, err_ := db.Scan(ctx, c.p.Database.CassandraTableName.Value, startKeyName, int(scanLen), fields)
+		if err_ != nil {
+			return err_, true
 		}
 		values = dbValues // Use values from the database
 
@@ -605,16 +619,18 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ cache
 				//log.Printf("Failed to update cache for key %s: %v", string(key), cacheErr)
 			}
 		}
+	} else {
+		return nil, false
 	}
 
-	return nil
+	return nil, true
 
 	// if _, err := db.Scan(ctx, c.p.Database.CassandraTableName.Value, startKeyName, int(scanLen), fields); err != nil {
 	//		return err
 	//	}
 }
 
-func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cache) error {
+func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cache) (error, bool) {
 	state := ctx.Value(stateKey).(*State)
 	r := state.r
 
@@ -633,7 +649,11 @@ func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cac
 	}
 }
 
-func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) error {
+func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (err error, hitDatabase bool) {
+	start := time.Now()
+	defer func() {
+		workloadMeasure(start, metrics2.UPDATE, err, hitDatabase)
+	}()
 	keyNum := c.nextKeyNum(state)
 	keyName := c.buildKeyName(keyNum)
 
@@ -647,9 +667,9 @@ func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ cac
 	defer c.putValues(values)
 
 	// Perform the update to the database
-	err := db.Update(ctx, c.p.Database.CassandraTableName.Value, keyName, values)
-	if err != nil {
-		return err
+	errr := db.Update(ctx, c.p.Database.CassandraTableName.Value, keyName, values)
+	if errr != nil {
+		return errr, true
 	}
 
 	// Update the cache with the new values after a successful database insert
@@ -658,10 +678,14 @@ func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ cac
 		//return err
 	}
 
-	return nil
+	return nil, true
 }
 
-func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db db.BatchDB, cache_ cache.Cache, state *State) error {
+func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db db.BatchDB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
+	start := time.Now()
+	defer func() {
+		workloadMeasure(start, metrics2.BATCH_READ, errr, hitDatabase)
+	}()
 	r := state.r
 	var fields []string
 
@@ -693,7 +717,7 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 			}
 		} else if err != nil {
 			// If an error occurred while fetching from cache, handle it
-			return err
+			//return err
 		} else {
 			// CacheWrapper miss, add this key to the list of misses
 			cacheMissKeys = append(cacheMissKeys, key)
@@ -704,7 +728,7 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 	if len(cacheMissKeys) > 0 {
 		dbValues, err := db.BatchRead(ctx, c.p.Database.CassandraTableName.Value, cacheMissKeys, fields)
 		if err != nil {
-			return err
+			return err, true
 		}
 
 		// Add database read values to the total values
@@ -717,12 +741,18 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 				c.verifyRow(state, string(key), dbValue)
 			}
 		}
+	} else {
+		return nil, false
 	}
 
-	return nil
+	return nil, true
 }
 
-func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, db db.BatchDB, cache_ cache.Cache, state *State) error {
+func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, db db.BatchDB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
+	start := time.Now()
+	defer func() {
+		workloadMeasure(start, metrics2.BATCH_INSERT, errr, hitDatabase)
+	}()
 	r := state.r
 	keys := make([]string, batchSize)
 	values := make([]map[string][]byte, batchSize)
@@ -747,7 +777,7 @@ func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, 
 	// Perform the batch insert to the database
 	err := db.BatchInsert(ctx, c.p.Database.CassandraTableName.Value, keys, values)
 	if err != nil {
-		return err
+		return err, true
 	}
 
 	// Update the cache with the new values after a successful database insert
@@ -758,10 +788,14 @@ func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, 
 		}
 	}
 
-	return nil
+	return nil, true
 }
 
-func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, db db.BatchDB, cache_ cache.Cache, state *State) error {
+func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, db db.BatchDB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
+	start := time.Now()
+	defer func() {
+		workloadMeasure(start, metrics2.BATCH_UPDATE, errr, hitDatabase)
+	}()
 	keys := make([]string, batchSize)
 	values := make([]map[string][]byte, batchSize)
 	for i := 0; i < batchSize; i++ {
@@ -784,7 +818,7 @@ func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, 
 	// Perform the batch update to the database
 	err := db.BatchUpdate(ctx, c.p.Database.CassandraTableName.Value, keys, values)
 	if err != nil {
-		return err
+		return err, true
 	}
 
 	// Update the cache with the new values after a successful database update
@@ -795,5 +829,5 @@ func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, 
 		}
 	}
 
-	return nil
+	return nil, true
 }
