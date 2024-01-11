@@ -40,8 +40,8 @@ Cache:
             Description: Address and port of redis server
             Value: 0.0.0.0:6379
           FailureIntervals:
-            - Start: 0
-              End: 0.1
+            - Start: 5
+              End: 7
           MaxSize:
             Description: The maximum number of records to store in the cache.
             Value: 1000000
@@ -55,8 +55,23 @@ Cache:
             Description: Address and port of redis server
             Value: 0.0.0.0:6380
           FailureIntervals:
-            - Start: 0
-              End: 0.1
+            - Start: 8
+              End: 10
+          MaxSize:
+            Description: The maximum number of records to store in the cache.
+            Value: 1000000
+          UseDefaultDatabase:
+            Description: Indicates whether to use the default database for the cache.
+            Value: true
+        - NodeId:
+            Description: The ID of the node.
+            Value: 3
+          Address:
+            Description: Address and port of redis server
+            Value: 0.0.0.0:6381
+          FailureIntervals:
+            - Start: 15
+              End: 17
           MaxSize:
             Description: The maximum number of records to store in the cache.
             Value: 1000000
@@ -106,8 +121,8 @@ Performance:
         Description: The total number of operations to perform during the workload execution.
         Value: 10000
     RecordCount:
-        Description: ""
-        Value: 0
+        Description: The total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.
+        Value: 20000
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
         Value: 500

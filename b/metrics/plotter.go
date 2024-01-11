@@ -47,62 +47,40 @@ type plotInfo struct {
 	end        time.Time
 }
 
-func getStringValue(a interface{}) (string, bool) {
-	if val, ok := a.(string); ok {
-		return val, true
-	}
-	return "", false
-}
-
-func getFloatValue(a interface{}) (float64, bool) {
-	if val, ok := a.(float64); ok {
-		return val, true
-	}
-	return -1.0, false
-}
-
-var STRING = "string"
-var FLOAT = "float"
-
 type category struct {
 	filter    func(Metric) bool
 	plotLabel string
 	color     color.RGBA
 }
 
-func equal(a interface{}, b interface{}) bool {
-	switch val := a.(type) {
-	case string:
-		if val2, ok := b.(string); ok {
-			return val == val2
+func has(m Metric, label string, b interface{}) bool {
+	if a, exists := m.tags[label]; exists {
+		switch val := a.(type) {
+		case string:
+			if val2, ok := b.(string); ok {
+				return val == val2
+			}
+		case int:
+			if val2, ok := b.(int); ok {
+				return val == val2
+			}
+		case int64:
+			if val2, ok := b.(int64); ok {
+				return val == val2
+			}
+		case int32:
+			if val2, ok := b.(int32); ok {
+				return val == val2
+			}
+		case float64:
+			if val2, ok := b.(float64); ok {
+				return val == val2
+			}
+		case bool:
+			if val2, ok := b.(bool); ok {
+				return val == val2
+			}
 		}
-	case int:
-		if val2, ok := b.(int); ok {
-			return val == val2
-		}
-	case int64:
-		if val2, ok := b.(int64); ok {
-			return val == val2
-		}
-	case int32:
-		if val2, ok := b.(int32); ok {
-			return val == val2
-		}
-	case float64:
-		if val2, ok := b.(float64); ok {
-			return val == val2
-		}
-	case bool:
-		if val2, ok := b.(bool); ok {
-			return val == val2
-		}
-	}
-	return false
-}
-
-func has(m Metric, label string, value interface{}) bool {
-	if val, exists := m.tags[label]; exists {
-		return equal(val, value)
 	}
 	return false
 }

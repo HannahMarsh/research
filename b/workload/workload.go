@@ -69,7 +69,7 @@ func NewWorkload(p *bconfig.Config) (*Workload, error) {
 		c.p.Performance.RecordCount.Value = math.MaxInt32
 	}
 	if int64(c.p.Performance.RecordCount.Value) < int64(p.Workload.KeyRangeLowerBound.Value)+int64(p.Performance.InsertCount.Value) {
-		util.Fatalf("record count %d must be bigger than insert start %d + count %d",
+		util.Fatalf("record count %d must be bigger than insert KeyRangeLowerBound %d + InsertCount %d",
 			int64(c.p.Performance.RecordCount.Value), int64(p.Workload.KeyRangeLowerBound.Value), int64(p.Performance.InsertCount.Value))
 	}
 	if c.p.Performance.PerformDataIntegrityChecks.Value && p.Performance.FieldSizeDistribution.Value != "constant" {

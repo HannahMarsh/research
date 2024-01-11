@@ -187,8 +187,8 @@ var defaultConfig_ = Config{
 				},
 				FailureIntervals: []FailureInterval{
 					{
-						Start: 0.0,
-						End:   0.1,
+						Start: 5.0,
+						End:   7.0,
 					},
 				},
 				MaxSize: IntProperty{
@@ -210,8 +210,32 @@ var defaultConfig_ = Config{
 				},
 				FailureIntervals: []FailureInterval{
 					{
-						Start: 0.0,
-						End:   0.1,
+						Start: 8.0,
+						End:   10.0,
+					},
+				},
+				MaxSize: IntProperty{
+					Value:       1000000,
+					Description: "The maximum number of records to store in the cache.",
+				},
+				UseDefaultDatabase: BoolProperty{
+					Value:       true,
+					Description: "Indicates whether to use the default database for the cache.",
+				},
+			},
+			{
+				NodeId: IntProperty{
+					Value:       3,
+					Description: "The ID of the node.",
+				},
+				Address: StringProperty{
+					Description: "Address and port of redis server",
+					Value:       "0.0.0.0:6381",
+				},
+				FailureIntervals: []FailureInterval{
+					{
+						Start: 15.0,
+						End:   17.0,
 					},
 				},
 				MaxSize: IntProperty{
@@ -281,6 +305,10 @@ var defaultConfig_ = Config{
 		OperationCount: IntProperty{
 			Value:       10000,
 			Description: "The total number of operations to perform during the workload execution.",
+		},
+		RecordCount: IntProperty{
+			Value:       20000,
+			Description: "The total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.",
 		},
 		TargetOperationsPerSec: IntProperty{
 			Value:       500,

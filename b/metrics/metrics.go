@@ -19,6 +19,8 @@ var (
 	SUCCESSFUL = "SUCCESSFUL"
 	OPERATION  = "OPERATION"
 	ERROR      = "ERROR"
+	LATENCY    = "LATENCY"
+	NODE_INDEX = "NODE_INDEX"
 )
 
 type metrics struct {

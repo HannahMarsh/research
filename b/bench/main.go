@@ -83,7 +83,7 @@ func initialGlobal(onProperties func()) {
 		util.Fatalf("create db failed: %v", err)
 	}
 	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
-	globalCache = client.NewCache(globalProps)
+	globalCache = client.NewCache(globalProps, globalContext)
 
 	// todo add each cache node from config
 }
