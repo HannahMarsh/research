@@ -118,14 +118,12 @@ func averageValue(value func(Metric) float64) func([][]Metric, time.Duration) fl
 }
 
 func PlotMetrics(start time.Time, end time.Time, path string) {
-	fmt.Printf("Gathering metrics...\n")
-	GatherAllMetrics()
 	fmt.Printf("Plotting metrics...\n")
 	numBuckets := 30
 
 	var nodeCategories []category
 	var nodeSizeCategories []category
-	for _, node := range globalMetrics.config.Cache.Nodes {
+	for _, node := range globalConfig.Cache.Nodes {
 		nodeIndex := node.NodeId.Value - 1
 		nodeCategories = append(nodeCategories, category{
 			filters: []func(m Metric) bool{
@@ -509,7 +507,7 @@ func (plt *plotInfo) plotNodeFailures(p *plot.Plot) {
 
 	i := 0
 
-	for _, node := range globalMetrics.config.Cache.Nodes {
+	for _, node := range globalConfig.Cache.Nodes {
 		for _, interval := range node.FailureIntervals {
 			iStart := time.Duration(interval.Start * float64(time.Second)).Seconds()
 			iEnd := time.Duration(interval.End * float64(time.Second)).Seconds()
@@ -598,7 +596,7 @@ func tilePlots(tiled string, fileNames [][]string) {
 }
 
 func plotConfig(start time.Time, end time.Time, filename string) {
-	config := globalMetrics.config
+	config := globalConfig
 	// Create a blank image with enough space
 	img := image.NewRGBA(image.Rect(0, 0, 800, 400))
 

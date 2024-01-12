@@ -41,11 +41,6 @@ const (
 	cassandraConnectionsDefault = 2 // refer to https://github.com/gocql/gocql/blob/master/cluster.go#L52
 )
 
-// DBCreator creates a database layer.
-type DBCreator interface {
-	Create(p *bconfig.Config) (DB, error)
-}
-
 // DB is the layer to access the database to be benchmarked.
 type DB interface {
 	// Close closes the database layer.
@@ -267,11 +262,6 @@ func (k *CassandraDB) Read(ctx context.Context, table string, key string, fields
 
 	return m, nil
 }
-
-//func (k *CassandraDB) Scan(ctx context.Context, table string, startKey string, count int, fields []string) ([]map[string][]byte, error) {
-//	return nil, fmt.Errorf("scan is not supported")
-//
-//}
 
 func (k *CassandraDB) Scan(ctx context.Context, table string, startKey string, count int, fields []string) ([]map[string][]byte, error) {
 	var query string
