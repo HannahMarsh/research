@@ -54,6 +54,7 @@ func (u *Uniform) Next(r *rand.Rand) int64 {
 	var n int64
 	if u.interval <= 0 {
 		n = u.lb
+		panic("interval is less than 0")
 	} else {
 		n = r.Int63n(u.interval) + u.lb
 	}

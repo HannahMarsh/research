@@ -83,8 +83,6 @@ func initialGlobal(onProperties func()) {
 	}
 	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
 	globalCache = client.NewCache(globalProps, globalContext)
-
-	// todo add each cache node from config
 }
 
 func main() {
@@ -131,6 +129,7 @@ func main() {
 	cobra.EnablePrefixMatching = true
 
 	start := time.Now()
+	go maxExecution()
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(rootCmd.UsageString())
@@ -146,7 +145,19 @@ func main() {
 
 	closeDone <- struct{}{}
 
-	end := time.Now()
+	metrics.PlotMetrics(start, globalProps.Measurements.MetricsOutputDir.Value)
+}
 
-	metrics.PlotMetrics(start, end, globalProps.Measurements.MetricsOutputDir.Value)
+func maxExecution() {
+	//if globalProps.Performance.MaxExecutionTime.Value > 0 {
+	go func() {
+		select {
+		case <-globalContext.Done():
+			return
+		case <-time.After(time.Duration(25 * time.Second)):
+			fmt.Printf("Max execution time reached, exit\n")
+			globalCancel()
+		}
+	}()
+	//}
 }

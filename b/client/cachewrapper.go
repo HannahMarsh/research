@@ -147,8 +147,7 @@ func EstimateRunningTime(config *bconfig.Config) time.Duration {
 	estimatedDuration := timePerOp * time.Duration(totalDBInteractions)
 
 	// Adjust for any additional delays (e.g., throttling, retries)
-	// This is a rough estimate and will depend on your specific implementation details
-	adjustmentFactor := 1.2 // Adjust this based on expected delays
+	adjustmentFactor := 1.0 // Adjust this based on expected delays
 	estimatedDuration = time.Duration(float64(estimatedDuration) * adjustmentFactor)
 
 	return estimatedDuration

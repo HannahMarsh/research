@@ -34,7 +34,7 @@ func dbMeasure(start time.Time, operationType string, err error) {
 				metrics2.SUCCESSFUL: false,
 				metrics2.OPERATION:  operationType,
 				metrics2.ERROR:      err.Error(),
-				"latency":           latency.Seconds(),
+				metrics2.LATENCY:    latency.Seconds(),
 			})
 		return
 	} else {
@@ -42,7 +42,7 @@ func dbMeasure(start time.Time, operationType string, err error) {
 			map[string]interface{}{
 				metrics2.SUCCESSFUL: true,
 				metrics2.OPERATION:  operationType,
-				"latency":           latency.Seconds(),
+				metrics2.LATENCY:    latency.Seconds(),
 			})
 	}
 }

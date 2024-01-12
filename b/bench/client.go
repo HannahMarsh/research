@@ -30,8 +30,6 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 		return
 	}
 
-	fmt.Printf("Debug: propertyFile = %s\n", propertyFile)
-
 	initialGlobal(func() {
 		doTransFlag := true
 		if !doTransactions {
@@ -95,9 +93,9 @@ func dispTimer(start time.Time, ticker *time.Ticker, estimatedRunningTime time.D
 		case <-ticker.C:
 			remainingTime := int(math.Round(end.Sub(time.Now()).Seconds()))
 			if remainingTime >= 0 {
-				fmt.Printf("\rEstimated remaining time: %ss", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), remainingTime))
+				fmt.Printf("\rEstimated remaining time: %ss       ", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), remainingTime))
 			} else {
-				fmt.Printf("\rDuration: %ss", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), int(math.Round(time.Now().Sub(start).Seconds()))))
+				fmt.Printf("\rDuration: %ss                ", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), int(math.Round(time.Now().Sub(start).Seconds()))))
 			}
 		case <-globalContext.Done():
 			timer.Stop()
@@ -135,8 +133,7 @@ func EstimateRunningTime(config *bconfig.Config) time.Duration {
 	estimatedDuration := timePerOp * time.Duration(totalDBInteractions)
 
 	// Adjust for any additional delays (e.g., throttling, retries)
-	// This is a rough estimate and will depend on your specific implementation details
-	adjustmentFactor := 1.0 // Adjust this based on expected delays
+	adjustmentFactor := 1.2 // Adjust this based on expected delays
 	estimatedDuration = time.Duration(float64(estimatedDuration) * adjustmentFactor)
 
 	return estimatedDuration
@@ -158,7 +155,6 @@ var (
 
 func initClientCommand(m *cobra.Command) {
 	m.Flags().StringVar(&propertyFile, "property_file", "P", "Specify a property file")
-	fmt.Printf("propertyFile: %s\n", propertyFile)
 	m.Flags().StringArrayVarP(&propertyValues, "prop", "p", nil, "Specify a property value with name=value")
 	m.Flags().StringVar(&tableName, "table", "", "Use the table name instead of the default \"usertable\"")
 	m.Flags().IntVar(&threadsArg, "threads", 1, "Execute using n threads - can also be specified as the \"threadcount\" property")

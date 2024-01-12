@@ -115,6 +115,11 @@ type MeasurementsConfig struct {
 	OutputStyle                StringProperty `yaml:"OutputStyle"`
 	WarmUpTime                 IntProperty    `yaml:"WarmUpTime"`
 	ZeroPadding                IntProperty    `yaml:"ZeroPadding"`
+	CassandraCluster           StringProperty `yaml:"CassandraCluster"`
+	CassandraKeyspace          StringProperty `yaml:"CassandraKeyspace"`
+	CassandraTableName         StringProperty `yaml:"CassandraTableName"`
+	ReplicationStrategy        StringProperty `yaml:"ReplicationStrategy"`
+	ReplicationFactor          IntProperty    `yaml:"ReplicationFactor"`
 }
 
 type LoggingConfig struct {
@@ -232,12 +237,6 @@ var defaultConfig_ = Config{
 					Description: "Address and port of redis server",
 					Value:       "0.0.0.0:6381",
 				},
-				FailureIntervals: []FailureInterval{
-					{
-						Start: 0.5,
-						End:   0.8,
-					},
-				},
 				MaxSize: IntProperty{
 					Value:       1000000,
 					Description: "The maximum number of records to store in the cache.",
@@ -249,7 +248,7 @@ var defaultConfig_ = Config{
 			},
 		},
 		VirtualNodes: IntProperty{
-			Value:       500,
+			Value:       5000,
 			Description: "The number of virtual nodes.",
 		},
 	},
@@ -263,7 +262,7 @@ var defaultConfig_ = Config{
 			Description: "Enables verification of data integrity during database operations. Requires 'FieldSizeDistribution' to be set to 'constant'.",
 		},
 		EnableDroppingDataOnStart: BoolProperty{
-			Value:       true,
+			Value:       false,
 			Description: "Enables dropping any pre-existing data in the database upon startup.",
 		},
 		MaxFields: IntProperty{
@@ -271,7 +270,7 @@ var defaultConfig_ = Config{
 			Description: "The maximum number of fields (columns) to include in the database table.",
 		},
 		AvFieldSizeBytes: IntProperty{
-			Value:       100,
+			Value:       500,
 			Description: "The average size (in bytes) of each field stored in the database.",
 		},
 		FieldSizeDistribution: StringProperty{
@@ -279,15 +278,15 @@ var defaultConfig_ = Config{
 			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'",
 		},
 		InsertCount: IntProperty{
-			Value:       0,
+			Value:       5000,
 			Description: "If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.",
 		},
 		InsertionRetryInterval: IntProperty{
-			Value:       3,
+			Value:       1,
 			Description: "The time in seconds to wait before retrying a failed insert operation. This controls the\nback-off strategy for handling write failures.",
 		},
 		InsertionRetryLimit: IntProperty{
-			Value:       0,
+			Value:       3,
 			Description: "The maximum number of times to retry a failed insert operation.",
 		},
 		MaxExecutionTime: IntProperty{
@@ -303,19 +302,19 @@ var defaultConfig_ = Config{
 			Description: "The minimum number of records to scan in a single operation.",
 		},
 		OperationCount: IntProperty{
-			Value:       30000,
+			Value:       70000,
 			Description: "The total number of operations to perform during the workload execution.",
 		},
 		RecordCount: IntProperty{
-			Value:       200000,
+			Value:       300000,
 			Description: "If `DoTransactions` is false, and `InsertCount` is 0, this is the total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.",
 		},
 		TargetOperationsPerSec: IntProperty{
-			Value:       2000,
+			Value:       5000,
 			Description: "The target number of operations per second that the workload should aim to achieve.",
 		},
 		ThreadCount: IntProperty{
-			Value:       200,
+			Value:       1000,
 			Description: "The number of concurrent threads to use when executing the workload.",
 		},
 	},
@@ -345,7 +344,7 @@ var defaultConfig_ = Config{
 			Description: "The fraction of data that will be considered 'hot' for generating hotspots in the workload.",
 		},
 		HotspotOpnFraction: FloatProperty{
-			Value:       0.8,
+			Value:       0.1,
 			Description: "The fraction of operations that will target the 'hot' data.",
 		},
 		HashInsertOrder: BoolProperty{
@@ -357,7 +356,7 @@ var defaultConfig_ = Config{
 			Description: "The starting point (lower bound) for key values used in insert operations.",
 		},
 		KeyPrefix: StringProperty{
-			Value:       "user",
+			Value:       "key",
 			Description: "The prefix to be used for keys in the workload.",
 		},
 		ReadAllFields: BoolProperty{
@@ -369,15 +368,15 @@ var defaultConfig_ = Config{
 			Description: "Indicates whether all fields should be written in write operations.",
 		},
 		ReadModifyWriteProportion: FloatProperty{
-			Value:       0.05,
+			Value:       0.02,
 			Description: "The proportion of read-modify-write operations in the workload.",
 		},
 		ReadProportion: FloatProperty{
-			Value:       0.84,
+			Value:       0.93,
 			Description: "The proportion of read operations in the workload.",
 		},
 		InsertProportion: FloatProperty{
-			Value:       0.07,
+			Value:       0.01,
 			Description: "The proportion of insert operations in the workload.",
 		},
 		UpdateProportion: FloatProperty{
@@ -433,6 +432,26 @@ var defaultConfig_ = Config{
 		ZeroPadding: IntProperty{
 			Value:       1,
 			Description: "The amount of zero-padding for numeric fields (for a fixed width representation).",
+		},
+		CassandraCluster: StringProperty{
+			Value:       "127.0.0.1:9043",
+			Description: "The host and port of the Cassandra cluster.",
+		},
+		CassandraKeyspace: StringProperty{
+			Value:       "measurements",
+			Description: "Keyspace to use within the Cassandra database.",
+		},
+		CassandraTableName: StringProperty{
+			Value:       "measurements_table",
+			Description: "Name of the table to use within the Cassandra keyspace.",
+		},
+		ReplicationStrategy: StringProperty{
+			Description: "Replication strategy to use for the Cassandra keyspace.",
+			Value:       "SimpleStrategy",
+		},
+		ReplicationFactor: IntProperty{
+			Description: "Replication factor to use for the Cassandra keyspace.",
+			Value:       1,
 		},
 	},
 	Logging: LoggingConfig{

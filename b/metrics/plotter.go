@@ -89,6 +89,13 @@ func has(m Metric, label string, b interface{}) bool {
 	return false
 }
 
+func hasTag(m Metric, label string) bool {
+	if _, exists := m.tags[label]; exists {
+		return true
+	}
+	return false
+}
+
 func divideFirstBySecond(m [][]Metric, timeSlice time.Duration) float64 {
 	first := len(m[0])
 	second := len(m[1])
@@ -117,12 +124,15 @@ func averageValue(value func(Metric) float64) func([][]Metric, time.Duration) fl
 	}
 }
 
-func PlotMetrics(start time.Time, end time.Time, path string) {
+func PlotMetrics(s time.Time, path string) {
 	fmt.Printf("Plotting metrics...\n")
 	numBuckets := 30
+	start := s.Add(warmUptime)
+	end := s.Add(estimatedRunningTime)
 
 	var nodeCategories []category
 	var nodeSizeCategories []category
+	var nodeRequests []category
 	for _, node := range globalConfig.Cache.Nodes {
 		nodeIndex := node.NodeId.Value - 1
 		nodeCategories = append(nodeCategories, category{
@@ -150,11 +160,121 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 			color:     DARK_COLORS[nodeIndex],
 			showMean:  false,
 		})
+		nodeRequests = append(nodeRequests, category{
+			filters: []func(m Metric) bool{
+				func(m Metric) bool {
+					return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex)
+				},
+			},
+			reduce:    countPerSecond,
+			plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+			color:     DARK_COLORS[nodeIndex],
+			showMean:  false,
+		})
 	}
 
 	var pi = []*plotInfo{
 		{
 			title: "Workload (Transactions per Second) as a Function of Time",
+			yAxis: "Fraction of Read Requests",
+			categories: []category{
+				{
+					plotLabel: "Read Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == WORKLOAD && has(m, OPERATION, READ)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_RED,
+					showMean: false,
+				},
+				{
+					plotLabel: "Batch Read Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == WORKLOAD && has(m, OPERATION, BATCH_READ)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_YELLOW,
+					showMean: false,
+				},
+				{
+					plotLabel: "Insert Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == WORKLOAD && has(m, OPERATION, INSERT)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_GREEN,
+					showMean: false,
+				},
+				{
+					plotLabel: "Batch Insert Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == WORKLOAD && has(m, OPERATION, BATCH_INSERT)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_BLUE,
+					showMean: false,
+				},
+				{
+					plotLabel: "Scan Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == WORKLOAD && has(m, OPERATION, SCAN)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_PURPLE,
+					showMean: false,
+				},
+				{
+					plotLabel: "Read/Modify/Write Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && has(m, WORKLOAD, READ_MODIFY_WRITE)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_PINK,
+					showMean: false,
+				},
+				{
+					plotLabel: "Update Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == WORKLOAD && has(m, OPERATION, UPDATE)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    DARK_ORANGE,
+					showMean: false,
+				},
+				{
+					plotLabel: "Batch Update Transactions",
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == WORKLOAD && has(m, OPERATION, BATCH_UPDATE)
+						},
+					},
+					reduce:   countPerSecond,
+					color:    GREY,
+					showMean: false,
+				},
+			},
+			start:            start,
+			end:              end,
+			path:             path + "individual/workload.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
+			title: "Completed Transactions as a Function of Time",
 			yAxis: "Fraction of Read Requests",
 			categories: []category{
 				{
@@ -282,6 +402,58 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 			start:            start,
 			end:              end,
 			path:             path + "individual/requests_per_second.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
+			title: "Database Latency as a Function of Time",
+			yAxis: "Latency (ms)",
+			categories: []category{
+				{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == DATABASE_OPERATION && hasTag(m, LATENCY)
+						},
+					},
+					reduce:   averageValue(func(m Metric) float64 { return 1000 * m.tags[LATENCY].(float64) }),
+					color:    DARK_BLUE,
+					showMean: true,
+				},
+			},
+			start:            start,
+			end:              end,
+			path:             path + "individual/database_latency.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
+			title: "Transaction Latency as a Function of Time",
+			yAxis: "Latency (ms)",
+			categories: []category{
+				{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && hasTag(m, LATENCY)
+						},
+					},
+					reduce:   averageValue(func(m Metric) float64 { return 1000 * m.tags[LATENCY].(float64) }),
+					color:    DARK_BLUE,
+					showMean: true,
+				},
+			},
+			start:            start,
+			end:              end,
+			path:             path + "individual/transaction_latency.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
+			title:            "Cache Requests Per Node as a Function of Time",
+			yAxis:            "Requests per second",
+			categories:       nodeRequests,
+			start:            start,
+			end:              end,
+			path:             path + "individual/cache_requests_per_node.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
@@ -427,6 +599,12 @@ func (plt *plotInfo) makePlot() {
 		for _, filter := range cat.filters {
 			if mtrcs := Filter(filter); mtrcs != nil {
 				for _, m := range mtrcs {
+					if m.timestamp.Before(plt.start) {
+						continue
+					}
+					if m.timestamp.After(plt.end) {
+						continue
+					}
 					bucket := int64(math.Ceil(float64(m.timestamp.Sub(plt.start).Nanoseconds()) / float64(timeSlice.Nanoseconds())))
 					// Initialize the inner slice if it hasn't been already
 					if _, ok := mtrcsMultiple[bucket]; !ok {

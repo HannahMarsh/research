@@ -6,7 +6,6 @@ import (
 	"benchmark/db"
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"time"
@@ -121,7 +120,7 @@ func (w *Worker) Run(ctx context.Context) {
 		}
 
 		if err != nil {
-			log.Panic(err)
+			//log.Panic(err)
 		}
 
 		w.opsDone += int64(opsCount)

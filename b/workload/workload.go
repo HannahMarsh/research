@@ -433,6 +433,7 @@ func (c *Workload) nextKeyNum(state *State) int64 {
 
 func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
 	start := time.Now()
+	workload2Measure(start, metrics2.READ)
 	defer func() {
 		workloadMeasure(start, metrics2.READ, errr, hitDatabase)
 	}()
@@ -498,6 +499,14 @@ func workloadMeasure(start time.Time, operationType string, err error, hitDataba
 				metrics2.DATABASE:   hitDatabase,
 			})
 	}
+}
+
+func workload2Measure(start time.Time, operationType string) {
+	metrics2.AddMeasurement(metrics2.WORKLOAD, start,
+		map[string]interface{}{
+			metrics2.OPERATION: operationType,
+		})
+	return
 }
 
 func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
