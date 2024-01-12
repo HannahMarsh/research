@@ -187,8 +187,8 @@ var defaultConfig_ = Config{
 				},
 				FailureIntervals: []FailureInterval{
 					{
-						Start: 5.0,
-						End:   15.0,
+						Start: 0.3,
+						End:   0.6,
 					},
 				},
 				MaxSize: IntProperty{
@@ -210,8 +210,8 @@ var defaultConfig_ = Config{
 				},
 				FailureIntervals: []FailureInterval{
 					{
-						Start: 7.0,
-						End:   13.0,
+						Start: 0.4,
+						End:   0.7,
 					},
 				},
 				MaxSize: IntProperty{
@@ -234,8 +234,8 @@ var defaultConfig_ = Config{
 				},
 				FailureIntervals: []FailureInterval{
 					{
-						Start: 9.0,
-						End:   11.0,
+						Start: 0.5,
+						End:   0.8,
 					},
 				},
 				MaxSize: IntProperty{
@@ -263,7 +263,7 @@ var defaultConfig_ = Config{
 			Description: "Enables verification of data integrity during database operations. Requires 'FieldSizeDistribution' to be set to 'constant'.",
 		},
 		EnableDroppingDataOnStart: BoolProperty{
-			Value:       false,
+			Value:       true,
 			Description: "Enables dropping any pre-existing data in the database upon startup.",
 		},
 		MaxFields: IntProperty{
@@ -279,8 +279,8 @@ var defaultConfig_ = Config{
 			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'",
 		},
 		InsertCount: IntProperty{
-			Value:       10000,
-			Description: "The total number of records to insert during the workload execution.",
+			Value:       0,
+			Description: "If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.",
 		},
 		InsertionRetryInterval: IntProperty{
 			Value:       3,
@@ -303,15 +303,15 @@ var defaultConfig_ = Config{
 			Description: "The minimum number of records to scan in a single operation.",
 		},
 		OperationCount: IntProperty{
-			Value:       10000,
+			Value:       30000,
 			Description: "The total number of operations to perform during the workload execution.",
 		},
 		RecordCount: IntProperty{
-			Value:       20000,
-			Description: "The total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.",
+			Value:       200000,
+			Description: "If `DoTransactions` is false, and `InsertCount` is 0, this is the total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.",
 		},
 		TargetOperationsPerSec: IntProperty{
-			Value:       500,
+			Value:       2000,
 			Description: "The target number of operations per second that the workload should aim to achieve.",
 		},
 		ThreadCount: IntProperty{
@@ -353,7 +353,7 @@ var defaultConfig_ = Config{
 			Description: "Enables hashing the order in which records are inserted.",
 		},
 		KeyRangeLowerBound: IntProperty{
-			Value:       10000,
+			Value:       500,
 			Description: "The starting point (lower bound) for key values used in insert operations.",
 		},
 		KeyPrefix: StringProperty{
@@ -361,7 +361,7 @@ var defaultConfig_ = Config{
 			Description: "The prefix to be used for keys in the workload.",
 		},
 		ReadAllFields: BoolProperty{
-			Value:       true,
+			Value:       false,
 			Description: "Indicates whether all fields should be read in read operations.",
 		},
 		WriteAllFields: BoolProperty{
@@ -369,23 +369,23 @@ var defaultConfig_ = Config{
 			Description: "Indicates whether all fields should be written in write operations.",
 		},
 		ReadModifyWriteProportion: FloatProperty{
-			Value:       0.0,
+			Value:       0.05,
 			Description: "The proportion of read-modify-write operations in the workload.",
 		},
 		ReadProportion: FloatProperty{
-			Value:       0.95,
+			Value:       0.84,
 			Description: "The proportion of read operations in the workload.",
 		},
 		InsertProportion: FloatProperty{
-			Value:       0.0,
+			Value:       0.07,
 			Description: "The proportion of insert operations in the workload.",
 		},
 		UpdateProportion: FloatProperty{
-			Value:       0.05,
+			Value:       0.03,
 			Description: "The proportion (from 0.0 to 1.0) of update operations in the workload. If the value is 0.0, then updating is disabled.",
 		},
 		ScanProportion: FloatProperty{
-			Value:       0.0,
+			Value:       0.01,
 			Description: "The proportion (from 0.0 to 1.0) of scan operations in the workload. If the value is 0.0, then scanning is disabled.",
 		},
 		RequestDistribution: StringProperty{

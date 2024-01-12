@@ -18,8 +18,8 @@ type Node struct {
 }
 
 type Cache interface {
-	Get(ctx context.Context, key string, fields []string) (map[string][]byte, error)
-	Set(ctx context.Context, key string, value map[string][]byte) error
+	Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64)
+	Set(ctx context.Context, key string, value map[string][]byte) (error, int64)
 }
 
 func NewNode(address string, maxSize int64, id int, ctx context.Context) *Node {
@@ -71,29 +71,32 @@ func (c *Node) Fail() {
 	c.isFailed = true
 }
 
-func (c *Node) Get(ctx context.Context, key string, fields []string) (map[string][]byte, error) {
+func (c *Node) Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
 	if c.isFailed {
-		return nil, errors.New("simulated failure - cache node is not available")
+		return nil, errors.New("simulated failure - cache node is not available"), 0
+	}
+
+	size_ := int64(0)
+	if size, err := c.Size(ctx); err == nil {
+		size_ = size
 	}
 
 	str := c.redisClient.Get(ctx, key)
 	val, err := str.Result()
-	if err == redis.Nil {
-		return nil, nil // Key does not exist, return nil map and no error
-	} else if err != nil {
-		return nil, err // Return the error encountered when fetching from Redis
+	if err != nil {
+		return nil, err, size_ // cache miss happens when err == redis.Nil
 	}
 
 	// Deserialize the JSON back into a map
 	var data map[string][]byte
 	err = json.Unmarshal([]byte(val), &data)
 	if err != nil {
-		return nil, err // Handle JSON deserialization error
+		return nil, err, size_ // Handle JSON deserialization error
 	}
 
 	// If no specific fields are requested, return the full data
 	if len(fields) == 0 {
-		return data, nil
+		return data, nil, size_
 	}
 
 	// Extract only the requested fields
@@ -104,29 +107,31 @@ func (c *Node) Get(ctx context.Context, key string, fields []string) (map[string
 		}
 	}
 
-	return result, nil
+	return result, nil, size_
 }
 
-func (c *Node) Set(ctx context.Context, key string, value map[string][]byte) error {
+func (c *Node) Set(ctx context.Context, key string, value map[string][]byte) (error, int64) {
 	if c.isFailed {
-		return errors.New("simulated failure - cache node is not available")
+		return errors.New("simulated failure - cache node is not available"), 0
 	}
+	size_ := int64(0)
 	if size, err := c.Size(ctx); err == nil {
+		size_ = size
 		if size >= c.maxSize {
 			// cache is full, flush it
 			err = c.redisClient.FlushDB(ctx).Err()
 			if err != nil {
 				log.Printf("Failed to clear cache: %v", err)
-				return err
+				return err, size
 			}
 		}
 	}
 	// Serialize the map into a JSON string for storage
 	serializedValue, err := json.Marshal(value)
 	if err != nil {
-		return err // Handle JSON serialization error
+		return err, size_ // Handle JSON serialization error
 	}
 
 	_, err = c.redisClient.Set(ctx, key, serializedValue, 0).Result() // '0' means no expiration
-	return err
+	return err, size_
 }

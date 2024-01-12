@@ -303,7 +303,7 @@ func (c *Workload) DoInsert(ctx context.Context, db db.DB, cache_ cache.Cache) e
 			break
 		}
 
-		err = cache_.Set(ctx, dbKey, values)
+		err, _ = cache_.Set(ctx, dbKey, values)
 		if err != nil {
 			break
 		}
@@ -364,7 +364,7 @@ func (c *Workload) DoBatchInsert(ctx context.Context, batchSize int, d db.DB, ca
 
 		// Update the cache with the new values after a successful database insert
 		for i, key := range keys {
-			err = cache_.Set(ctx, key, values[i])
+			err, _ = cache_.Set(ctx, key, values[i])
 			if err != nil {
 				//break
 			}
@@ -449,7 +449,7 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 	}
 
 	// First, attempt to get the value from the cache
-	cachedValue, err := cache_.Get(ctx, keyName, fields)
+	cachedValue, err, _ := cache_.Get(ctx, keyName, fields)
 	if err == nil && cachedValue != nil {
 		// CacheWrapper hit, use the cachedValue
 		// todo  handle the cached value
@@ -465,7 +465,7 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 		return err, true
 	}
 
-	err = cache_.Set(ctx, keyName, values)
+	err, _ = cache_.Set(ctx, keyName, values)
 	if err != nil {
 		//return err
 	}
@@ -500,10 +500,10 @@ func workloadMeasure(start time.Time, operationType string, err error, hitDataba
 	}
 }
 
-func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (err error, hitDatabase bool) {
+func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
 	start := time.Now()
 	defer func() {
-		workloadMeasure(start, metrics2.READ_MODIFY_WRITE, err, hitDatabase)
+		workloadMeasure(start, metrics2.READ_MODIFY_WRITE, errr, hitDatabase)
 	}()
 
 	r := state.r
@@ -531,10 +531,10 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, c
 		return err, true
 	}
 
-	if err := db.Update(ctx, c.p.Database.CassandraTableName.Value, keyName, values); err != nil {
+	if err = db.Update(ctx, c.p.Database.CassandraTableName.Value, keyName, values); err != nil {
 		return err, true
 	}
-	if err := cache_.Set(ctx, keyName, values); err != nil {
+	if err, _ = cache_.Set(ctx, keyName, values); err != nil {
 		//return err
 	}
 
@@ -545,10 +545,10 @@ func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, c
 	return nil, true
 }
 
-func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (err error, hitDatabase bool) {
+func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
 	start := time.Now()
 	defer func() {
-		workloadMeasure(start, metrics2.INSERT, err, hitDatabase)
+		workloadMeasure(start, metrics2.INSERT, errr, hitDatabase)
 	}()
 	r := state.r
 	keyNum := c.transactionInsertKeySequence.Next(r)
@@ -557,10 +557,10 @@ func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cac
 	values := c.buildValues(state, dbKey)
 	defer c.putValues(values)
 
-	if err_ := db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values); err_ != nil {
-		return err_, true
+	if err := db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values); err != nil {
+		return err, true
 	}
-	if err_ := cache_.Set(ctx, dbKey, values); err_ != nil {
+	if err, _ := cache_.Set(ctx, dbKey, values); err != nil {
 		//return err
 	}
 	return nil, true
@@ -591,7 +591,7 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ cache
 	cacheMiss := false
 	for i := 0; i < int(scanLen); i++ {
 		keyName := c.buildKeyName(keyNum + int64(i))
-		value, err := cache_.Get(ctx, keyName, fields)
+		value, err, _ := cache_.Get(ctx, keyName, fields)
 		if err != nil || value == nil {
 			// CacheWrapper miss detected
 			cacheMiss = true
@@ -614,7 +614,7 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ cache
 		// update the cache with the new values from the database
 		for _, value := range dbValues {
 			key := value["key"] // todo is "key" the identifier in the returned map?
-			cacheErr := cache_.Set(ctx, string(key), value)
+			cacheErr, _ := cache_.Set(ctx, string(key), value)
 			if cacheErr != nil {
 				//log.Printf("Failed to update cache for key %s: %v", string(key), cacheErr)
 			}
@@ -673,7 +673,7 @@ func (c *Workload) doTransactionUpdate(ctx context.Context, db db.DB, cache_ cac
 	}
 
 	// Update the cache with the new values after a successful database insert
-	cacheErr := cache_.Set(ctx, keyName, values)
+	cacheErr, _ := cache_.Set(ctx, keyName, values)
 	if cacheErr != nil {
 		//return err
 	}
@@ -707,7 +707,7 @@ func (c *Workload) doBatchTransactionRead(ctx context.Context, batchSize int, db
 
 	// Attempt to get the value from the cache
 	for _, key := range keys {
-		cachedValue, err := cache_.Get(ctx, key, fields)
+		cachedValue, err, _ := cache_.Get(ctx, key, fields)
 		if err == nil && cachedValue != nil {
 			// CacheWrapper hit, use the cachedValue
 			values = append(values, cachedValue)
@@ -782,7 +782,7 @@ func (c *Workload) doBatchTransactionInsert(ctx context.Context, batchSize int, 
 
 	// Update the cache with the new values after a successful database insert
 	for i, key := range keys {
-		cacheErr := cache_.Set(ctx, key, values[i])
+		cacheErr, _ := cache_.Set(ctx, key, values[i])
 		if cacheErr != nil {
 			//return err
 		}
@@ -823,7 +823,7 @@ func (c *Workload) doBatchTransactionUpdate(ctx context.Context, batchSize int, 
 
 	// Update the cache with the new values after a successful database update
 	for i, key := range keys {
-		cacheErr := cache_.Set(ctx, key, values[i])
+		cacheErr, _ := cache_.Set(ctx, key, values[i])
 		if cacheErr != nil {
 			//return err
 		}

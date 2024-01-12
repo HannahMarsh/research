@@ -51,7 +51,12 @@ func NewUniform(lb int64, ub int64) *Uniform {
 
 // Next implements the Generator Next interface.
 func (u *Uniform) Next(r *rand.Rand) int64 {
-	n := r.Int63n(u.interval) + u.lb
+	var n int64
+	if u.interval <= 0 {
+		n = u.lb
+	} else {
+		n = r.Int63n(u.interval) + u.lb
+	}
 	u.SetLastValue(n)
 	return n
 }

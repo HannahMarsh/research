@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YAML Configuration Editor</title>
+    <style>
+        .container { width: 80%; margin: auto; }
+        .section { margin-bottom: 20px; }
+        .description { font-style: italic; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>YAML Configuration Editor</h1>
+    <form id="yamlForm">
+        <!-- Database Section -->
+        <div class="Section">
+            <h2>Database</h2>
+            <label for="DatabaseName">Database Name:</label>
+            <div class="description">The name of the database.</div>
+            <input type="text" id="DatabaseName" name="DatabaseName" value="hello"><br><br>
+        </div>
+
+        <!-- Cache Section -->
+        <div class="section">
+            <h2>Cache</h2>
+            <label for="VirtualNodes">Virtual Nodes:</label>
+            <div class="description">The number of virtual nodes.</div>
+            <input type="text" id="VirtualNodes" name="VirtualNodes" value="500"><br><br>
+
+            <!-- Node 1 -->
+            <label for="NodeId1">Node 1 ID:</label>
+            <div class="description">The ID of the node.</div>
+            <input type="text" id="NodeId1" name="NodeId1" value="1"><br><br>
+            <!-- Repeat for other node properties -->
+
+            <!-- Node 2 -->
+            <label for="NodeId2">Node 2 ID:</label>
+            <div class="description">The ID of the node.</div>
+            <input type="text" id="NodeId2" name="NodeId2" value="2"><br><br>
+            <!-- Repeat for other node properties -->
+
+            <!-- Add additional nodes as needed -->
+        </div>
+
+        <!-- Performance Section -->
+        <div class="section">
+            <h2>Performance</h2>
+            <label for="BatchSize">Batch Size:</label>
+            <div class="description">The number of operations to batch together in a single transaction.</div>
+            <input type="text" id="BatchSize" name="BatchSize" value="1"><br><br>
+            <!-- Repeat for other performance properties -->
+        </div>
+
+        <div class="section">
+
+        <!-- Repeat the above pattern for each property in your YAML file -->
+
+            <!-- Submit Button -->
+            <input type="submit" value="Save YAML">
+        </div>
+    </form>
+</div>
+
+<script>
+    document.getElementById("yamlForm").addEventListener("submit", function(event){
+        event.preventDefault();
+
+        // Collect form data
+        var formData = new FormData(event.target);
+        var object = {};
+        formData.forEach(function(value, key){
+            object[key] = value;
+        });
+
+        // Convert to YAML (using a library like js-yaml or similar)
+        var yamlStr = JSON.stringify(object); // Replace this with actual YAML conversion
+
+        // Create a Blob from the YAML string
+        var blob = new Blob([yamlStr], { type: "text/plain;charset=utf-8" });
+
+        // Create a link element and download the file
+        var link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "hello.yaml";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+</script>
+
+</body>
+</html>

@@ -15,8 +15,10 @@ package main
 
 import (
 	"benchmark/client"
+	bconfig "benchmark/config"
 	"fmt"
 	"github.com/spf13/cobra"
+	"math"
 	"time"
 )
 
@@ -61,14 +63,83 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	////	fmt.Printf("\t%s = %v\n", r.Type().Field(i).Name, field.Interface())
 	////}
 
+	estimatedRunningTime := EstimateRunningTime(globalProps)
+	fmt.Println("**********************************************")
+	fmt.Printf("Estimated Run time Duration: %v\n", estimatedRunningTime)
 	fmt.Println("**********************************************")
 
-	c := client.NewClient(globalProps, globalWorkload, globalDB, globalCache)
 	start := time.Now()
+	ticker := time.NewTicker(1 * time.Second)
+	go dispTimer(start, ticker, estimatedRunningTime)
+
+	c := client.NewClient(globalProps, globalWorkload, globalDB, globalCache)
 	c.Run(globalContext)
-	fmt.Println("**********************************************")
+
+	ticker.Stop()
+
+	fmt.Println("\n**********************************************")
 	fmt.Printf("Run finished, takes %s\n", time.Now().Sub(start))
 	//measurement.Output()
+}
+
+func dispTimer(start time.Time, ticker *time.Ticker, estimatedRunningTime time.Duration) {
+	fmt.Println("Running benchmark...")
+	timer := time.NewTimer(0)
+	defer ticker.Stop()
+
+	end := time.Now().Add(estimatedRunningTime)
+	digits := int(math.Log10(estimatedRunningTime.Seconds())) + 1
+
+	for {
+		select {
+		case <-ticker.C:
+			remainingTime := int(math.Round(end.Sub(time.Now()).Seconds()))
+			if remainingTime >= 0 {
+				fmt.Printf("\rEstimated remaining time: %ss", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), remainingTime))
+			} else {
+				fmt.Printf("\rDuration: %ss", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), int(math.Round(time.Now().Sub(start).Seconds()))))
+			}
+		case <-globalContext.Done():
+			timer.Stop()
+			fmt.Printf("\n")
+			return // Exit the loop when the global context is canceled
+		}
+	}
+}
+
+func EstimateRunningTime(config *bconfig.Config) time.Duration {
+	var totalOpCount int64
+	if config.Workload.DoTransactions.Value {
+		totalOpCount = int64(config.Performance.OperationCount.Value)
+	} else {
+		if config.Performance.InsertCount.Value > 0 {
+			totalOpCount = int64(config.Performance.InsertCount.Value)
+		} else {
+			totalOpCount = int64(config.Performance.RecordCount.Value)
+		}
+	}
+
+	batchSize := 1
+	if config.Performance.BatchSize.Value > 1 {
+		batchSize = config.Performance.BatchSize.Value
+	}
+
+	totalDBInteractions := totalOpCount / int64(batchSize)
+
+	targetOpsPerSec := float64(config.Performance.TargetOperationsPerSec.Value)
+	if targetOpsPerSec <= 0 {
+		targetOpsPerSec = 1 // Set a default value if not specified
+	}
+
+	timePerOp := time.Second / time.Duration(targetOpsPerSec)
+	estimatedDuration := timePerOp * time.Duration(totalDBInteractions)
+
+	// Adjust for any additional delays (e.g., throttling, retries)
+	// This is a rough estimate and will depend on your specific implementation details
+	adjustmentFactor := 1.0 // Adjust this based on expected delays
+	estimatedDuration = time.Duration(float64(estimatedDuration) * adjustmentFactor)
+
+	return estimatedDuration
 }
 
 func runLoadCommandFunc(cmd *cobra.Command, args []string) {

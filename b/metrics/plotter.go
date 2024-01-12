@@ -89,10 +89,6 @@ func has(m Metric, label string, b interface{}) bool {
 	return false
 }
 
-func sum(m []Metric) {
-
-}
-
 func divideFirstBySecond(m [][]Metric, timeSlice time.Duration) float64 {
 	first := len(m[0])
 	second := len(m[1])
@@ -106,11 +102,29 @@ func countPerSecond(m [][]Metric, timeSlice time.Duration) float64 {
 	return float64(len(m[0])) / timeSlice.Seconds()
 }
 
+func averageValue(value func(Metric) float64) func([][]Metric, time.Duration) float64 {
+	return func(m [][]Metric, timeSlice time.Duration) float64 {
+		sum_ := 0.0
+		count := 0
+		for _, mtrc := range m[0] {
+			sum_ += value(mtrc)
+			count++
+		}
+		if count == 0 {
+			return 0.0
+		}
+		return sum_ / float64(count)
+	}
+}
+
 func PlotMetrics(start time.Time, end time.Time, path string) {
+	fmt.Printf("Gathering metrics...\n")
 	GatherAllMetrics()
+	fmt.Printf("Plotting metrics...\n")
 	numBuckets := 30
 
 	var nodeCategories []category
+	var nodeSizeCategories []category
 	for _, node := range globalMetrics.config.Cache.Nodes {
 		nodeIndex := node.NodeId.Value - 1
 		nodeCategories = append(nodeCategories, category{
@@ -123,6 +137,17 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 				},
 			},
 			reduce:    divideFirstBySecond,
+			plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+			color:     DARK_COLORS[nodeIndex],
+			showMean:  false,
+		})
+		nodeSizeCategories = append(nodeSizeCategories, category{
+			filters: []func(m Metric) bool{
+				func(m Metric) bool {
+					return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex)
+				},
+			},
+			reduce:    averageValue(func(m Metric) float64 { return float64(m.tags[SIZE].(int64)) }),
 			plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
 			color:     DARK_COLORS[nodeIndex],
 			showMean:  false,
@@ -143,7 +168,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 					},
 					reduce:   countPerSecond,
 					color:    DARK_RED,
-					showMean: true,
+					showMean: false,
 				},
 				{
 					plotLabel: "Batch Read Transactions",
@@ -154,7 +179,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 					},
 					reduce:   countPerSecond,
 					color:    DARK_YELLOW,
-					showMean: true,
+					showMean: false,
 				},
 				{
 					plotLabel: "Insert Transactions",
@@ -165,7 +190,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 					},
 					reduce:   countPerSecond,
 					color:    DARK_GREEN,
-					showMean: true,
+					showMean: false,
 				},
 				{
 					plotLabel: "Batch Insert Transactions",
@@ -176,7 +201,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 					},
 					reduce:   countPerSecond,
 					color:    DARK_BLUE,
-					showMean: true,
+					showMean: false,
 				},
 				{
 					plotLabel: "Scan Transactions",
@@ -187,7 +212,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 					},
 					reduce:   countPerSecond,
 					color:    DARK_PURPLE,
-					showMean: true,
+					showMean: false,
 				},
 				{
 					plotLabel: "Read/Modify/Write Transactions",
@@ -198,7 +223,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 					},
 					reduce:   countPerSecond,
 					color:    DARK_PINK,
-					showMean: true,
+					showMean: false,
 				},
 				{
 					plotLabel: "Update Transactions",
@@ -209,7 +234,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 					},
 					reduce:   countPerSecond,
 					color:    DARK_ORANGE,
-					showMean: true,
+					showMean: false,
 				},
 				{
 					plotLabel: "Batch Update Transactions",
@@ -220,7 +245,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 					},
 					reduce:   countPerSecond,
 					color:    GREY,
-					showMean: true,
+					showMean: false,
 				},
 			},
 			start:            start,
@@ -305,6 +330,16 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 			showNodeFailures: true,
 		},
 		{
+			title:            "Cache Size as a Function of Time",
+			yAxis:            "Number of Items in Cache",
+			categories:       nodeSizeCategories,
+			start:            start,
+			end:              end,
+			path:             path + "individual/node_size.png",
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
 			title: "Proportion of Read Transactions that go to the Database as a Function of Time",
 			yAxis: "Fraction of Read Requests",
 			categories: []category{
@@ -328,16 +363,8 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
-		//initPlotInfo(start, end, GetMetricsByType(DATABASE_OPERATION), "Database Requests per Second as a Function of Time", "Requests per second", path+"requests_per_second.png"),
-		//initPlotInfo(start, end, GetMetricsByType(CACHE_OPERATION), "Cache Requests as a Function of Time", "Requests per second", path+"cache_requests.png"),
-		//initPlotInfo(start, end, "Total Requests per Second As a Function of Time", "Requests per second", path+"all_requests_per_second.png"),
-		//initPlotInfo(start, end, "Cache Hit Ratio as a Function of Time", "Cache Hit Ratio", path+"cache_hit_ratio.png"),
-		//initPlotInfo(start, end, "Request Latency As a Function of Time", "Average Latency (ms)", path+"latency.png"),
-		//initPlotInfo(start, end, "Keyspace Popularity as a Function of Time", "Requests per second", path+"keyspace.png"),
-		//initPlotInfo(start, end, "Cache Requests as a Function of Time", "Requests per second", path+"cache_requests.png"),
-		//initPlotInfo(start, end, "Cache Sizes as a Function of Time", "Number of Items", path+"cacheSizes.png"),
 	}
-	cols := 2
+	cols := 3
 
 	rows := int(math.Ceil(float64(len(pi)+1) / float64(cols)))
 	var piPath [][]string
@@ -350,6 +377,7 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 				row = append(row, path+"individual/config.png")
 			} else {
 				if curIndex < len(pi) {
+					fmt.Printf("\t(%d/%d): %s\n", curIndex+1, len(pi), pi[curIndex].title)
 					pi[curIndex].makePlot()
 					row = append(row, pi[curIndex].path)
 					curIndex += 1
@@ -360,7 +388,10 @@ func PlotMetrics(start time.Time, end time.Time, path string) {
 		piPath = append(piPath, row)
 	}
 
-	tilePlots(path+"results.png", piPath)
+	tilePlots(path+"summary.png", piPath)
+
+	fmt.Printf("Summary plot saved to %s\n", path+"summary.png")
+
 }
 
 func (plt *plotInfo) makePlot() {
@@ -377,16 +408,6 @@ func (plt *plotInfo) makePlot() {
 	p.X.Min = 0.0
 	p.X.Max = duration.Seconds()
 	p.Y.Min = 0.0
-
-	//legendPadding := vg.Points(15) // Base padding for the legend
-	//for _, _ = range plt.categories {
-	//	// Assume each category will use about 15 points of vertical space
-	//	legendPadding += vg.Points(15)
-	//}
-	//
-	//// Apply the calculated padding to the plot
-	//p.Legend.Top = true
-	//p.Legend.Padding = legendPadding
 
 	// Adjust legend position
 	p.Legend.Top = true                           // Position the legend at the top of the plot
@@ -441,9 +462,7 @@ func (plt *plotInfo) makePlot() {
 		if line, err := plotter.NewLine(pts); err == nil {
 			line.Color = cat.color
 			p.Add(line)
-			if cat.plotLabel != "" {
-				p.Legend.Add(cat.plotLabel, line)
-			}
+
 			if cat.showMean && !math.IsNaN(mean) {
 				if mean > 0 && mean < 1.0 {
 					addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.2f)", mean), cat.color)
@@ -451,6 +470,20 @@ func (plt *plotInfo) makePlot() {
 					addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), cat.color)
 				}
 
+			} else if !cat.showMean {
+				if !math.IsNaN(mean) {
+					if mean > 0 && mean < 1.0 {
+						cat.plotLabel += fmt.Sprintf(", (mean = %.2f)", mean)
+					} else {
+						cat.plotLabel += fmt.Sprintf(", (mean = %.0f)", mean)
+					}
+				} else {
+					cat.plotLabel += ", (mean = 0)"
+				}
+			}
+
+			if cat.plotLabel != "" {
+				p.Legend.Add(cat.plotLabel, line)
 			}
 		} else {
 			log.Panic(err)
@@ -710,581 +743,3 @@ func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGB
 	p.Add(horizontalLine)
 	p.Add(labels)
 }
-
-//
-//
-//func (plt *Plotter_) getCountsPerTimeSlice(metrics []Metric, filters func(Metric) bool) (plotter.XYs, float64, float64) {
-//	// Define the resolution and calculate timeSlice
-//	resolution := 30
-//	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
-//
-//	countsPerSlice := make(map[int64]int)
-//	for _, metric := range metrics {
-//		if filters(metric) {
-//			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(plt.m.start).Microseconds()) / float64(timeSlice.Microseconds())))
-//			countsPerSlice[bucket]++
-//		}
-//	}
-//	pts := make(plotter.XYs, resolution)
-//	count_ := 0.0
-//	sum := 0.0
-//	maxCountPerSecond := 0.0
-//
-//	// Fill the pts with the request counts
-//	for i := 0; i < resolution; i++ {
-//		if count, ok := countsPerSlice[int64(i)]; ok {
-//			countPerSecond := float64(count) / timeSlice.Seconds()
-//			maxCountPerSecond = math.Max(maxCountPerSecond, countPerSecond)
-//			pts[i].Y = countPerSecond
-//			sum += countPerSecond
-//			count_++
-//		}
-//		pts[i].X = float64(i) * timeSlice.Seconds()
-//	}
-//	if count_ > 0 {
-//		return pts, maxCountPerSecond, sum / count_
-//	}
-//	return pts, maxCountPerSecond, 0
-//}
-//
-//func (plt *Plotter_) getAveragePerTimeSlice(metrics []Metric, filters func(Metric) bool) (plotter.XYs, float64, float64) {
-//	// Define the resolution and calculate timeSlice
-//	resolution := 30
-//	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
-//	sumPerSlice := make(map[int64]int64)
-//	countsPerSlice := make(map[int64]int)
-//	averagePerSlice := make(map[int64]float64)
-//
-//	for _, metric := range metrics {
-//		if filters(metric) {
-//			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(plt.m.start).Microseconds()) / float64(timeSlice.Microseconds())))
-//			countsPerSlice[bucket]++
-//			sumPerSlice[bucket] += int64(metric.floatValues["size"])
-//			averagePerSlice[bucket] = float64(sumPerSlice[bucket]) / float64(countsPerSlice[bucket])
-//		}
-//	}
-//	pts := make(plotter.XYs, resolution)
-//	count_ := 0.0
-//	sum := 0.0
-//	maxCountPerSecond := 0.0
-//
-//	// Fill the pts with the request counts
-//	for i := 0; i < resolution; i++ {
-//		if average, ok := averagePerSlice[int64(i)]; ok {
-//			maxCountPerSecond = math.Max(maxCountPerSecond, average)
-//			pts[i].Y = average
-//			sum += average
-//			count_++
-//		}
-//		pts[i].X = float64(i) * timeSlice.Seconds()
-//	}
-//	if count_ > 0 {
-//		return pts, maxCountPerSecond, sum / count_
-//	}
-//	return pts, maxCountPerSecond, 0
-//}
-//
-//func (plt *Plotter_) PlotDatabaseRequests(fileName string) {
-//	start := plt.m.start
-//	end := plt.m.end
-//	p := plt.dbRequests
-//	p.Title.Text = "Database Requests per Second as a Function of Time"
-//	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
-//	p.Title.TextStyle.Font.Size = 15
-//	p.X.Label.Text = "Time (s)"
-//	p.Y.Label.Text = "Requests per second"
-//	p.X.Min = 0.0
-//	p.X.Max = end.Sub(start).Seconds()
-//	p.Y.Min = 0.0
-//
-//	// Adjust legend position
-//	p.Legend.Top = true            // Position the legend at the top of the plot
-//	p.Legend.Left = true           // Position the legend to the left side of the plot
-//	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
-//	p.Legend.YOffs = vg.Points(30) // Move the legend up
-//
-//	// Define the resolution and calculate timeSlice
-//	resolution := 30
-//	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
-//
-//	// Aggregate metrics into buckets based on the timeSlice
-//	requestCountsPerSlice := make(map[int64]int)
-//	metrics := plt.m.GetDatabaseRequests()
-//	for _, metric := range metrics {
-//		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
-//		requestCountsPerSlice[bucket]++
-//	}
-//
-//	// Create a plotter.XYs to hold the request counts
-//	pts := make(plotter.XYs, resolution)
-//	maxReqPerSecond := 0.0
-//
-//	// Fill the pts with the request counts
-//	for i := 0; i < resolution; i++ {
-//		if count, ok := requestCountsPerSlice[int64(i)]; ok {
-//			reqPerSecond := float64(count) / timeSlice.Seconds()
-//			maxReqPerSecond = math.Max(maxReqPerSecond, reqPerSecond)
-//			pts[i].Y = reqPerSecond
-//		}
-//		pts[i].X = float64(i) * timeSlice.Seconds()
-//	}
-//	p.Y.Max = maxReqPerSecond * 1.2
-//
-//	// Create a line chart
-//	line, err := plotter.NewLine(pts)
-//	if err != nil {
-//		log.Panic(err)
-//	}
-//
-//	p.Add(line)
-//
-//	plt.plotNodeFailures(p)
-//
-//	// Save the plot to a PNG file
-//	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
-//		log.Panic(err)
-//	}
-//}
-//
-//func (plt *Plotter_) PlotKeyspacePopularities(fileName string) {
-//	start := plt.m.start
-//	end := plt.end
-//	p := plt.keyspace
-//	p.Title.Text = "Keyspace Popularity as a Function of Time"
-//	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
-//	p.Title.TextStyle.Font.Size = 15
-//	p.X.Label.Text = "Time (s)"
-//	p.Y.Label.Text = "Requests per second"
-//	p.X.Min = 0.0
-//	p.X.Max = end.Sub(start).Seconds()
-//	p.Y.Min = 0.0
-//
-//	// Adjust legend position
-//	p.Legend.Top = true            // Position the legend at the top of the plot
-//	p.Legend.Left = true           // Position the legend to the left side of the plot
-//	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
-//	p.Legend.YOffs = vg.Points(30) // Move the legend up
-//
-//	metrics := plt.m.GetKeyspacePopularities()
-//	for i := 0; i < len(plt.m.config.keyspacePop); i++ {
-//		pts, maxCount, mean := plt.getCountsPerTimeSlice(metrics, func(metric Metric) bool {
-//			return int(math.Round(metric.floatValues["keyspace"])) == i
-//		})
-//		p.Y.Max = math.Max(p.Y.Max, maxCount*1.2)
-//		line, err := plotter.NewLine(pts)
-//		if err != nil {
-//			log.Panic(err)
-//		}
-//		line.Color = DARK_COLORS[i]
-//		p.Add(line)
-//		p.Legend.Add(fmt.Sprintf("keyspace %d", i), line)
-//		addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), LIGHT_COLORS[i])
-//	}
-//
-//	// Save the plot to a PNG file
-//	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
-//		log.Panic(err)
-//	}
-//}
-//
-//func (plt *Plotter_) PlotNodes(fileName string) {
-//	start := plt.m.start
-//	end := plt.end
-//	p := plt.nodeRequests
-//	p.Title.Text = "Cache Requests as a Function of Time"
-//	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
-//	p.Title.TextStyle.Font.Size = 15
-//	p.X.Label.Text = "Time (s)"
-//	p.Y.Label.Text = "Requests per second"
-//	p.X.Min = 0.0
-//	p.X.Max = end.Sub(start).Seconds()
-//	p.Y.Min = 0.0
-//
-//	// Adjust legend position
-//	p.Legend.Top = true            // Position the legend at the top of the plot
-//	p.Legend.Left = true           // Position the legend to the left side of the plot
-//	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
-//	p.Legend.YOffs = vg.Points(30) // Move the legend up
-//
-//	metrics := plt.m.GetAllRequests()
-//	for i := 0; i < len(plt.m.config.nodeConfigs); i++ {
-//		pts, maxCount, mean := plt.getCountsPerTimeSlice(metrics, func(metric Metric) bool {
-//			return int(math.Round(metric.floatValues["nodeIndex"])) == i
-//		})
-//		p.Y.Max = math.Max(p.Y.Max, maxCount*1.2)
-//		line, err := plotter.NewLine(pts)
-//		if err != nil {
-//			log.Panic(err)
-//		}
-//		line.Color = DARK_COLORS[i]
-//		p.Add(line)
-//		p.Legend.Add(fmt.Sprintf("node%d", i+1), line)
-//		addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), LIGHT_COLORS[i])
-//	}
-//
-//	// Save the plot to a PNG file
-//	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
-//		log.Panic(err)
-//	}
-//}
-//
-//func (plt *Plotter_) PlotCacheSizes(fileName string) {
-//	start := plt.m.start
-//	end := plt.end
-//	p := plt.cacheSizes
-//	p.Title.Text = "Cache Sizes as a Function of Time"
-//	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
-//	p.Title.TextStyle.Font.Size = 15
-//	p.X.Label.Text = "Time (s)"
-//	p.Y.Label.Text = "Number of Items"
-//	p.X.Min = 0.0
-//	p.X.Max = end.Sub(start).Seconds()
-//	p.Y.Min = 0.0
-//
-//	// Adjust legend position
-//	p.Legend.Top = true            // Position the legend at the top of the plot
-//	p.Legend.Left = true           // Position the legend to the left side of the plot
-//	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
-//	p.Legend.YOffs = vg.Points(30) // Move the legend up
-//
-//	metrics := plt.m.GetCacheSizes()
-//	for i := 0; i < len(plt.m.config.nodeConfigs); i++ {
-//		pts, maxCount, mean := plt.getAveragePerTimeSlice(metrics, func(metric Metric) bool {
-//			return int(math.Round(metric.floatValues["nodeIndex"])) == i
-//		})
-//		p.Y.Max = math.Max(p.Y.Max, maxCount*1.2)
-//		line, err := plotter.NewLine(pts)
-//		if err != nil {
-//			log.Panic(err)
-//		}
-//		line.Color = DARK_COLORS[i]
-//		p.Add(line)
-//		p.Legend.Add(fmt.Sprintf("node%d", i+1), line)
-//		addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), LIGHT_COLORS[i])
-//	}
-//
-//	// Save the plot to a PNG file
-//	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
-//		log.Panic(err)
-//	}
-//}
-//
-//func (plt *Plotter_) PlotAllRequests(fileName string) {
-//	start := plt.m.start
-//	end := plt.end
-//	p := plt.allRequests
-//	p.Title.Text = "Total Requests per Second As a Function of Time"
-//	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
-//	p.Title.TextStyle.Font.Size = 15
-//	p.X.Label.Text = "Time (s)"
-//	p.Y.Label.Text = "Requests per second"
-//	p.X.Min = 0.0
-//	p.X.Max = end.Sub(start).Seconds()
-//	p.Y.Min = 0.0
-//
-//	// Adjust legend position
-//	p.Legend.Top = true            // Position the legend at the top of the plot
-//	p.Legend.Left = true           // Position the legend to the left side of the plot
-//	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
-//	p.Legend.YOffs = vg.Points(30) // Move the legend up
-//
-//	// Define the resolution and calculate timeSlice
-//	resolution := 30
-//	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
-//
-//	// Aggregate metrics into buckets based on the timeSlice
-//	unsuccessfulRequestCountsPerSlice := make(map[int64]int)
-//	successfulRequestCountsPerSlice := make(map[int64]int)
-//	metrics := plt.m.GetAllRequests()
-//	for _, metric := range metrics {
-//		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
-//		if metric.stringValues["successful"] == "true" {
-//			successfulRequestCountsPerSlice[bucket]++
-//		} else {
-//			unsuccessfulRequestCountsPerSlice[bucket]++
-//		}
-//	}
-//
-//	// Create a plotter.XYs to hold the request counts
-//	unsuccessfulPts := make(plotter.XYs, resolution)
-//	successfulPts := make(plotter.XYs, resolution)
-//	maxReqPerSecond := 0.0
-//	sumReqPerSecond := 0.0
-//	countSecs := 0
-//
-//	// Fill the unsuccessfulPts with the request counts
-//	for i := 0; i < resolution; i++ {
-//		if count, ok := unsuccessfulRequestCountsPerSlice[int64(i)]; ok {
-//			reqPerSecond := float64(count) / timeSlice.Seconds()
-//			maxReqPerSecond = math.Max(maxReqPerSecond, reqPerSecond)
-//			sumReqPerSecond += reqPerSecond
-//			countSecs++
-//			unsuccessfulPts[i].Y = reqPerSecond
-//		}
-//		if count, ok := successfulRequestCountsPerSlice[int64(i)]; ok {
-//			reqPerSecond := float64(count) / timeSlice.Seconds()
-//			maxReqPerSecond = math.Max(maxReqPerSecond, reqPerSecond)
-//			sumReqPerSecond += reqPerSecond
-//			countSecs++
-//			successfulPts[i].Y = reqPerSecond
-//		}
-//		unsuccessfulPts[i].X = float64(i) * timeSlice.Seconds()
-//		successfulPts[i].X = float64(i) * timeSlice.Seconds()
-//	}
-//	p.Y.Max = maxReqPerSecond * 1.2
-//
-//	line2, err := plotter.NewLine(successfulPts)
-//	if err != nil {
-//		log.Panic(err)
-//	}
-//	line2.Color = DARK_GREEN
-//	p.Legend.Add("successful", line2)
-//	p.Add(line2)
-//
-//	line, err := plotter.NewLine(unsuccessfulPts)
-//	if err != nil {
-//		log.Panic(err)
-//	}
-//	line.Color = DARK_RED
-//	p.Legend.Add("unsuccessful", line)
-//	p.Add(line)
-//
-//	//mean := sumReqPerSecond / float64(countSecs)
-//	//addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), GREY)
-//
-//	// Save the plot to a PNG file
-//	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
-//		log.Panic(err)
-//	}
-//}
-//
-//func (plt *Plotter_) PlotLatency(fileName string) {
-//	start := plt.m.start
-//	end := plt.end
-//	p := plt.latency
-//	p.Title.Text = "Request Latency As a Function of Time"
-//	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
-//	p.Title.TextStyle.Font.Size = 15
-//	p.X.Label.Text = "Time (s)"
-//	p.Y.Label.Text = "Average Latency (ms)"
-//	p.X.Min = 0.0
-//	p.X.Max = end.Sub(start).Seconds()
-//	p.Y.Min = 0.0
-//
-//	// Adjust legend position
-//	p.Legend.Top = true            // Position the legend at the top of the plot
-//	p.Legend.Left = true           // Position the legend to the left side of the plot
-//	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
-//	p.Legend.YOffs = vg.Points(30) // Move the legend up
-//
-//	// Define the resolution and calculate timeSlice
-//	resolution := 30
-//	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
-//
-//	// Aggregate metrics into buckets based on the timeSlice
-//	totalLatencyPerSlice := make(map[int64]float64)
-//	countPerSlice := make(map[int64]int)
-//	metrics := plt.m.GetLatency()
-//	for _, metric := range metrics {
-//		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Seconds() / float64(timeSlice.Seconds()))))
-//		totalLatencyPerSlice[bucket] += metric.floatValues["latency"]
-//		countPerSlice[bucket]++
-//	}
-//
-//	averageLatencyPerSlice := make(map[int64]float64)
-//
-//	for i := 0; i < resolution; i++ {
-//		if countPerSlice[int64(i)] > 0 {
-//			averageLatencyPerSlice[int64(i)] = 1000 * totalLatencyPerSlice[int64(i)] / float64(countPerSlice[int64(i)])
-//		} else {
-//			averageLatencyPerSlice[int64(i)] = 0.0
-//		}
-//	}
-//
-//	// Create a plotter.XYs to hold the request counts
-//	pts := make(plotter.XYs, resolution)
-//	maxLatency := 0.0
-//	sumLatency := 0.0
-//	countLatency := 0
-//
-//	// Fill the pts with the request counts
-//	for i := 0; i < resolution; i++ {
-//		if latency, ok := averageLatencyPerSlice[int64(i)]; ok {
-//			maxLatency = math.Max(maxLatency, latency)
-//			sumLatency += latency
-//			countLatency++
-//			pts[i].Y = latency
-//		} else {
-//			pts[i].Y = 0.0
-//		}
-//		pts[i].X = float64(i) * timeSlice.Seconds()
-//	}
-//	p.Y.Max = maxLatency * 1.2
-//
-//	// Create a line chart
-//	line, err := plotter.NewLine(pts)
-//	if err != nil {
-//		log.Panic(err)
-//	}
-//
-//	p.Add(line)
-//
-//	mean := sumLatency / float64(countLatency)
-//	addHorizontalLine(p, mean, fmt.Sprintf(" mean\n (%.2f ms)", mean), GREY)
-//
-//	plt.plotNodeFailures(p)
-//
-//	// Save the plot to a PNG file
-//	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
-//		log.Panic(err)
-//	}
-//}
-//
-//func (plt *Plotter_) PlotCacheHits(fileName string) {
-//	start := plt.m.start
-//	end := plt.end
-//	p := plt.cacheHits
-//	p.Title.Text = "Cache Hit Ratio as a Function of Time"
-//	p.Title.Padding = vg.Points(30) // Increase the padding to create more space
-//	p.Title.TextStyle.Font.Size = 15
-//	// Adjust padding around the entire plot
-//	p.X.Label.Padding = vg.Points(10)
-//	p.Y.Label.Padding = vg.Points(10)
-//
-//	p.X.Label.Text = "Time (s)"
-//	p.Y.Label.Text = "Cache Hit Ratio"
-//	p.X.Min = 0.0
-//	p.X.Max = end.Sub(start).Seconds()
-//	p.Y.Min = 0.0
-//	p.Y.Max = 1.0
-//
-//	// Adjust legend position
-//	p.Legend.Top = true            // Position the legend at the top of the plot
-//	p.Legend.Left = true           // Position the legend to the left side of the plot
-//	p.Legend.XOffs = vg.Points(10) // Move the legend to the right
-//	p.Legend.YOffs = vg.Points(30) // Move the legend up
-//	p.Legend.TextStyle.Font.Size = 11
-//
-//	// Define the resolution and calculate timeSlice
-//	resolution := 30
-//	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
-//
-//	// Aggregate metrics into buckets based on the timeSlice
-//	cacheHitsPerSlice := make(map[int64]int)
-//	requestsPerSlice := make(map[int64]int)
-//	metrics := plt.m.GetCacheHits()
-//	requests := plt.m.GetAllRequests()
-//	for _, metric := range metrics {
-//		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
-//		cacheHitsPerSlice[bucket]++
-//	}
-//	for _, metric := range requests {
-//		bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
-//		requestsPerSlice[bucket]++
-//	}
-//
-//	// Create a plotter.XYs to hold the request counts
-//	pts := make(plotter.XYs, resolution)
-//
-//	// Fill the pts with the request counts
-//	for i := 0; i < resolution; i++ {
-//		if hits, ok := cacheHitsPerSlice[int64(i)]; ok {
-//			hitsPerSecond := float64(hits) / timeSlice.Seconds()
-//			if req, ok2 := requestsPerSlice[int64(i)]; ok2 {
-//				reqsPerSecond := float64(req) / timeSlice.Seconds()
-//				hitRatio := hitsPerSecond / reqsPerSecond
-//				pts[i].Y = hitRatio
-//			}
-//		}
-//		pts[i].X = float64(i) * timeSlice.Seconds()
-//	}
-//
-//	// Create a line chart
-//	line, err := plotter.NewLine(pts)
-//	if err != nil {
-//		log.Panic(err)
-//	}
-//
-//	p.Legend.Add("aggregate", line)
-//	p.Add(line)
-//
-//	for i := 0; i < len(plt.m.config.nodeConfigs); i++ {
-//		plt.PlotCacheHitsForNode(p, i)
-//	}
-//
-//	plt.plotNodeFailures(p)
-//
-//	// Save the plot to a PNG file
-//	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
-//		log.Panic(err)
-//	}
-//}
-//
-//func (plt *Plotter_) plotNodeFailures(p *plot.Plot) {
-//
-//	nodeFailures := plt.m.GetFailureIntervals()
-//
-//	for i := 0; i < len(nodeFailures); i++ {
-//		metric := nodeFailures[i]
-//		iStart := metric.timestamp
-//		duration := time.Duration(metric.floatValues["duration"] * float64(time.Second))
-//		iEnd := iStart.Add(duration)
-//		addVerticalLine(p, iStart.Sub(plt.m.start).Seconds(), fmt.Sprintf("node%d\nfailed", i+1), LIGHT_COLORS[i])
-//		addVerticalLine(p, iEnd.Sub(plt.m.start).Seconds(), fmt.Sprintf("node%d\nrecovered", i+1), LIGHT_COLORS[i])
-//		//fmt.Printf("node%d\nfailed from %d to %d\n", i+1, int(math.Round(iStart.Sub(plt.m.start).Seconds())), int(math.Round(iEnd.Sub(plt.m.start).Seconds())))
-//	}
-//}
-//
-//func (plt *Plotter_) PlotCacheHitsForNode(p *plot.Plot, nodeIndex int) {
-//	start := plt.m.start
-//
-//	// Define the resolution and calculate timeSlice
-//	resolution := 30
-//	timeSlice := time.Duration(float64(plt.m.config.maxDuration.Nanoseconds()) / float64(resolution))
-//
-//	// Aggregate metrics into buckets based on the timeSlice
-//	cacheHitsPerSlice := make(map[int64]int)
-//	requestsPerSlice := make(map[int64]int)
-//	metrics := plt.m.GetCacheHits()
-//	requests := plt.m.GetAllRequests()
-//	for _, metric := range metrics {
-//		if int(metric.floatValues["nodeIndex"]) == nodeIndex {
-//			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
-//			cacheHitsPerSlice[bucket]++
-//		}
-//	}
-//	for _, metric := range requests {
-//		if int(metric.floatValues["nodeIndex"]) == nodeIndex {
-//			bucket := int64(math.Ceil(float64(metric.timestamp.Sub(start).Microseconds()) / float64(timeSlice.Microseconds())))
-//			requestsPerSlice[bucket]++
-//		}
-//	}
-//
-//	// Create a plotter.XYs to hold the request counts
-//	pts := make(plotter.XYs, resolution)
-//
-//	// Fill the pts with the request counts
-//	for i := 0; i < resolution; i++ {
-//		if hits, ok := cacheHitsPerSlice[int64(i)]; ok {
-//			hitsPerSecond := float64(hits) / timeSlice.Seconds()
-//			if req, ok2 := requestsPerSlice[int64(i)]; ok2 {
-//				reqsPerSecond := float64(req) / timeSlice.Seconds()
-//				hitRatio := hitsPerSecond / reqsPerSecond
-//				pts[i].Y = hitRatio
-//			}
-//		}
-//		pts[i].X = float64(i) * timeSlice.Seconds()
-//	}
-//
-//	// Create a line chart
-//	line, err := plotter.NewLine(pts)
-//	if err != nil {
-//		log.Panic(err)
-//	}
-//
-//	line.Color = DARK_COLORS[nodeIndex]
-//	p.Legend.Add(fmt.Sprintf("node%d", nodeIndex+1), line)
-//
-//	p.Add(line)
-//}
-//

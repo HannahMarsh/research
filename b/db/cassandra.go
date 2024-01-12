@@ -378,10 +378,10 @@ func (k *CassandraDB) Insert(ctx context.Context, table string, key string, valu
 	pairs := util.NewFieldPairs(values)
 	for _, p := range pairs {
 		args = append(args, p.Value)
-		buf.WriteString(".Value ,")
+		buf.WriteString(", ")
 		buf.WriteString(p.Field)
 	}
-	buf.WriteString(".Value) VALUES (?")
+	buf.WriteString(") VALUES (?")
 
 	for i := 0; i < len(pairs); i++ {
 		buf.WriteString(" ,?")

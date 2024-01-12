@@ -2,16 +2,17 @@ package metrics
 
 import (
 	bconfig "benchmark/config"
-	"sort"
+	"fmt"
 	"sync"
 	"time"
 )
 
-var globalMetrics *metrics
+// var globalMetrics *metrics
 
 var globalAllMetrics []Metric
 
 var (
+	TAG = "TAG"
 	// metric types
 	DATABASE_OPERATION = "DATABASE_OPERATION"
 	CACHE_OPERATION    = "CACHE_OPERATION"
@@ -23,6 +24,7 @@ var (
 	LATENCY    = "LATENCY"
 	NODE_INDEX = "NODE_INDEX"
 	DATABASE   = "DATABASE"
+	SIZE       = "SIZE"
 
 	// string values
 	BATCH_READ        = "BATCH_READ"
@@ -43,7 +45,7 @@ type metrics struct {
 }
 
 func Init(config *bconfig.Config) {
-	globalMetrics = newMetrics(time.Now(), config)
+	//globalMetrics = newMetrics(time.Now(), config)
 }
 
 func newMetrics(start time.Time, config *bconfig.Config) *metrics {
@@ -73,9 +75,9 @@ func (mtrc *Metric) IsType(type_ string) bool {
 	return mtrc.metricType == type_
 }
 
-func AddMeasurement(metricType string, timestamp time.Time, values map[string]interface{}) {
-	globalMetrics.addMetric(metricType, timestamp, values)
-}
+//func AddMeasurement(metricType string, timestamp time.Time, values map[string]interface{}) {
+//	globalAllMetrics.addMetric(metricType, timestamp, values)
+//}
 
 func (m *metrics) addMetric(metricType string, timestamp time.Time, values map[string]interface{}) {
 	// insert the metric concurrently
@@ -95,29 +97,25 @@ func (ts *threadSafeSortedMetrics) insertTimestampWithLabel(newTimestamp time.Ti
 	defer ts.mu.Unlock()
 
 	// Append and sort - todo sorting isn't efficient for large slices
+	values[TAG] = name
 	ts.metrics = append(ts.metrics, Metric{timestamp: newTimestamp, metricType: name, tags: values})
-	sort.Slice(ts.metrics, func(i, j int) bool {
-		return ts.metrics[i].timestamp.Before(ts.metrics[j].timestamp)
-	})
+	//sort.Slice(ts.metrics, func(i, j int) bool {
+	//	return ts.metrics[i].timestamp.Before(ts.metrics[j].timestamp)
+	//})
 }
 
 type MetricSlice []Metric
-
-func GetMetricsByType(metricType string) MetricSlice {
-	if tsMetrics, exists := globalMetrics.allMetrics[metricType]; exists {
-		return tsMetrics.getMetrics()
-	}
-	return nil
-}
 
 // getMetrics safely returns a copy of the list of metrics
 func (ts *threadSafeSortedMetrics) getMetrics() MetricSlice {
 	ts.mu.Lock() // maintain exclusive access to the slice
 	defer ts.mu.Unlock()
+
+	return ts.metrics
 	// return a copy of the metrics slice (to avoid race conditions)
-	copiedTimestamps := make([]Metric, len(ts.metrics))
-	copy(copiedTimestamps, ts.metrics)
-	return copiedTimestamps
+	//copiedTimestamps := make([]Metric, len(ts.metrics))
+	//copy(copiedTimestamps, ts.metrics)
+	//return copiedTimestamps
 }
 
 func allTests(m Metric, tests ...func(Metric) bool) bool {
@@ -140,12 +138,63 @@ func (ms MetricSlice) Filter(tests ...func(Metric) bool) MetricSlice {
 }
 
 func GatherAllMetrics() {
+	var wg sync.WaitGroup
+	metricsChan := make(chan []Metric, len(globalMetrics.allMetrics))
+
+	j := 1
+	j_max := len(globalMetrics.allMetrics)
+
 	for _, tsMetrics := range globalMetrics.allMetrics {
-		for _, m := range tsMetrics.getMetrics() {
-			globalAllMetrics = append(globalAllMetrics, m)
-		}
+		wg.Add(1)
+		go func(ts *threadSafeSortedMetrics, j int) {
+			defer wg.Done()
+			str := fmt.Sprintf("\t(%d/%d): %s\n", j, j_max, ts.metrics[0].metricType)
+			fmt.Printf("%s", str)
+			mtrcs := ts.getMetrics()
+			metricsChan <- mtrcs
+			i := 1
+			//max_i := len(mtrcs)
+			for _, m := range mtrcs {
+				globalAllMetrics = append(globalAllMetrics, m)
+				//fmt.Printf("\r%s(%d%%)                            ", str, int(100*float64(i)/float64(max_i)))
+				i++
+			}
+			//fmt.Printf("\r%s(100%%) done                          \n", str)
+		}(tsMetrics, j)
+		j++
+	}
+
+	go func() {
+		wg.Wait()
+		close(metricsChan)
+	}()
+
+	for range metricsChan {
+		// Metrics received from channels, no action needed here.
 	}
 }
+
+//
+//func GatherAllMetrics() {
+//	j := 1
+//	j_max := len(globalMetrics.allMetrics)
+//	for _, tsMetrics := range globalMetrics.allMetrics {
+//		str := fmt.Sprintf("\t(%d/%d): %s: ", j, j_max, tsMetrics.metrics[0].metricType)
+//		fmt.Printf("%s (this might take a minute)", str)
+//		j++
+//		mtrcs := tsMetrics.getMetrics()
+//		i := 1
+//		max_i := len(mtrcs)
+//		for _, m := range mtrcs {
+//			globalAllMetrics = append(globalAllMetrics, m)
+//			//if i%(max_i/10) == 0 {
+//			fmt.Printf("\r%s(%d%%)                            ", str, int(100*float64(i)/float64(max_i)))
+//			//}
+//			i++
+//		}
+//		fmt.Printf("\r%s(100%%) done                          \n", str)
+//	}
+//}
 
 func Filter(tests ...func(Metric) bool) MetricSlice {
 	var mtrcs MetricSlice
