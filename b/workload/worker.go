@@ -105,17 +105,37 @@ func (w *Worker) Run(ctx context.Context) {
 		opsCount := 1
 		if w.p.Workload.DoTransactions.Value {
 			if w.doBatch {
-				err, _ = w.workload.DoBatchTransaction(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
-				opsCount = w.p.Performance.BatchSize.Value
+				go func() {
+					err, _ := w.workload.DoBatchTransaction(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
+					if err != nil {
+
+					}
+				}()
+				// w.p.Performance.BatchSize.Value
 			} else {
-				err, _ = w.workload.DoTransaction(ctx, w.workDB, w.cache)
+				go func() {
+					err, _ := w.workload.DoTransaction(ctx, w.workDB, w.cache)
+					if err != nil {
+
+					}
+				}()
 			}
 		} else {
 			if w.doBatch {
-				err = w.workload.DoBatchInsert(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
+				go func() {
+					err := w.workload.DoBatchInsert(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
+					if err != nil {
+
+					}
+				}()
 				opsCount = w.p.Performance.BatchSize.Value
 			} else {
-				err = w.workload.DoInsert(ctx, w.workDB, w.cache)
+				go func() {
+					err := w.workload.DoInsert(ctx, w.workDB, w.cache)
+					if err != nil {
+
+					}
+				}()
 			}
 		}
 

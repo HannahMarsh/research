@@ -33,6 +33,22 @@ func cacheMeasure(start time.Time, nodeIndex int, operationType string, err erro
 	}
 }
 
+func nodeFailureMeasure(t time.Time, nodeIndex int, isStart bool) {
+	if isStart {
+		metrics2.AddMeasurement(metrics2.NODE_FAILURE, t,
+			map[string]interface{}{
+				metrics2.INTERVAL:   metrics2.START,
+				metrics2.NODE_INDEX: nodeIndex,
+			})
+	} else {
+		metrics2.AddMeasurement(metrics2.NODE_FAILURE, t,
+			map[string]interface{}{
+				metrics2.INTERVAL:   metrics2.END,
+				metrics2.NODE_INDEX: nodeIndex,
+			})
+	}
+}
+
 type CacheWrapper struct {
 	nodes    []*cache.Node
 	p        *bconfig.Config
@@ -56,7 +72,6 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 }
 
 func (c *CacheWrapper) scheduleFailures() {
-	start := time.Now()
 	for i := 0; i < len(c.p.Cache.Nodes); i++ {
 		nodeIndex := i
 		estimatedRunningTime := EstimateRunningTime(c.p)
@@ -70,13 +85,13 @@ func (c *CacheWrapper) scheduleFailures() {
 
 			// Schedule node failure
 			failTimer := time.AfterFunc(startDelay, func() {
-				c.nodes[nodeIndex].Fail()
+				go c.nodes[nodeIndex].Fail()
+				nodeFailureMeasure(time.Now(), nodeIndex, true)
 
-				c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex].Start = time.Now().Sub(start).Seconds()
 				// Schedule node recovery
 				recoverTimer := time.AfterFunc(endDelay-startDelay, func() {
-					c.nodes[nodeIndex].Recover(c.ctx)
-					c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex].End = time.Now().Sub(start).Seconds()
+					go c.nodes[nodeIndex].Recover(c.ctx)
+					nodeFailureMeasure(time.Now(), nodeIndex, false)
 				})
 				c.timers = append(c.timers, recoverTimer)
 			})
@@ -140,14 +155,13 @@ func EstimateRunningTime(config *bconfig.Config) time.Duration {
 
 	targetOpsPerSec := float64(config.Performance.TargetOperationsPerSec.Value)
 	if targetOpsPerSec <= 0 {
-		targetOpsPerSec = 1 // Set a default value if not specified
+		targetOpsPerSec = 1 // default
 	}
 
 	timePerOp := time.Second / time.Duration(targetOpsPerSec)
 	estimatedDuration := timePerOp * time.Duration(totalDBInteractions)
 
-	// Adjust for any additional delays (e.g., throttling, retries)
-	adjustmentFactor := 1.0 // Adjust this based on expected delays
+	adjustmentFactor := 1.2 // for expected delays
 	estimatedDuration = time.Duration(float64(estimatedDuration) * adjustmentFactor)
 
 	return estimatedDuration

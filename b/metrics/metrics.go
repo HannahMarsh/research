@@ -24,13 +24,14 @@ var (
 	TRANSACTION        = "TRANSACTION"
 	WORKLOAD           = "WORKLOAD"
 	// labels
-	SUCCESSFUL = "SUCCESSFUL"
-	OPERATION  = "OPERATION"
-	ERROR      = "ERROR"
-	LATENCY    = "LATENCY"
-	NODE_INDEX = "NODE_INDEX"
-	DATABASE   = "DATABASE"
-	SIZE       = "SIZE"
+	SUCCESSFUL   = "SUCCESSFUL"
+	OPERATION    = "OPERATION"
+	ERROR        = "ERROR"
+	LATENCY      = "LATENCY"
+	NODE_INDEX   = "NODE_INDEX"
+	DATABASE     = "DATABASE"
+	SIZE         = "SIZE"
+	NODE_FAILURE = "NODE_FAILURE"
 
 	// string values
 	BATCH_READ        = "BATCH_READ"
@@ -41,6 +42,9 @@ var (
 	SCAN              = "SCAN"
 	INSERT            = "INSERT"
 	READ_MODIFY_WRITE = "READ_MODIFY_WRITE"
+	INTERVAL          = "INTERVAL"
+	START             = "START"
+	END               = "END"
 )
 
 func Init(config *bconfig.Config) {

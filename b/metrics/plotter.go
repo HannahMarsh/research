@@ -127,7 +127,7 @@ func averageValue(value func(Metric) float64) func([][]Metric, time.Duration) fl
 func PlotMetrics(s time.Time, path string) {
 	fmt.Printf("Plotting metrics...\n")
 	numBuckets := 30
-	start := s.Add(warmUptime)
+	start := s //s.Add(warmUptime)
 	end := s.Add(estimatedRunningTime)
 
 	var nodeCategories []category
@@ -683,21 +683,35 @@ func (plt *plotInfo) plotNodeFailures(p *plot.Plot) {
 
 	duration := plt.end.Sub(plt.start)
 
-	i := 0
+	m := globalAllMetrics.Filter(func(m Metric) bool {
+		return m.metricType == NODE_FAILURE
+	})
 
 	for _, node := range globalConfig.Cache.Nodes {
-		for _, interval := range node.FailureIntervals {
-			iStart := time.Duration(interval.Start * float64(time.Second)).Seconds()
-			iEnd := time.Duration(interval.End * float64(time.Second)).Seconds()
-			if iStart < duration.Seconds() {
-				addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed", node.NodeId.Value), LIGHT_COLORS[i])
-				if iEnd < duration.Seconds() {
-					addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered", node.NodeId.Value), LIGHT_COLORS[i])
+		if node.FailureIntervals != nil && len(node.FailureIntervals) > 0 {
+			for _, mm := range m.Filter(func(m Metric) bool { return has(m, NODE_INDEX, node.NodeId.Value-1) && has(m, INTERVAL, START) }) {
+				if iStart := time.Duration(mm.timestamp.Sub(plt.start).Nanoseconds()).Seconds(); iStart < duration.Seconds() {
+					addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed\n(t = %.2f)", node.NodeId.Value, iStart), LIGHT_COLORS[node.NodeId.Value-1])
 				}
 			}
-
+			for _, mm := range m.Filter(func(m Metric) bool { return has(m, NODE_INDEX, node.NodeId.Value-1) && has(m, INTERVAL, END) }) {
+				if iEnd := time.Duration(mm.timestamp.Sub(plt.start).Nanoseconds()).Seconds(); iEnd < duration.Seconds() {
+					addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered\n(t = %.2f)", node.NodeId.Value, iEnd), LIGHT_COLORS[node.NodeId.Value-1])
+				}
+			}
 		}
-		i += 1
+		//for _, interval := range node.FailureIntervals {
+		//	iStart := time.Duration(interval.Start * float64(time.Second)).Seconds()
+		//	iEnd := time.Duration(interval.End * float64(time.Second)).Seconds()
+		//	if iStart < duration.Seconds() {
+		//		addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed", node.NodeId.Value), LIGHT_COLORS[i])
+		//		if iEnd < duration.Seconds() {
+		//			addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered", node.NodeId.Value), LIGHT_COLORS[i])
+		//		}
+		//	}
+		//
+		//}
+		//i += 1
 	}
 }
 
@@ -827,6 +841,7 @@ func addVerticalLine(p *plot.Plot, xValue float64, label string, clr color.RGBA)
 	labels.TextStyle[0].XAlign = text.XCenter // Align the label above the line
 	labels.TextStyle[0].Font.Size = 11
 	labels.TextStyle[0].Rotation = 0.9
+	labels.Offset = vg.Point{X: 5, Y: 5} // Adjust the X offset to move label closer to the line
 
 	p.Add(verticalLine)
 	p.Add(labels)

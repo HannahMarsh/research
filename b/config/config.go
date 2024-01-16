@@ -246,9 +246,27 @@ var defaultConfig_ = Config{
 					Description: "Indicates whether to use the default database for the cache.",
 				},
 			},
+			{
+				NodeId: IntProperty{
+					Value:       4,
+					Description: "The ID of the node.",
+				},
+				Address: StringProperty{
+					Description: "Address and port of redis server",
+					Value:       "0.0.0.0:6382",
+				},
+				MaxSize: IntProperty{
+					Value:       1000000,
+					Description: "The maximum number of records to store in the cache.",
+				},
+				UseDefaultDatabase: BoolProperty{
+					Value:       true,
+					Description: "Indicates whether to use the default database for the cache.",
+				},
+			},
 		},
 		VirtualNodes: IntProperty{
-			Value:       5000,
+			Value:       50000,
 			Description: "The number of virtual nodes.",
 		},
 	},
@@ -278,7 +296,7 @@ var defaultConfig_ = Config{
 			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'",
 		},
 		InsertCount: IntProperty{
-			Value:       5000,
+			Value:       1000,
 			Description: "If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.",
 		},
 		InsertionRetryInterval: IntProperty{
@@ -302,7 +320,7 @@ var defaultConfig_ = Config{
 			Description: "The minimum number of records to scan in a single operation.",
 		},
 		OperationCount: IntProperty{
-			Value:       70000,
+			Value:       8000,
 			Description: "The total number of operations to perform during the workload execution.",
 		},
 		RecordCount: IntProperty{
@@ -310,11 +328,11 @@ var defaultConfig_ = Config{
 			Description: "If `DoTransactions` is false, and `InsertCount` is 0, this is the total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.",
 		},
 		TargetOperationsPerSec: IntProperty{
-			Value:       5000,
+			Value:       1200,
 			Description: "The target number of operations per second that the workload should aim to achieve.",
 		},
 		ThreadCount: IntProperty{
-			Value:       1000,
+			Value:       500,
 			Description: "The number of concurrent threads to use when executing the workload.",
 		},
 	},

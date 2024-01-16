@@ -31,7 +31,7 @@ Database:
 Cache:
     VirtualNodes:
         Description: The number of virtual nodes.
-        Value: 5000
+        Value: 50000
     Nodes:
         - NodeId:
             Description: The ID of the node.
@@ -76,6 +76,19 @@ Cache:
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
+        - NodeId:
+            Description: The ID of the node.
+            Value: 4
+          Address:
+            Description: Address and port of redis server
+            Value: 0.0.0.0:6382
+          FailureIntervals: []
+          MaxSize:
+            Description: The maximum number of records to store in the cache.
+            Value: 1000000
+          UseDefaultDatabase:
+            Description: Indicates whether to use the default database for the cache.
+            Value: true
 Performance:
     BatchSize:
         Description: The number of operations to batch together in a single transaction. Batch processing is disabled if set to 1.
@@ -97,7 +110,7 @@ Performance:
         Value: constant
     InsertCount:
         Description: If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.
-        Value: 5000
+        Value: 1000
     InsertionRetryInterval:
         Description: |-
             The time in seconds to wait before retrying a failed insert operation. This controls the
@@ -117,16 +130,16 @@ Performance:
         Value: 1
     OperationCount:
         Description: The total number of operations to perform during the workload execution.
-        Value: 70000
+        Value: 8000
     RecordCount:
         Description: If `DoTransactions` is false, and `InsertCount` is 0, this is the total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.
         Value: 300000
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 5000
+        Value: 1200
     ThreadCount:
         Description: The number of concurrent threads to use when executing the workload.
-        Value: 5000
+        Value: 500
 WorkloadIdentifier:
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).

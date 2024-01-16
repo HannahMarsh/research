@@ -6,7 +6,6 @@ import (
 	"github.com/spaolacci/murmur3"
 	"math/rand"
 	"sort"
-	"time"
 )
 
 // NodeRing stores a map and sorted list of hashes
@@ -65,9 +64,9 @@ func hashFunc(key string) int {
 // GetNode returns the node index a key maps to.
 func (nr *NodeRing) GetNode(key string) int {
 
-	rand.Seed(time.Now().UnixNano())
-
-	return rand.Intn(nr.actualNodes)
+	//rand.Seed(time.Now().UnixNano())
+	//
+	//return rand.Intn(nr.actualNodes)
 
 	hash := hashFunc(key) // first, get the hash for the key
 
