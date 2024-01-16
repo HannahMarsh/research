@@ -110,7 +110,7 @@ Performance:
         Value: constant
     InsertCount:
         Description: If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.
-        Value: 1000
+        Value: 100000
     InsertionRetryInterval:
         Description: |-
             The time in seconds to wait before retrying a failed insert operation. This controls the

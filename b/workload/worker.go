@@ -47,7 +47,7 @@ func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workl
 	}
 
 	if totalOpCount < int64(threadCount) {
-		fmt.Printf("totalOpCount(%s/%s/%s): %d should be bigger than threadCount: %d",
+		fmt.Printf("totalOpCount(%d/%d/%d): %d should be bigger than threadCount: %d",
 			p.Performance.OperationCount.Value,
 			p.Performance.InsertCount.Value,
 			p.Performance.RecordCount.Value,

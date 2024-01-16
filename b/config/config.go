@@ -296,7 +296,7 @@ var defaultConfig_ = Config{
 			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'",
 		},
 		InsertCount: IntProperty{
-			Value:       1000,
+			Value:       100000,
 			Description: "If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.",
 		},
 		InsertionRetryInterval: IntProperty{
