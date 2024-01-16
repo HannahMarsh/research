@@ -101,47 +101,11 @@ func (w *Worker) Run(ctx context.Context) {
 	startTime := time.Now()
 
 	for w.opCount == 0 || w.opsDone < w.opCount {
-		var err error
 		opsCount := 1
-		if w.p.Workload.DoTransactions.Value {
-			if w.doBatch {
-				go func() {
-					err, _ := w.workload.DoBatchTransaction(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
-					if err != nil {
-
-					}
-				}()
-				// w.p.Performance.BatchSize.Value
-			} else {
-				go func() {
-					err, _ := w.workload.DoTransaction(ctx, w.workDB, w.cache)
-					if err != nil {
-
-					}
-				}()
-			}
-		} else {
-			if w.doBatch {
-				go func() {
-					err := w.workload.DoBatchInsert(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
-					if err != nil {
-
-					}
-				}()
-				opsCount = w.p.Performance.BatchSize.Value
-			} else {
-				go func() {
-					err := w.workload.DoInsert(ctx, w.workDB, w.cache)
-					if err != nil {
-
-					}
-				}()
-			}
+		if w.doBatch {
+			opsCount = w.p.Performance.BatchSize.Value
 		}
-
-		if err != nil {
-			//log.Panic(err)
-		}
+		go runAsync(w, ctx)
 
 		w.opsDone += int64(opsCount)
 		w.throttle(ctx, startTime)
@@ -150,6 +114,22 @@ func (w *Worker) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
+		}
+	}
+}
+
+func runAsync(w *Worker, ctx context.Context) {
+	if w.p.Workload.DoTransactions.Value {
+		if w.doBatch {
+			_, _ = w.workload.DoBatchTransaction(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
+		} else {
+			_, _ = w.workload.DoTransaction(ctx, w.workDB, w.cache)
+		}
+	} else {
+		if w.doBatch {
+			_ = w.workload.DoBatchInsert(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
+		} else {
+			_ = w.workload.DoInsert(ctx, w.workDB, w.cache)
 		}
 	}
 }
