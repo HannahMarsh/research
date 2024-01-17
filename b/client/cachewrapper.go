@@ -128,7 +128,7 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 	nodeIndex := c.nodeRing.GetNode(key)
 
 	defer func() {
-		cacheMeasure(start, nodeIndex, "GET", err, size)
+		cacheMeasure(start, nodeIndex, "SET", err, size)
 	}()
 
 	return c.nodes[nodeIndex].Set(ctx, key, value)
