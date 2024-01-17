@@ -296,7 +296,7 @@ var defaultConfig_ = Config{
 			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'",
 		},
 		InsertCount: IntProperty{
-			Value:       100000,
+			Value:       1000,
 			Description: "If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.",
 		},
 		InsertionRetryInterval: IntProperty{
@@ -304,7 +304,7 @@ var defaultConfig_ = Config{
 			Description: "The time in seconds to wait before retrying a failed insert operation. This controls the\nback-off strategy for handling write failures.",
 		},
 		InsertionRetryLimit: IntProperty{
-			Value:       3,
+			Value:       1,
 			Description: "The maximum number of times to retry a failed insert operation.",
 		},
 		MaxExecutionTime: IntProperty{
@@ -320,7 +320,7 @@ var defaultConfig_ = Config{
 			Description: "The minimum number of records to scan in a single operation.",
 		},
 		OperationCount: IntProperty{
-			Value:       8000,
+			Value:       50000,
 			Description: "The total number of operations to perform during the workload execution.",
 		},
 		RecordCount: IntProperty{
@@ -328,7 +328,7 @@ var defaultConfig_ = Config{
 			Description: "If `DoTransactions` is false, and `InsertCount` is 0, this is the total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.",
 		},
 		TargetOperationsPerSec: IntProperty{
-			Value:       1200,
+			Value:       3000,
 			Description: "The target number of operations per second that the workload should aim to achieve.",
 		},
 		ThreadCount: IntProperty{
@@ -386,23 +386,23 @@ var defaultConfig_ = Config{
 			Description: "Indicates whether all fields should be written in write operations.",
 		},
 		ReadModifyWriteProportion: FloatProperty{
-			Value:       0.02,
+			Value:       0.0,
 			Description: "The proportion of read-modify-write operations in the workload.",
 		},
 		ReadProportion: FloatProperty{
-			Value:       0.93,
+			Value:       0.97,
 			Description: "The proportion of read operations in the workload.",
 		},
 		InsertProportion: FloatProperty{
-			Value:       0.01,
+			Value:       0.03,
 			Description: "The proportion of insert operations in the workload.",
 		},
 		UpdateProportion: FloatProperty{
-			Value:       0.03,
+			Value:       0.0,
 			Description: "The proportion (from 0.0 to 1.0) of update operations in the workload. If the value is 0.0, then updating is disabled.",
 		},
 		ScanProportion: FloatProperty{
-			Value:       0.01,
+			Value:       0.0,
 			Description: "The proportion (from 0.0 to 1.0) of scan operations in the workload. If the value is 0.0, then scanning is disabled.",
 		},
 		RequestDistribution: StringProperty{

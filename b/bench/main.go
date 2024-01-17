@@ -145,7 +145,7 @@ func main() {
 
 	closeDone <- struct{}{}
 
-	metrics.PlotMetrics(start, globalProps.Measurements.MetricsOutputDir.Value)
+	metrics.PlotMetrics(start, time.Now(), globalProps.Measurements.MetricsOutputDir.Value)
 }
 
 func maxExecution() {

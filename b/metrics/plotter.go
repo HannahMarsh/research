@@ -124,11 +124,14 @@ func averageValue(value func(Metric) float64) func([][]Metric, time.Duration) fl
 	}
 }
 
-func PlotMetrics(s time.Time, path string) {
+func PlotMetrics(s time.Time, e time.Time, path string) {
 	fmt.Printf("Plotting metrics...\n")
 	numBuckets := 30
 	start := s //s.Add(warmUptime)
 	end := s.Add(estimatedRunningTime)
+	if e.Before(end) {
+		end = e
+	}
 
 	var nodeCategories []category
 	var nodeSizeCategories []category
