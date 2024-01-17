@@ -40,7 +40,7 @@ Cache:
             Description: Address and port of redis server
             Value: 0.0.0.0:6379
           FailureIntervals:
-            - Start: 0.3
+            - Start: 0.4
               End: 0.6
           MaxSize:
             Description: The maximum number of records to store in the cache.
@@ -54,9 +54,7 @@ Cache:
           Address:
             Description: Address and port of redis server
             Value: 0.0.0.0:6380
-          FailureIntervals:
-            - Start: 0.4
-              End: 0.7
+          FailureIntervals: []
           MaxSize:
             Description: The maximum number of records to store in the cache.
             Value: 1000000
@@ -110,7 +108,7 @@ Performance:
         Value: constant
     InsertCount:
         Description: If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.
-        Value: 1000
+        Value: 20000
     InsertionRetryInterval:
         Description: |-
             The time in seconds to wait before retrying a failed insert operation. This controls the
@@ -130,16 +128,16 @@ Performance:
         Value: 1
     OperationCount:
         Description: The total number of operations to perform during the workload execution.
-        Value: 50000
+        Value: 100000
     RecordCount:
         Description: If `DoTransactions` is false, and `InsertCount` is 0, this is the total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.
-        Value: 300000
+        Value: 400000
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 3000
+        Value: 8000
     ThreadCount:
         Description: The number of concurrent threads to use when executing the workload.
-        Value: 500
+        Value: 2000
 WorkloadIdentifier:
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
@@ -169,7 +167,7 @@ WorkloadIdentifier:
         Value: true
     InsertProportion:
         Description: The proportion of insert operations in the workload.
-        Value: 0.03
+        Value: 0.02
     KeyRangeLowerBound:
         Description: The starting point (lower bound) for key values used in insert operations.
         Value: 500
@@ -184,7 +182,7 @@ WorkloadIdentifier:
         Value: 0
     ReadProportion:
         Description: The proportion of read operations in the workload.
-        Value: 0.97
+        Value: 0.98
     RequestDistribution:
         Description: |-
             The distribution of request types in the workload (to simulate different access patterns on the dataset).
@@ -228,7 +226,7 @@ Measurements:
         Value: table
     WarmUpTime:
         Description: The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).
-        Value: 2
+        Value: 5
     ZeroPadding:
         Description: The amount of zero-padding for numeric fields (for a fixed width representation).
         Value: 1

@@ -34,6 +34,8 @@ type Workload struct {
 	transactionInsertKeySequence generator.AcknowledgedCounter
 	scanLength                   generator.Generator
 
+	warmUpTime time.Time
+
 	valuePool sync.Pool
 }
 
@@ -57,9 +59,10 @@ const (
 const stateKey = contextKey("core")
 
 // NewWorkload implements the WorkloadCreator Create interface.
-func NewWorkload(p *bconfig.Config) (*Workload, error) {
+func NewWorkload(p *bconfig.Config, warmUpTime time.Time) (*Workload, error) {
 	c := new(Workload)
 	c.p = p
+	c.warmUpTime = warmUpTime
 	c.fieldNames = make([]string, int64(c.p.Performance.MaxFields.Value))
 	for i := int64(0); i < int64(c.p.Performance.MaxFields.Value); i++ {
 		c.fieldNames[i] = fmt.Sprintf("field%d", i)
@@ -642,6 +645,15 @@ func (c *Workload) doTransactionScan(ctx context.Context, db db.DB, cache_ cache
 func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cache) (error, bool) {
 	state := ctx.Value(stateKey).(*State)
 	r := state.r
+
+	if time.Now().Before(c.warmUpTime) {
+		dbKey := c.buildKeyName(c.keySequence.Next(r))
+		values := c.buildValues(state, dbKey)
+		err, _ := cache_.Set(ctx, dbKey, values)
+		if err != nil {
+		}
+		return nil, false
+	}
 
 	operation := operationType(c.operationChooser.Next(r))
 	switch operation {

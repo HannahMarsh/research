@@ -46,11 +46,13 @@ var (
 	globalCache    *client.CacheWrapper
 	globalWorkload *workload.Workload
 	globalProps    *bconfig.Config
+	warmUpTime     time.Time
 )
 
 func initialGlobal(onProperties func()) {
 	var err error
 	globalProps, err = bconfig.NewConfig(propertyFile)
+	//warmUpTime = time.Now().Add(time.Duration(globalProps.Measurements.WarmUpTime.Value) * time.Second)
 
 	if onProperties != nil {
 		onProperties()
@@ -74,7 +76,7 @@ func initialGlobal(onProperties func()) {
 
 	workloadName := globalProps.Workload.WorkloadIdentifier
 
-	if globalWorkload, err = workload.NewWorkload(globalProps); err != nil {
+	if globalWorkload, err = workload.NewWorkload(globalProps, warmUpTime); err != nil {
 		util.Fatalf("create workload %s failed %v", workloadName, err)
 	}
 
@@ -83,6 +85,8 @@ func initialGlobal(onProperties func()) {
 	}
 	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
 	globalCache = client.NewCache(globalProps, globalContext)
+	warmUpTime = time.Now().Add(time.Duration(globalProps.Measurements.WarmUpTime.Value) * time.Second)
+
 }
 
 func main() {
@@ -129,6 +133,7 @@ func main() {
 	cobra.EnablePrefixMatching = true
 
 	start := time.Now()
+
 	go maxExecution()
 
 	if err := rootCmd.Execute(); err != nil {
@@ -145,7 +150,7 @@ func main() {
 
 	closeDone <- struct{}{}
 
-	metrics.PlotMetrics(start, time.Now(), globalProps.Measurements.MetricsOutputDir.Value)
+	metrics.PlotMetrics(start, time.Now())
 }
 
 func maxExecution() {

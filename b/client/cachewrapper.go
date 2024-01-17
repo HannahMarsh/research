@@ -74,13 +74,15 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 func (c *CacheWrapper) scheduleFailures() {
 	for i := 0; i < len(c.p.Cache.Nodes); i++ {
 		nodeIndex := i
-		estimatedRunningTime := EstimateRunningTime(c.p)
+
+		warmUpTime := time.Duration(c.p.Measurements.WarmUpTime.Value) * time.Second
+		estimatedRunningTime := EstimateRunningTime(c.p) - warmUpTime
 		for j := 0; j < len(c.p.Cache.Nodes[nodeIndex].FailureIntervals); j++ {
 			failureIndex := j
 			interval := c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex]
-			startDelay := time.Duration(interval.Start*estimatedRunningTime.Seconds()) * time.Second
+			startDelay := (time.Duration(interval.Start*estimatedRunningTime.Seconds()) * time.Second) + warmUpTime
 			//c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex].Start = startDelay.Seconds()
-			endDelay := time.Duration(interval.End*estimatedRunningTime.Seconds()) * time.Second
+			endDelay := (time.Duration(interval.End*estimatedRunningTime.Seconds()) * time.Second) + warmUpTime
 			//c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex].End = endDelay.Seconds()
 
 			// Schedule node failure
@@ -116,7 +118,7 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (_ 
 	nodeIndex := c.nodeRing.GetNode(key)
 
 	defer func() {
-		cacheMeasure(start, nodeIndex, "GET", err, size)
+		cacheMeasure(start, nodeIndex, metrics2.READ, err, size)
 	}()
 
 	return c.nodes[nodeIndex].Get(ctx, key, fields)
@@ -128,7 +130,7 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 	nodeIndex := c.nodeRing.GetNode(key)
 
 	defer func() {
-		cacheMeasure(start, nodeIndex, "SET", err, size)
+		cacheMeasure(start, nodeIndex, metrics2.INSERT, err, size)
 	}()
 
 	return c.nodes[nodeIndex].Set(ctx, key, value)
@@ -161,7 +163,7 @@ func EstimateRunningTime(config *bconfig.Config) time.Duration {
 	timePerOp := time.Second / time.Duration(targetOpsPerSec)
 	estimatedDuration := timePerOp * time.Duration(totalDBInteractions)
 
-	adjustmentFactor := 1.2 // for expected delays
+	adjustmentFactor := 1.1 // for expected delays
 	estimatedDuration = time.Duration(float64(estimatedDuration) * adjustmentFactor)
 
 	return estimatedDuration

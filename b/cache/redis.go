@@ -73,6 +73,7 @@ func (c *Node) Fail() {
 
 func (c *Node) Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
 	if c.isFailed {
+		//time.Sleep(100 * time.Millisecond)
 		return nil, errors.New("simulated failure - cache node is not available"), 0
 	}
 

@@ -146,14 +146,20 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 
 	d.bufPool = util.NewBufPool()
 
-	if err := d.createKeyspaceIfNotExists(); err != nil {
+	if err = d.createKeyspaceIfNotExists(); err != nil {
 		return nil, err
 	}
 
 	cluster.Keyspace = p.Database.CassandraKeyspace.Value
 
-	if err := d.createTableIfNotExists(); err != nil {
+	if err = d.createTableIfNotExists(); err != nil {
 		return nil, err
+	}
+
+	if p.Performance.EnableDroppingDataOnStart.Value {
+		if err = d.resetTable(); err != nil {
+			return nil, err
+		}
 	}
 
 	return d, nil
@@ -198,6 +204,23 @@ func (k *CassandraDB) createTableIfNotExists() error {
 
 	err := k.session.Query(buf.String()).Exec()
 	return err
+}
+
+func (k *CassandraDB) resetTable() error {
+	// Drop the table if it exists
+	if err := k.session.Query(fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", k.p.Database.CassandraKeyspace.Value, k.p.Database.CassandraTableName.Value)).Exec(); err != nil {
+		log.Printf("Failed to drop table %s.%s: %v", k.p.Database.CassandraKeyspace.Value, k.p.Database.CassandraTableName.Value, err)
+		return err
+	}
+	log.Printf("Table %s.%s dropped successfully", k.p.Database.CassandraKeyspace.Value, k.p.Database.CassandraTableName.Value)
+
+	// Recreate the table
+	if err := k.createTableIfNotExists(); err != nil {
+		return err
+	}
+
+	log.Printf("Table %s.%s created successfully", k.p.Database.CassandraKeyspace.Value, k.p.Database.CassandraTableName.Value)
+	return nil
 }
 
 func (k *CassandraDB) Close() error {

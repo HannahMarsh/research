@@ -3,6 +3,8 @@ package metrics
 import (
 	"fmt"
 	"github.com/golang/freetype"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/text"
@@ -15,6 +17,8 @@ import (
 	"log"
 	"math"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -124,56 +128,27 @@ func averageValue(value func(Metric) float64) func([][]Metric, time.Duration) fl
 	}
 }
 
-func PlotMetrics(s time.Time, e time.Time, path string) {
+func forEachNode(f func(int) category) []category {
+	var nodeCategories []category
+	for _, node := range globalConfig.Cache.Nodes {
+		nodeIndex := node.NodeId.Value - 1
+		nodeCategories = append(nodeCategories, f(nodeIndex))
+	}
+	return nodeCategories
+}
+
+func PlotMetrics(s time.Time, e time.Time) {
+	path := globalConfig.Measurements.MetricsOutputDir.Value + globalConfig.Workload.WorkloadIdentifier.Value + "/"
+	err := os.MkdirAll(path, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("Plotting metrics...\n")
 	numBuckets := 30
-	start := s //s.Add(warmUptime)
+	start := s.Add(warmUptime)
 	end := s.Add(estimatedRunningTime)
 	if e.Before(end) {
 		end = e
-	}
-
-	var nodeCategories []category
-	var nodeSizeCategories []category
-	var nodeRequests []category
-	for _, node := range globalConfig.Cache.Nodes {
-		nodeIndex := node.NodeId.Value - 1
-		nodeCategories = append(nodeCategories, category{
-			filters: []func(m Metric) bool{
-				func(m Metric) bool {
-					return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, true) && has(m, NODE_INDEX, nodeIndex)
-				},
-				func(m Metric) bool {
-					return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex)
-				},
-			},
-			reduce:    divideFirstBySecond,
-			plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
-			color:     DARK_COLORS[nodeIndex],
-			showMean:  false,
-		})
-		nodeSizeCategories = append(nodeSizeCategories, category{
-			filters: []func(m Metric) bool{
-				func(m Metric) bool {
-					return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex)
-				},
-			},
-			reduce:    averageValue(func(m Metric) float64 { return float64(m.tags[SIZE].(int64)) }),
-			plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
-			color:     DARK_COLORS[nodeIndex],
-			showMean:  false,
-		})
-		nodeRequests = append(nodeRequests, category{
-			filters: []func(m Metric) bool{
-				func(m Metric) bool {
-					return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex)
-				},
-			},
-			reduce:    countPerSecond,
-			plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
-			color:     DARK_COLORS[nodeIndex],
-			showMean:  false,
-		})
 	}
 
 	var pi = []*plotInfo{
@@ -272,7 +247,6 @@ func PlotMetrics(s time.Time, e time.Time, path string) {
 			},
 			start:            start,
 			end:              end,
-			path:             path + "individual/workload.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
@@ -371,7 +345,6 @@ func PlotMetrics(s time.Time, e time.Time, path string) {
 			},
 			start:            start,
 			end:              end,
-			path:             path + "individual/all_transactions.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
@@ -404,7 +377,6 @@ func PlotMetrics(s time.Time, e time.Time, path string) {
 			},
 			start:            start,
 			end:              end,
-			path:             path + "individual/requests_per_second.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
@@ -425,7 +397,6 @@ func PlotMetrics(s time.Time, e time.Time, path string) {
 			},
 			start:            start,
 			end:              end,
-			path:             path + "individual/database_latency.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
@@ -446,17 +417,27 @@ func PlotMetrics(s time.Time, e time.Time, path string) {
 			},
 			start:            start,
 			end:              end,
-			path:             path + "individual/transaction_latency.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
 		{
-			title:            "Cache Requests Per Node as a Function of Time",
-			yAxis:            "Requests per second",
-			categories:       nodeRequests,
+			title: "Cache Requests Per Node as a Function of Time",
+			yAxis: "Requests per second",
+			categories: forEachNode(func(nodeIndex int) category {
+				return category{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex) && has(m, OPERATION, READ)
+						},
+					},
+					reduce:    countPerSecond,
+					plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+					color:     DARK_COLORS[nodeIndex],
+					showMean:  false,
+				}
+			}),
 			start:            start,
 			end:              end,
-			path:             path + "individual/cache_requests_per_node.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
@@ -488,27 +469,51 @@ func PlotMetrics(s time.Time, e time.Time, path string) {
 			},
 			start:            start,
 			end:              end,
-			path:             path + "individual/cache_requests.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
 		{
-			title:            "Cache Hits Ratio as a Function of Time",
-			yAxis:            "Average Hit Ratio per Second",
-			categories:       nodeCategories,
+			title: "Cache Hits Ratio as a Function of Time",
+			yAxis: "Average Hit Ratio per Second",
+			categories: forEachNode(func(nodeIndex int) category {
+				return category{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, true) && has(m, NODE_INDEX, nodeIndex)
+						},
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex)
+						},
+					},
+					reduce:    divideFirstBySecond,
+					plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+					color:     DARK_COLORS[nodeIndex],
+					showMean:  false,
+				}
+			}),
 			start:            start,
 			end:              end,
-			path:             path + "individual/node_cache_hits.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
 		{
-			title:            "Cache Size as a Function of Time",
-			yAxis:            "Number of Items in Cache",
-			categories:       nodeSizeCategories,
+			title: "Cache Size as a Function of Time",
+			yAxis: "Number of Items in Cache",
+			categories: forEachNode(func(nodeIndex int) category {
+				return category{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex)
+						},
+					},
+					reduce:    averageValue(func(m Metric) float64 { return float64(m.tags[SIZE].(int64)) }),
+					plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+					color:     DARK_COLORS[nodeIndex],
+					showMean:  false,
+				}
+			}),
 			start:            start,
 			end:              end,
-			path:             path + "individual/node_size.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
@@ -538,21 +543,25 @@ func PlotMetrics(s time.Time, e time.Time, path string) {
 		},
 	}
 	cols := 3
-
 	rows := int(math.Ceil(float64(len(pi)+1) / float64(cols)))
 	var piPath [][]string
 	curIndex := 0
+
 	for r := 0; r < rows; r++ {
 		var row []string
 		for c := 0; c < cols; c++ {
 			if r == 0 && c == 0 {
-				plotConfig(start, end, path+"individual/config.png")
-				row = append(row, path+"individual/config.png")
+				configPath := path + "individual/00-Config_Summary.png"
+				plotConfig(start, end, configPath)
+				row = append(row, configPath)
 			} else {
 				if curIndex < len(pi) {
 					fmt.Printf("\t(%d/%d): %s\n", curIndex+1, len(pi), pi[curIndex].title)
-					pi[curIndex].makePlot()
+					// pi[curIndex].path = path + "individual/" + strings.Replace(toTitleCase(strings.TrimSuffix(strings.ToLower(pi[curIndex].title), " as a function of time")), " ", "_", -1) + ".png"
+					pi[curIndex].path = fmt.Sprintf("%sindividual/%02d-", path, curIndex+1) + replace(toTitleCase(strings.TrimSuffix(strings.ToLower(pi[curIndex].title), " as a function of time")), "[\\s\\(\\)]+", "_") + ".png"
+
 					row = append(row, pi[curIndex].path)
+					pi[curIndex].makePlot()
 					curIndex += 1
 				}
 			}
@@ -565,6 +574,22 @@ func PlotMetrics(s time.Time, e time.Time, path string) {
 
 	fmt.Printf("Summary plot saved to %s\n", path+"summary.png")
 
+}
+
+func replace(originalString string, pattern string, replacement string) string {
+	re := regexp.MustCompile(pattern)
+	return re.ReplaceAllString(originalString, replacement)
+}
+
+func toTitleCase(str string) string {
+	caser := cases.Title(language.English, cases.NoLower)
+	return caser.String(str)
+
+	words := strings.Fields(str)
+	for i, word := range words {
+		words[i] = strings.Title(word)
+	}
+	return strings.Join(words, " ")
 }
 
 func (plt *plotInfo) makePlot() {
@@ -816,7 +841,7 @@ func plotConfig(start time.Time, end time.Time, filename string) {
 	addLabel(img, leftIndent+40, 240, fmt.Sprintf("Failures: %d", failures), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 270, fmt.Sprintf("Key Range: %d to %d", config.Workload.KeyRangeLowerBound.Value, config.Workload.KeyRangeLowerBound.Value+config.Performance.InsertCount.Value-1), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 300, fmt.Sprintf("Concurrency: %v", config.Performance.ThreadCount.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 330, fmt.Sprintf("Warmup Time: %d", config.Measurements.WarmUpTime.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
+	addLabel(img, leftIndent+40, 330, fmt.Sprintf("Warmup Time: %d seconds", config.Measurements.WarmUpTime.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 360, fmt.Sprintf("Request Distribution: %s", config.Workload.RequestDistribution.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 
 	// Save the image to file

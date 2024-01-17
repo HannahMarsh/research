@@ -15,6 +15,7 @@ var globalConfig *bconfig.Config
 var globalSession *gocql.Session
 var estimatedRunningTime time.Duration
 var warmUptime time.Duration
+var globalStartTime time.Time
 
 var (
 	TAG = "TAG"
@@ -49,6 +50,7 @@ var (
 
 func Init(config *bconfig.Config) {
 	globalConfig = config
+	globalStartTime = time.Now()
 	estimatedRunningTime = EstimateRunningTime(config)
 	warmUptime = time.Duration(config.Measurements.WarmUpTime.Value) * time.Second
 
@@ -81,10 +83,10 @@ func (mtrc *Metric) IsType(type_ string) bool {
 
 func AddMeasurement(name string, newTimestamp time.Time, values map[string]interface{}) {
 	go func() {
-		// now := time.Now()
-		//if now.Before(start.Add(warmUptime)) {
-		//	return
-		//}
+		now := time.Now()
+		if now.Before(globalStartTime.Add(warmUptime)) {
+			return
+		}
 		//if now.After(start.Add(estimatedRunningTime)) {
 		//	return
 		//}

@@ -192,7 +192,7 @@ var defaultConfig_ = Config{
 				},
 				FailureIntervals: []FailureInterval{
 					{
-						Start: 0.3,
+						Start: 0.4,
 						End:   0.6,
 					},
 				},
@@ -212,12 +212,6 @@ var defaultConfig_ = Config{
 				Address: StringProperty{
 					Description: "Address and port of redis server",
 					Value:       "0.0.0.0:6380",
-				},
-				FailureIntervals: []FailureInterval{
-					{
-						Start: 0.4,
-						End:   0.7,
-					},
 				},
 				MaxSize: IntProperty{
 					Value:       1000000,
@@ -296,7 +290,7 @@ var defaultConfig_ = Config{
 			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'",
 		},
 		InsertCount: IntProperty{
-			Value:       1000,
+			Value:       20000,
 			Description: "If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.",
 		},
 		InsertionRetryInterval: IntProperty{
@@ -320,19 +314,19 @@ var defaultConfig_ = Config{
 			Description: "The minimum number of records to scan in a single operation.",
 		},
 		OperationCount: IntProperty{
-			Value:       50000,
+			Value:       100000,
 			Description: "The total number of operations to perform during the workload execution.",
 		},
 		RecordCount: IntProperty{
-			Value:       300000,
+			Value:       400000,
 			Description: "If `DoTransactions` is false, and `InsertCount` is 0, this is the total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.",
 		},
 		TargetOperationsPerSec: IntProperty{
-			Value:       3000,
+			Value:       8000,
 			Description: "The target number of operations per second that the workload should aim to achieve.",
 		},
 		ThreadCount: IntProperty{
-			Value:       500,
+			Value:       2000,
 			Description: "The number of concurrent threads to use when executing the workload.",
 		},
 	},
@@ -390,11 +384,11 @@ var defaultConfig_ = Config{
 			Description: "The proportion of read-modify-write operations in the workload.",
 		},
 		ReadProportion: FloatProperty{
-			Value:       0.97,
+			Value:       0.98,
 			Description: "The proportion of read operations in the workload.",
 		},
 		InsertProportion: FloatProperty{
-			Value:       0.03,
+			Value:       0.02,
 			Description: "The proportion of insert operations in the workload.",
 		},
 		UpdateProportion: FloatProperty{
@@ -444,7 +438,7 @@ var defaultConfig_ = Config{
 			Description: "Defines the formatting style for outputting measurement data. Valid values are 'plain' 'table', and 'json'.",
 		},
 		WarmUpTime: IntProperty{
-			Value:       2,
+			Value:       5,
 			Description: "The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).",
 		},
 		ZeroPadding: IntProperty{
