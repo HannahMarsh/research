@@ -1,10 +1,12 @@
 package metrics
 
 import (
+	"encoding/csv"
 	"fmt"
 	"github.com/golang/freetype"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"gonum.org/v1/gonum/interp"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/text"
@@ -18,6 +20,8 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -48,6 +52,7 @@ type plotInfo struct {
 	title            string
 	yAxis            string
 	path             string
+	csvPath          string
 	start            time.Time
 	end              time.Time
 	showNodeFailures bool
@@ -138,9 +143,15 @@ func forEachNode(f func(int) category) []category {
 }
 
 func PlotMetrics(s time.Time, e time.Time) {
-	path := globalConfig.Measurements.MetricsOutputDir.Value + globalConfig.Workload.WorkloadIdentifier.Value + "/"
-	err := os.MkdirAll(path, os.ModePerm)
-	if err != nil {
+	dataDir := globalConfig.Measurements.MetricsOutputDir.Value
+	indPath := dataDir + globalConfig.Workload.WorkloadIdentifier.Value + "/"
+	summaryPath := dataDir + globalConfig.Workload.WorkloadIdentifier.Value + "_summary.png"
+	csvPath := indPath + "csv/"
+	pngPath := indPath + "png/"
+	if err := os.MkdirAll(pngPath, os.ModePerm); err != nil {
+		panic(err)
+	}
+	if err := os.MkdirAll(csvPath, os.ModePerm); err != nil {
 		panic(err)
 	}
 	fmt.Printf("Plotting metrics...\n")
@@ -537,7 +548,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			},
 			start:            start,
 			end:              end,
-			path:             path + "individual/db_request_proportion.png",
+			path:             indPath + "individual/db_request_proportion.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
@@ -551,14 +562,15 @@ func PlotMetrics(s time.Time, e time.Time) {
 		var row []string
 		for c := 0; c < cols; c++ {
 			if r == 0 && c == 0 {
-				configPath := path + "individual/00-Config_Summary.png"
+				configPath := pngPath + "00-Config_Summary.png"
 				plotConfig(start, end, configPath)
 				row = append(row, configPath)
 			} else {
 				if curIndex < len(pi) {
 					fmt.Printf("\t(%d/%d): %s\n", curIndex+1, len(pi), pi[curIndex].title)
-					// pi[curIndex].path = path + "individual/" + strings.Replace(toTitleCase(strings.TrimSuffix(strings.ToLower(pi[curIndex].title), " as a function of time")), " ", "_", -1) + ".png"
-					pi[curIndex].path = fmt.Sprintf("%sindividual/%02d-", path, curIndex+1) + replace(toTitleCase(strings.TrimSuffix(strings.ToLower(pi[curIndex].title), " as a function of time")), "[\\s\\(\\)]+", "_") + ".png"
+					// pi[curIndex].indPath = indPath + "individual/" + strings.Replace(toTitleCase(strings.TrimSuffix(strings.ToLower(pi[curIndex].title), " as a function of time")), " ", "_", -1) + ".png"
+					pi[curIndex].path = fmt.Sprintf("%s%02d-", pngPath, curIndex+1) + replace(toTitleCase(replace(strings.ToLower(pi[curIndex].title), "[\\)\\s]+as a function of time", "")), "[\\s\\(\\)]+", "_") + ".png"
+					pi[curIndex].csvPath = fmt.Sprintf("%s%02d-", csvPath, curIndex+1) + replace(toTitleCase(replace(strings.ToLower(pi[curIndex].title), "[\\)\\s]+as a function of time", "")), "[\\s\\(\\)]+", "_") + "csv"
 
 					row = append(row, pi[curIndex].path)
 					pi[curIndex].makePlot()
@@ -570,9 +582,9 @@ func PlotMetrics(s time.Time, e time.Time) {
 		piPath = append(piPath, row)
 	}
 
-	tilePlots(path+"summary.png", piPath)
+	tilePlots(summaryPath, piPath)
 
-	fmt.Printf("Summary plot saved to %s\n", path+"summary.png")
+	fmt.Printf("Summary plot saved to %s\n", summaryPath)
 
 }
 
@@ -584,12 +596,6 @@ func replace(originalString string, pattern string, replacement string) string {
 func toTitleCase(str string) string {
 	caser := cases.Title(language.English, cases.NoLower)
 	return caser.String(str)
-
-	words := strings.Fields(str)
-	for i, word := range words {
-		words[i] = strings.Title(word)
-	}
-	return strings.Join(words, " ")
 }
 
 func (plt *plotInfo) makePlot() {
@@ -616,6 +622,8 @@ func (plt *plotInfo) makePlot() {
 	// Define the resolution and calculate timeSlice
 	resolution := float64(plt.numBuckets)
 	timeSlice := time.Duration(float64(duration.Nanoseconds()) / resolution)
+
+	data := make(map[string]plotter.XYs)
 
 	for _, cat := range plt.categories {
 
@@ -661,9 +669,17 @@ func (plt *plotInfo) makePlot() {
 			}
 			pts[i].X = float64(i) * timeSlice.Seconds()
 		}
+		pts[0].Y = pts[1].Y + ((pts[1].Y - pts[2].Y) / 3.0)
 		mean := sum_ / float64(count)
 		p.Y.Max = math.Max(p.Y.Max, maxY*1.2)
-		if line, err := plotter.NewLine(pts); err == nil {
+		//filename := plt.csvPath + "-" + replace(cat.plotLabel, "[,\\\\\\/\\s\\(\\)]+", "_") + ".csv"
+		if cat.plotLabel == "" {
+			data[p.Y.Label.Text] = pts
+		} else {
+			data[cat.plotLabel] = pts
+		}
+		//exportCategoryDataToCSV(cat, pts, filename)
+		if line, err := plotter.NewLine(getSmooth(pts)); err == nil {
 			line.Color = cat.color
 			p.Add(line)
 
@@ -689,6 +705,7 @@ func (plt *plotInfo) makePlot() {
 			if cat.plotLabel != "" {
 				p.Legend.Add(cat.plotLabel, line)
 			}
+
 		} else {
 			log.Panic(err)
 		}
@@ -704,6 +721,8 @@ func (plt *plotInfo) makePlot() {
 	if err := p.Save(8*vg.Inch, height*vg.Inch, plt.path); err != nil {
 		log.Panic(err)
 	}
+
+	exportCategoryDataToCSV(data, plt.csvPath)
 
 }
 
@@ -728,18 +747,6 @@ func (plt *plotInfo) plotNodeFailures(p *plot.Plot) {
 				}
 			}
 		}
-		//for _, interval := range node.FailureIntervals {
-		//	iStart := time.Duration(interval.Start * float64(time.Second)).Seconds()
-		//	iEnd := time.Duration(interval.End * float64(time.Second)).Seconds()
-		//	if iStart < duration.Seconds() {
-		//		addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed", node.NodeId.Value), LIGHT_COLORS[i])
-		//		if iEnd < duration.Seconds() {
-		//			addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered", node.NodeId.Value), LIGHT_COLORS[i])
-		//		}
-		//	}
-		//
-		//}
-		//i += 1
 	}
 }
 
@@ -832,7 +839,7 @@ func plotConfig(start time.Time, end time.Time, filename string) {
 	}
 
 	// Draw the txt on the image
-	addLabel(img, leftIndent+20, 40, "Configuration Summary:", "metrics/fonts/roboto/Roboto-Bold.ttf", 18.0)
+	addLabel(img, leftIndent+20, 40, toTitleCase(globalConfig.Workload.WorkloadIdentifier.Value)+" Configuration Summary:", "metrics/fonts/roboto/Roboto-Bold.ttf", 18.0)
 	addLabel(img, leftIndent+40, 90, fmt.Sprintf("Duration: %d seconds", int(end.Sub(start).Seconds())), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 120, fmt.Sprintf("Target Requests per Second: %d", config.Performance.TargetOperationsPerSec.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 150, fmt.Sprintf("Nodes: %d", len(config.Cache.Nodes)), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
@@ -961,4 +968,105 @@ func addHorizontalLine(p *plot.Plot, yValue float64, label string, clr color.RGB
 
 	p.Add(horizontalLine)
 	p.Add(labels)
+}
+
+func exportCategoryDataToCSV(data map[string]plotter.XYs, filename string) {
+	// Create or truncate the file
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatalf("Failed to create file: %v", err)
+	}
+	defer func(file *os.File) {
+		if err = file.Close(); err != nil {
+			panic(err)
+		}
+	}(file)
+
+	// Create a new CSV writer
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	header := []string{"Time (seconds)"}
+
+	d := make(map[float64][]string)
+
+	for cat, pts := range data {
+		header = append(header, replace(cat, ", \\(mean.*", ""))
+
+		l := 0
+		// Write the data points
+		for _, pt := range pts { // pts should be the data points for this category
+			if _, ok := d[pt.X]; !ok {
+				d[pt.X] = []string{strconv.FormatFloat(pt.X, 'f', -1, 64)}
+			}
+			d[pt.X] = append(d[pt.X], strconv.FormatFloat(pt.Y, 'f', -1, 64))
+			l = max(l, len(d[pt.X]))
+		}
+		for k, v := range d {
+			if len(v) < l {
+				d[k] = append(v, strconv.FormatFloat(0.0, 'f', -1, 64))
+			}
+		}
+	}
+
+	// Write the headers
+	if err = writer.Write(header); err != nil {
+		log.Fatalf("Failed to write header to CSV: %v", err)
+	}
+
+	var keys []float64
+	for k := range d {
+		keys = append(keys, k)
+	}
+
+	// Sort the keys
+	sort.Float64s(keys)
+
+	// Iterate over the sorted keys and access the values
+	for _, k := range keys {
+		record := d[k]
+		if err = writer.Write(record); err != nil {
+			log.Fatalf("Failed to write records to CSV: %v", err)
+		}
+	}
+}
+
+func getSmooth(pts plotter.XYs) plotter.XYs {
+	// Sort the points by X values.
+	sort.Slice(pts, func(i, j int) bool {
+		return pts[i].X < pts[j].X
+	})
+
+	// Extract X and Y values from the points.
+	xs := make([]float64, len(pts))
+	ys := make([]float64, len(pts))
+	for i, pt := range pts {
+		xs[i] = pt.X
+		ys[i] = pt.Y
+	}
+
+	// Create AkimaSpline manually.
+	var interpolator interp.AkimaSpline
+
+	if err := interpolator.Fit(xs, ys); err != nil {
+		panic(err)
+	}
+
+	// Number of points for the smooth curve.
+	numPoints := 1000
+
+	// Calculate the range and step for new X values.
+	xMin := xs[0]
+	xMax := xs[len(xs)-1]
+	step := (xMax - xMin) / float64(numPoints-1)
+
+	// Generate new points.
+	newPts := make(plotter.XYs, numPoints)
+	for i := 0; i < numPoints; i++ {
+		newX := xMin + float64(i)*step
+		newPts[i].X = newX
+		newPts[i].Y = interpolator.Predict(newX)
+	}
+
+	return newPts
 }
