@@ -155,7 +155,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 		panic(err)
 	}
 	fmt.Printf("Plotting metrics...\n")
-	numBuckets := 30
+	numBuckets := 40
 	start := s.Add(warmUptime)
 	end := s.Add(estimatedRunningTime)
 	if e.Before(end) {
@@ -164,105 +164,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 
 	var pi = []*plotInfo{
 		{
-			title: "Workload (Transactions per Second) as a Function of Time",
-			yAxis: "Fraction of Read Requests",
-			categories: []category{
-				{
-					plotLabel: "Read Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == WORKLOAD && has(m, OPERATION, READ)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_RED,
-					showMean: false,
-				},
-				{
-					plotLabel: "Batch Read Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == WORKLOAD && has(m, OPERATION, BATCH_READ)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_YELLOW,
-					showMean: false,
-				},
-				{
-					plotLabel: "Insert Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == WORKLOAD && has(m, OPERATION, INSERT)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_GREEN,
-					showMean: false,
-				},
-				{
-					plotLabel: "Batch Insert Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == WORKLOAD && has(m, OPERATION, BATCH_INSERT)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_BLUE,
-					showMean: false,
-				},
-				{
-					plotLabel: "Scan Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == WORKLOAD && has(m, OPERATION, SCAN)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_PURPLE,
-					showMean: false,
-				},
-				{
-					plotLabel: "Read/Modify/Write Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == TRANSACTION && has(m, WORKLOAD, READ_MODIFY_WRITE)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_PINK,
-					showMean: false,
-				},
-				{
-					plotLabel: "Update Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == WORKLOAD && has(m, OPERATION, UPDATE)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_ORANGE,
-					showMean: false,
-				},
-				{
-					plotLabel: "Batch Update Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == WORKLOAD && has(m, OPERATION, BATCH_UPDATE)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    GREY,
-					showMean: false,
-				},
-			},
-			start:            start,
-			end:              end,
-			numBuckets:       numBuckets,
-			showNodeFailures: true,
-		},
-		{
-			title: "Completed Transactions as a Function of Time",
+			title: "Workload as a Function of Time",
 			yAxis: "Fraction of Read Requests",
 			categories: []category{
 				{

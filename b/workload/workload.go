@@ -297,17 +297,19 @@ func (c *Workload) DoInsert(ctx context.Context, db db.DB, cache_ cache.Cache) e
 	values := c.buildValues(state, dbKey)
 	defer c.putValues(values)
 
+	start := time.Now()
+
 	numOfRetries := int64(0)
 
 	var err error
 	for {
 		err = db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values)
-		if err != nil {
-			break
-		}
 
-		err, _ = cache_.Set(ctx, dbKey, values)
-		if err != nil {
+		_, _ = cache_.Set(ctx, dbKey, values)
+
+		go workloadMeasure(start, metrics2.INSERT, err, true)
+
+		if err == nil {
 			break
 		}
 
@@ -328,9 +330,9 @@ func (c *Workload) DoInsert(ctx context.Context, db db.DB, cache_ cache.Cache) e
 		}
 
 		// Sleep for a random time betweensz [0.8, 1.2)*insertionRetryInterval
-		sleepTimeMs := float64((int64(c.p.Performance.InsertionRetryInterval.Value) * 1000)) * (0.8 + 0.4*r.Float64())
+		//sleepTimeMs := float64((int64(c.p.Performance.InsertionRetryInterval.Value) * 1000)) * (0.8 + 0.4*r.Float64())
 
-		time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
+		//time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
 	}
 
 	return err
@@ -436,10 +438,6 @@ func (c *Workload) nextKeyNum(state *State) int64 {
 
 func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
 	start := time.Now()
-	go workload2Measure(start, metrics2.READ)
-	defer func() {
-		workloadMeasure(start, metrics2.READ, errr, hitDatabase)
-	}()
 	r := state.r
 	keyNum := c.nextKeyNum(state)
 	keyName := c.buildKeyName(keyNum)
@@ -452,30 +450,50 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 		fields = state.fieldNames
 	}
 
-	// First, attempt to get the value from the cache
-	cachedValue, err, _ := cache_.Get(ctx, keyName, fields)
-	if err == nil && cachedValue != nil {
-		// CacheWrapper hit, use the cachedValue
-		// todo  handle the cached value
-		if c.p.Performance.PerformDataIntegrityChecks.Value {
-			c.verifyRow(state, keyName, cachedValue)
+	numOfRetries := int64(0)
+
+	for {
+		// First, attempt to get the value from the cache
+		cachedValue, err, _ := cache_.Get(ctx, keyName, fields)
+		if err == nil && cachedValue != nil {
+			// CacheWrapper hit, use the cachedValue
+			// todo  handle the cached value
+			if c.p.Performance.PerformDataIntegrityChecks.Value {
+				c.verifyRow(state, keyName, cachedValue)
+			}
+			go workloadMeasure(start, metrics2.READ, nil, false)
+			return nil, false
 		}
-		return nil, false
-	}
 
-	// cache miss
-	values, err := db.Read(ctx, c.p.Database.CassandraTableName.Value, keyName, fields)
-	if err != nil {
-		return err, true
-	}
+		// cache miss
+		values, err := db.Read(ctx, c.p.Database.CassandraTableName.Value, keyName, fields)
+		if err == nil && values != nil {
+			_, _ = cache_.Set(ctx, keyName, values)
+			go workloadMeasure(start, metrics2.READ, nil, true)
+			return nil, true
+		}
 
-	err, _ = cache_.Set(ctx, keyName, values)
-	if err != nil {
-		//return err
-	}
+		if c.p.Performance.PerformDataIntegrityChecks.Value {
+			c.verifyRow(state, keyName, values)
+		}
 
-	if c.p.Performance.PerformDataIntegrityChecks.Value {
-		c.verifyRow(state, keyName, values)
+		go workloadMeasure(start, metrics2.READ, err, true)
+
+		select {
+		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				return nil, true
+			}
+		default:
+		}
+
+		// Retry if configured. Without retrying, the load process will fail
+		// even if one single insertion fails. User can optionally configure
+		// an insertion retry limit (default is 0) to enable retry.
+		numOfRetries++
+		if numOfRetries > int64(c.p.Performance.InsertionRetryLimit.Value) {
+			break
+		}
 	}
 
 	return nil, true
@@ -502,14 +520,6 @@ func workloadMeasure(start time.Time, operationType string, err error, hitDataba
 				metrics2.DATABASE:   hitDatabase,
 			})
 	}
-}
-
-func workload2Measure(start time.Time, operationType string) {
-	metrics2.AddMeasurement(metrics2.WORKLOAD, start,
-		map[string]interface{}{
-			metrics2.OPERATION: operationType,
-		})
-	return
 }
 
 func (c *Workload) doTransactionReadModifyWrite(ctx context.Context, db db.DB, cache_ cache.Cache, state *State) (errr error, hitDatabase bool) {
