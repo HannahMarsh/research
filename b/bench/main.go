@@ -36,8 +36,8 @@ import (
 
 var (
 	propertyFile   string
+	workloadId     string
 	propertyValues []string
-	tableName      string
 
 	globalContext context.Context
 	globalCancel  context.CancelFunc
@@ -69,10 +69,6 @@ func initialGlobal(onProperties func()) {
 	//measurement.InitMeasure(globalProps)
 
 	metrics.Init(globalProps)
-
-	if len(tableName) == 0 {
-		tableName = globalProps.Database.CassandraTableName.Value
-	}
 
 	workloadName := globalProps.Workload.WorkloadIdentifier
 
@@ -125,8 +121,7 @@ func main() {
 	}
 
 	rootCmd.AddCommand(
-		newShellCommand(),
-		newLoadCommand(),
+		//newShellCommand(),
 		newRunCommand(),
 	)
 
@@ -154,7 +149,6 @@ func main() {
 }
 
 func maxExecution() {
-	//if globalProps.Workload.TargetExecutionTime.Value > 0 {
 	go func() {
 		select {
 		case <-globalContext.Done():

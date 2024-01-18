@@ -33,30 +33,14 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	initialGlobal(func() {
 		globalProps.Workload.Command.Value = command
 
-		if cmd.Flags().Changed("threads") {
+		if cmd.Flags().Changed("wid") {
 			// We set the threadArg via command line.
-			globalProps.Workload.ThreadCount.Value = threadsArg
-		}
-
-		if cmd.Flags().Changed("target") {
-			globalProps.Workload.TargetOperationsPerSec.Value = targetArg
-		}
-
-		if cmd.Flags().Changed("interval") {
-			globalProps.Logging.LogInterval.Value = reportInterval
+			globalProps.Workload.WorkloadIdentifier.Value = workloadId
 		}
 	})
 
-	//fmt.Println("***************** properties *****************")
-	//fmt.Printf("%s", globalProps.ToString())
-	////r := reflect.ValueOf(globalProps).Elem() // Dereference the pointer to get the struct
-	////
-	////for i := 0; i < r.NumField(); i++ {
-	////	field := r.Field(i)
-	////	fmt.Printf("\t%s = %v\n", r.Type().Field(i).Name, field.Interface())
-	////}
-
 	fmt.Println("**********************************************")
+	fmt.Printf("Generating a %s request distribution with a keyrange of [%d, %d]. Key prefix = `%s`\n", globalProps.Workload.RequestDistribution.Value, 0, globalProps.Workload.NumUniqueKeys.Value-1, globalProps.Workload.KeyPrefix.Value)
 	fmt.Printf("Target Run time Duration: %ds\n", globalProps.Workload.TargetExecutionTime.Value)
 	fmt.Printf("Target Operations Per Sec: %s\n", humanize.Comma(int64(globalProps.Workload.TargetOperationsPerSec.Value)))
 	fmt.Printf("Approx Total Operations: %s\n", humanize.Comma(int64(globalProps.Workload.TargetExecutionTime.Value*globalProps.Workload.TargetOperationsPerSec.Value)))
@@ -73,7 +57,6 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 
 	fmt.Println("\n**********************************************")
 	fmt.Printf("Run finished, takes %s\n", time.Now().Sub(start))
-	//measurement.Output()
 }
 
 func dispTimer(start time.Time, ticker *time.Ticker, estimatedRunningTime time.Duration) {
@@ -101,47 +84,21 @@ func dispTimer(start time.Time, ticker *time.Ticker, estimatedRunningTime time.D
 	}
 }
 
-func runLoadCommandFunc(cmd *cobra.Command, args []string) {
-	runClientCommandFunc(cmd, args, false, "load")
-}
-
 func runTransCommandFunc(cmd *cobra.Command, args []string) {
 	runClientCommandFunc(cmd, args, true, "run")
 }
 
-var (
-	threadsArg     int
-	targetArg      int
-	reportInterval int
-)
-
 func initClientCommand(m *cobra.Command) {
 	m.Flags().StringVar(&propertyFile, "property_file", "P", "Specify a property file")
+	m.Flags().StringVar(&workloadId, "wid", "", "Specify the workload id")
 	m.Flags().StringArrayVarP(&propertyValues, "prop", "p", nil, "Specify a property value with name=value")
-	m.Flags().StringVar(&tableName, "table", "", "Use the table name instead of the default \"usertable\"")
-	m.Flags().IntVar(&threadsArg, "threads", 1, "Execute using n threads - can also be specified as the \"threadcount\" property")
-	m.Flags().IntVar(&targetArg, "target", 0, "Attempt to do n operations per second (default: unlimited) - can also be specified as the \"target\" property")
-	m.Flags().IntVar(&reportInterval, "interval", 10, "Interval of outputting measurements in seconds")
-}
-
-func newLoadCommand() *cobra.Command {
-	m := &cobra.Command{
-		Use:   "load",
-		Short: "YCSB load benchmark",
-		Args:  cobra.MinimumNArgs(1),
-		Run:   runLoadCommandFunc,
-	}
-
-	initClientCommand(m)
-	return m
 }
 
 func newRunCommand() *cobra.Command {
 	m := &cobra.Command{
 		Use:   "run",
 		Short: "run benchmark",
-		//Args:  cobra.MinimumNArgs(1),
-		Run: runTransCommandFunc,
+		Run:   runTransCommandFunc,
 	}
 
 	initClientCommand(m)

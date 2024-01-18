@@ -104,8 +104,6 @@ func NewWorkload(p *bconfig.Config, warmUpTime time.Time) (*Workload, error) {
 	default:
 		util.Fatalf("unknown request distribution %s", p.Workload.RequestDistribution.Value)
 	}
-	fmt.Println(fmt.Sprintf("Using request distribution '%s' a keyrange of [%d %d]", p.Workload.RequestDistribution.Value, int64(0), keyrangeUpperBound))
-
 	c.fieldChooser = generator.NewUniform(0, int64(c.p.Workload.MaxFields.Value)-1)
 	c.valuePool = sync.Pool{
 		New: func() interface{} {
