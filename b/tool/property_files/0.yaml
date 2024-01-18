@@ -87,10 +87,7 @@ Cache:
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
-Performance:
-    BatchSize:
-        Description: The number of operations to batch together in a single transaction. Batch processing is disabled if set to 1.
-        Value: 1
+Workload:
     PerformDataIntegrityChecks:
         Description: Enables verification of data integrity during database operations. Requires 'FieldSizeDistribution' to be set to 'constant'.
         Value: false
@@ -106,50 +103,27 @@ Performance:
     FieldSizeDistribution:
         Description: The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'
         Value: constant
-    InsertCount:
+    NumUniqueKeys:
         Description: If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.
         Value: 20000
-    InsertionRetryInterval:
-        Description: |-
-            The time in seconds to wait before retrying a failed insert operation. This controls the
-            back-off strategy for handling write failures.
-        Value: 1
-    InsertionRetryLimit:
+    DbOperationRetryLimit:
         Description: The maximum number of times to retry a failed insert operation.
         Value: 1
-    MaxExecutionTime:
+    TargetExecutionTime:
         Description: The maximum time to run the benchmark before it is forcibly stopped.
-        Value: 30
-    MaxScanLength:
-        Description: The maximum number of records to scan in a single operation.
-        Value: 1000
-    MinScanLength:
-        Description: The minimum number of records to scan in a single operation.
-        Value: 1
-    OperationCount:
-        Description: The total number of operations to perform during the workload execution.
-        Value: 100000
-    RecordCount:
-        Description: If `DoTransactions` is false, and `InsertCount` is 0, this is the total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.
-        Value: 400000
+        Value: 15
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
         Value: 8000
     ThreadCount:
         Description: The number of concurrent threads to use when executing the workload.
         Value: 2000
-WorkloadIdentifier:
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1
     Command:
         Description: The specific command to run as part of the workload. This is set automatically by the program.
         Value: <>
-    DoTransactions:
-        Description: |-
-            Determines whether to perform a mix of different database operations or limit to insertion
-            operations only. Set to true for initial data loading.
-        Value: false
     ExponentialFrac:
         Description: Fraction parameter for generating distributions based on exponential function.
         Value: 0.8571428571
@@ -168,40 +142,17 @@ WorkloadIdentifier:
     InsertProportion:
         Description: The proportion of insert operations in the workload.
         Value: 0.02
-    KeyRangeLowerBound:
-        Description: The starting point (lower bound) for key values used in insert operations.
-        Value: 500
     KeyPrefix:
         Description: The prefix to be used for keys in the workload.
         Value: key
     ReadAllFields:
         Description: Indicates whether all fields should be read in read operations.
         Value: false
-    ReadModifyWriteProportion:
-        Description: The proportion of read-modify-write operations in the workload.
-        Value: 0
-    ReadProportion:
-        Description: The proportion of read operations in the workload.
-        Value: 0.98
     RequestDistribution:
         Description: |-
             The distribution of request types in the workload (to simulate different access patterns on the dataset).
             Options are 'uniform', 'sequential', 'zipfian', 'latest', 'hotspot', and 'exponential'.
         Value: uniform
-    ScanLengthDistribution:
-        Description: |-
-            The distribution for the number of records to scan during scan operations (to simulate
-            different data access spreads). Options are 'uniform' and 'zipfian'.
-        Value: uniform
-    ScanProportion:
-        Description: The proportion (from 0.0 to 1.0) of scan operations in the workload. If the value is 0.0, then scanning is disabled.
-        Value: 0
-    UpdateProportion:
-        Description: The proportion (from 0.0 to 1.0) of update operations in the workload. If the value is 0.0, then updating is disabled.
-        Value: 0
-    WriteAllFields:
-        Description: Indicates whether all fields should be written in write operations.
-        Value: false
 Measurements:
     MetricsOutputDir:
         Description: The directory where measurement data files are to be saved.

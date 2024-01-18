@@ -15,8 +15,8 @@ package main
 
 import (
 	"benchmark/client"
-	bconfig "benchmark/config"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
 	"math"
 	"time"
@@ -31,20 +31,15 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	}
 
 	initialGlobal(func() {
-		doTransFlag := true
-		if !doTransactions {
-			doTransFlag = false
-		}
-		globalProps.Workload.DoTransactions.Value = doTransFlag
 		globalProps.Workload.Command.Value = command
 
 		if cmd.Flags().Changed("threads") {
 			// We set the threadArg via command line.
-			globalProps.Performance.ThreadCount.Value = threadsArg
+			globalProps.Workload.ThreadCount.Value = threadsArg
 		}
 
 		if cmd.Flags().Changed("target") {
-			globalProps.Performance.TargetOperationsPerSec.Value = targetArg
+			globalProps.Workload.TargetOperationsPerSec.Value = targetArg
 		}
 
 		if cmd.Flags().Changed("interval") {
@@ -61,14 +56,15 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	////	fmt.Printf("\t%s = %v\n", r.Type().Field(i).Name, field.Interface())
 	////}
 
-	estimatedRunningTime := EstimateRunningTime(globalProps)
 	fmt.Println("**********************************************")
-	fmt.Printf("Estimated Run time Duration: %v\n", estimatedRunningTime)
+	fmt.Printf("Target Run time Duration: %ds\n", globalProps.Workload.TargetExecutionTime.Value)
+	fmt.Printf("Target Operations Per Sec: %s\n", humanize.Comma(int64(globalProps.Workload.TargetOperationsPerSec.Value)))
+	fmt.Printf("Approx Total Operations: %s\n", humanize.Comma(int64(globalProps.Workload.TargetExecutionTime.Value*globalProps.Workload.TargetOperationsPerSec.Value)))
 	fmt.Println("**********************************************")
 
 	start := time.Now()
 	ticker := time.NewTicker(1 * time.Second)
-	go dispTimer(start, ticker, estimatedRunningTime)
+	go dispTimer(start, ticker, time.Duration(globalProps.Workload.TargetExecutionTime.Value)*time.Second)
 
 	c := client.NewClient(globalProps, globalWorkload, globalDB, globalCache)
 	c.Run(globalContext)
@@ -103,40 +99,6 @@ func dispTimer(start time.Time, ticker *time.Ticker, estimatedRunningTime time.D
 			return // Exit the loop when the global context is canceled
 		}
 	}
-}
-
-func EstimateRunningTime(config *bconfig.Config) time.Duration {
-	var totalOpCount int64
-	if config.Workload.DoTransactions.Value {
-		totalOpCount = int64(config.Performance.OperationCount.Value)
-	} else {
-		if config.Performance.InsertCount.Value > 0 {
-			totalOpCount = int64(config.Performance.InsertCount.Value)
-		} else {
-			totalOpCount = int64(config.Performance.RecordCount.Value)
-		}
-	}
-
-	batchSize := 1
-	if config.Performance.BatchSize.Value > 1 {
-		batchSize = config.Performance.BatchSize.Value
-	}
-
-	totalDBInteractions := totalOpCount / int64(batchSize)
-
-	targetOpsPerSec := float64(config.Performance.TargetOperationsPerSec.Value)
-	if targetOpsPerSec <= 0 {
-		targetOpsPerSec = 1 // Set a default value if not specified
-	}
-
-	timePerOp := time.Second / time.Duration(targetOpsPerSec)
-	estimatedDuration := timePerOp * time.Duration(totalDBInteractions)
-
-	// Adjust for any additional delays (e.g., throttling, retries)
-	adjustmentFactor := 1.2 // Adjust this based on expected delays
-	estimatedDuration = time.Duration(float64(estimatedDuration) * adjustmentFactor)
-
-	return estimatedDuration
 }
 
 func runLoadCommandFunc(cmd *cobra.Command, args []string) {

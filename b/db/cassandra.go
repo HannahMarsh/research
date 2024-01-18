@@ -156,7 +156,7 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 		return nil, err
 	}
 
-	if p.Performance.EnableDroppingDataOnStart.Value {
+	if p.Workload.EnableDroppingDataOnStart.Value {
 		if err = d.resetTable(); err != nil {
 			return nil, err
 		}
@@ -177,14 +177,14 @@ func (k *CassandraDB) createKeyspaceIfNotExists() error {
 }
 
 func (k *CassandraDB) createTableIfNotExists() error {
-	if k.p.Performance.EnableDroppingDataOnStart.Value {
+	if k.p.Workload.EnableDroppingDataOnStart.Value {
 		if err := k.session.Query(fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", k.p.Database.CassandraKeyspace.Value, k.p.Database.CassandraTableName.Value)).Exec(); err != nil {
 			return err
 		}
 	}
 
-	k.fieldNames = make([]string, int64(k.p.Performance.MaxFields.Value))
-	for i := int64(0); i < int64(k.p.Performance.MaxFields.Value); i++ {
+	k.fieldNames = make([]string, int64(k.p.Workload.MaxFields.Value))
+	for i := int64(0); i < int64(k.p.Workload.MaxFields.Value); i++ {
 		k.fieldNames[i] = fmt.Sprintf("field%d", i)
 	}
 
@@ -192,7 +192,7 @@ func (k *CassandraDB) createTableIfNotExists() error {
 	s := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.%s (key VARCHAR PRIMARY KEY", k.p.Database.CassandraKeyspace.Value, k.p.Database.CassandraTableName.Value)
 	buf.WriteString(s)
 
-	for i := int64(0); i < int64(k.p.Performance.MaxFields.Value); i++ {
+	for i := int64(0); i < int64(k.p.Workload.MaxFields.Value); i++ {
 		buf.WriteString(fmt.Sprintf(", FIELD%d VARCHAR", i))
 	}
 

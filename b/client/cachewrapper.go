@@ -76,14 +76,12 @@ func (c *CacheWrapper) scheduleFailures() {
 		nodeIndex := i
 
 		warmUpTime := time.Duration(c.p.Measurements.WarmUpTime.Value) * time.Second
-		estimatedRunningTime := EstimateRunningTime(c.p) - warmUpTime
+		estimatedRunningTime := float64(c.p.Workload.TargetExecutionTime.Value)
 		for j := 0; j < len(c.p.Cache.Nodes[nodeIndex].FailureIntervals); j++ {
 			failureIndex := j
 			interval := c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex]
-			startDelay := (time.Duration(interval.Start*estimatedRunningTime.Seconds()) * time.Second) + warmUpTime
-			//c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex].Start = startDelay.Seconds()
-			endDelay := (time.Duration(interval.End*estimatedRunningTime.Seconds()) * time.Second) + warmUpTime
-			//c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex].End = endDelay.Seconds()
+			startDelay := (time.Duration(interval.Start*estimatedRunningTime) * time.Second) + warmUpTime
+			endDelay := (time.Duration(interval.End*estimatedRunningTime) * time.Second) + warmUpTime
 
 			// Schedule node failure
 			failTimer := time.AfterFunc(startDelay, func() {
@@ -134,37 +132,4 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 	}()
 
 	return c.nodes[nodeIndex].Set(ctx, key, value)
-}
-
-func EstimateRunningTime(config *bconfig.Config) time.Duration {
-	var totalOpCount int64
-	if config.Workload.DoTransactions.Value {
-		totalOpCount = int64(config.Performance.OperationCount.Value)
-	} else {
-		if config.Performance.InsertCount.Value > 0 {
-			totalOpCount = int64(config.Performance.InsertCount.Value)
-		} else {
-			totalOpCount = int64(config.Performance.RecordCount.Value)
-		}
-	}
-
-	batchSize := 1
-	if config.Performance.BatchSize.Value > 1 {
-		batchSize = config.Performance.BatchSize.Value
-	}
-
-	totalDBInteractions := totalOpCount / int64(batchSize)
-
-	targetOpsPerSec := float64(config.Performance.TargetOperationsPerSec.Value)
-	if targetOpsPerSec <= 0 {
-		targetOpsPerSec = 1 // default
-	}
-
-	timePerOp := time.Second / time.Duration(targetOpsPerSec)
-	estimatedDuration := timePerOp * time.Duration(totalDBInteractions)
-
-	adjustmentFactor := 1.1 // for expected delays
-	estimatedDuration = time.Duration(float64(estimatedDuration) * adjustmentFactor)
-
-	return estimatedDuration
 }

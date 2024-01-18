@@ -64,45 +64,28 @@ type CacheConfig struct {
 	Nodes        []NodeConfig `yaml:"Nodes"`
 }
 
-type PerformanceConfig struct {
-	BatchSize                  IntProperty    `yaml:"BatchSize"`
+type WorkloadConfig struct {
 	PerformDataIntegrityChecks BoolProperty   `yaml:"PerformDataIntegrityChecks"`
 	EnableDroppingDataOnStart  BoolProperty   `yaml:"EnableDroppingDataOnStart"`
 	MaxFields                  IntProperty    `yaml:"MaxFields"`
 	AvFieldSizeBytes           IntProperty    `yaml:"AvFieldSizeBytes"`
 	FieldSizeDistribution      StringProperty `yaml:"FieldSizeDistribution"`
-	InsertCount                IntProperty    `yaml:"InsertCount"`
-	InsertionRetryInterval     IntProperty    `yaml:"InsertionRetryInterval"`
-	InsertionRetryLimit        IntProperty    `yaml:"InsertionRetryLimit"`
-	MaxExecutionTime           IntProperty    `yaml:"MaxExecutionTime"`
-	MaxScanLength              IntProperty    `yaml:"MaxScanLength"`
-	MinScanLength              IntProperty    `yaml:"MinScanLength"`
-	OperationCount             IntProperty    `yaml:"OperationCount"`
-	RecordCount                IntProperty    `yaml:"RecordCount"`
+	NumUniqueKeys              IntProperty    `yaml:"NumUniqueKeys"`
+	DbOperationRetryLimit      IntProperty    `yaml:"DbOperationRetryLimit"`
+	TargetExecutionTime        IntProperty    `yaml:"TargetExecutionTime"`
 	TargetOperationsPerSec     IntProperty    `yaml:"TargetOperationsPerSec"`
 	ThreadCount                IntProperty    `yaml:"ThreadCount"`
-}
-
-type WorkloadConfig struct {
-	WorkloadIdentifier        StringProperty `yaml:"WorkloadIdentifier"`
-	Command                   StringProperty `yaml:"Command"`
-	DoTransactions            BoolProperty   `yaml:"DoTransactions"`
-	ExponentialFrac           FloatProperty  `yaml:"ExponentialFrac"`
-	ExponentialPercentile     FloatProperty  `yaml:"ExponentialPercentile"`
-	HotspotDataFraction       FloatProperty  `yaml:"HotspotDataFraction"`
-	HotspotOpnFraction        FloatProperty  `yaml:"HotspotOpnFraction"`
-	HashInsertOrder           BoolProperty   `yaml:"HashInsertOrder"`
-	InsertProportion          FloatProperty  `yaml:"InsertProportion"`
-	KeyRangeLowerBound        IntProperty    `yaml:"KeyRangeLowerBound"`
-	KeyPrefix                 StringProperty `yaml:"KeyPrefix"`
-	ReadAllFields             BoolProperty   `yaml:"ReadAllFields"`
-	ReadModifyWriteProportion FloatProperty  `yaml:"ReadModifyWriteProportion"`
-	ReadProportion            FloatProperty  `yaml:"ReadProportion"`
-	RequestDistribution       StringProperty `yaml:"RequestDistribution"`
-	ScanLengthDistribution    StringProperty `yaml:"ScanLengthDistribution"`
-	ScanProportion            FloatProperty  `yaml:"ScanProportion"`
-	UpdateProportion          FloatProperty  `yaml:"UpdateProportion"`
-	WriteAllFields            BoolProperty   `yaml:"WriteAllFields"`
+	WorkloadIdentifier         StringProperty `yaml:"WorkloadIdentifier"`
+	Command                    StringProperty `yaml:"Command"`
+	ExponentialFrac            FloatProperty  `yaml:"ExponentialFrac"`
+	ExponentialPercentile      FloatProperty  `yaml:"ExponentialPercentile"`
+	HotspotDataFraction        FloatProperty  `yaml:"HotspotDataFraction"`
+	HotspotOpnFraction         FloatProperty  `yaml:"HotspotOpnFraction"`
+	HashInsertOrder            BoolProperty   `yaml:"HashInsertOrder"`
+	InsertProportion           FloatProperty  `yaml:"InsertProportion"`
+	KeyPrefix                  StringProperty `yaml:"KeyPrefix"`
+	ReadAllFields              BoolProperty   `yaml:"ReadAllFields"`
+	RequestDistribution        StringProperty `yaml:"RequestDistribution"`
 }
 
 type MeasurementsConfig struct {
@@ -134,8 +117,7 @@ type LoggingConfig struct {
 type Config struct {
 	Database     DatabaseConfig     `yaml:"Database"`
 	Cache        CacheConfig        `yaml:"Cache"`
-	Performance  PerformanceConfig  `yaml:"Performance"`
-	Workload     WorkloadConfig     `yaml:"WorkloadIdentifier"`
+	Workload     WorkloadConfig     `yaml:"Workload"`
 	Measurements MeasurementsConfig `yaml:"Measurements"`
 	Logging      LoggingConfig      `yaml:"Logging"`
 }
@@ -264,11 +246,7 @@ var defaultConfig_ = Config{
 			Description: "The number of virtual nodes.",
 		},
 	},
-	Performance: PerformanceConfig{
-		BatchSize: IntProperty{
-			Value:       1,
-			Description: "The number of operations to batch together in a single transaction. Batch processing is disabled if set to 1.",
-		},
+	Workload: WorkloadConfig{
 		PerformDataIntegrityChecks: BoolProperty{
 			Value:       false,
 			Description: "Enables verification of data integrity during database operations. Requires 'FieldSizeDistribution' to be set to 'constant'.",
@@ -289,37 +267,17 @@ var defaultConfig_ = Config{
 			Value:       "constant",
 			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'",
 		},
-		InsertCount: IntProperty{
+		NumUniqueKeys: IntProperty{
 			Value:       20000,
 			Description: "If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.",
 		},
-		InsertionRetryInterval: IntProperty{
-			Value:       1,
-			Description: "The time in seconds to wait before retrying a failed insert operation. This controls the\nback-off strategy for handling write failures.",
-		},
-		InsertionRetryLimit: IntProperty{
+		DbOperationRetryLimit: IntProperty{
 			Value:       1,
 			Description: "The maximum number of times to retry a failed insert operation.",
 		},
-		MaxExecutionTime: IntProperty{
-			Value:       30,
+		TargetExecutionTime: IntProperty{
+			Value:       15,
 			Description: "The maximum time to run the benchmark before it is forcibly stopped.",
-		},
-		MaxScanLength: IntProperty{
-			Value:       1000,
-			Description: "The maximum number of records to scan in a single operation.",
-		},
-		MinScanLength: IntProperty{
-			Value:       1,
-			Description: "The minimum number of records to scan in a single operation.",
-		},
-		OperationCount: IntProperty{
-			Value:       100000,
-			Description: "The total number of operations to perform during the workload execution.",
-		},
-		RecordCount: IntProperty{
-			Value:       400000,
-			Description: "If `DoTransactions` is false, and `InsertCount` is 0, this is the total number of records to insert during the workload execution. This value must be greater than `KeyRangeLowerBound` +`InsertCount`.",
 		},
 		TargetOperationsPerSec: IntProperty{
 			Value:       8000,
@@ -329,8 +287,6 @@ var defaultConfig_ = Config{
 			Value:       2000,
 			Description: "The number of concurrent threads to use when executing the workload.",
 		},
-	},
-	Workload: WorkloadConfig{
 		WorkloadIdentifier: StringProperty{
 			Value:       "workload1",
 			Description: "The name of the workload to be executed (for logging).",
@@ -338,10 +294,6 @@ var defaultConfig_ = Config{
 		Command: StringProperty{
 			Value:       "<>",
 			Description: "The specific command to run as part of the workload. This is set automatically by the program.",
-		},
-		DoTransactions: BoolProperty{
-			Value:       false,
-			Description: "Determines whether to perform a mix of different database operations or limit to insertion\noperations only. Set to true for initial data loading.",
 		},
 		ExponentialFrac: FloatProperty{
 			Value:       0.8571428571,
@@ -363,10 +315,6 @@ var defaultConfig_ = Config{
 			Value:       true,
 			Description: "Enables hashing the order in which records are inserted.",
 		},
-		KeyRangeLowerBound: IntProperty{
-			Value:       500,
-			Description: "The starting point (lower bound) for key values used in insert operations.",
-		},
 		KeyPrefix: StringProperty{
 			Value:       "key",
 			Description: "The prefix to be used for keys in the workload.",
@@ -375,37 +323,13 @@ var defaultConfig_ = Config{
 			Value:       false,
 			Description: "Indicates whether all fields should be read in read operations.",
 		},
-		WriteAllFields: BoolProperty{
-			Value:       false,
-			Description: "Indicates whether all fields should be written in write operations.",
-		},
-		ReadModifyWriteProportion: FloatProperty{
-			Value:       0.0,
-			Description: "The proportion of read-modify-write operations in the workload.",
-		},
-		ReadProportion: FloatProperty{
-			Value:       0.98,
-			Description: "The proportion of read operations in the workload.",
-		},
 		InsertProportion: FloatProperty{
 			Value:       0.02,
 			Description: "The proportion of insert operations in the workload.",
 		},
-		UpdateProportion: FloatProperty{
-			Value:       0.0,
-			Description: "The proportion (from 0.0 to 1.0) of update operations in the workload. If the value is 0.0, then updating is disabled.",
-		},
-		ScanProportion: FloatProperty{
-			Value:       0.0,
-			Description: "The proportion (from 0.0 to 1.0) of scan operations in the workload. If the value is 0.0, then scanning is disabled.",
-		},
 		RequestDistribution: StringProperty{
 			Value:       "uniform",
 			Description: "The distribution of request types in the workload (to simulate different access patterns on the dataset).\nOptions are 'uniform', 'sequential', 'zipfian', 'latest', 'hotspot', and 'exponential'.",
-		},
-		ScanLengthDistribution: StringProperty{
-			Value:       "uniform",
-			Description: "The distribution for the number of records to scan during scan operations (to simulate\ndifferent data access spreads). Options are 'uniform' and 'zipfian'.",
 		},
 	},
 	Measurements: MeasurementsConfig{

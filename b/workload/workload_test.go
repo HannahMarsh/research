@@ -13,11 +13,11 @@ func TestWorkload(t *testing.T) {
 	nodeRing := cache.NewNodeRing(actualNodes, virtualNodes)
 
 	p := bconfig.GetDefaultConfig()
-	p.Performance.ThreadCount.Value = 200
-	p.Performance.InsertCount.Value = 10000
+	p.Workload.ThreadCount.Value = 200
+	p.Workload.NumUniqueKeys.Value = 10000
 	p.Workload.KeyRangeLowerBound.Value = 500
-	p.Performance.RecordCount.Value = 3 * (p.Performance.InsertCount.Value + p.Workload.KeyRangeLowerBound.Value)
-	p.Performance.BatchSize.Value = 1
+	p.Workload.RecordCount.Value = 3 * (p.Workload.NumUniqueKeys.Value + p.Workload.KeyRangeLowerBound.Value)
+	p.Workload.BatchSize.Value = 1
 	wLoad, err := NewWorkload(&p)
 	var keys = make(map[string]int)
 	var nodes = make(map[string]int)
@@ -35,16 +35,16 @@ func TestWorkload(t *testing.T) {
 		nodeUniqueKeysHistogram[i] = 0
 	}
 
-	for i := 0; i < p.Performance.ThreadCount.Value; i++ {
+	for i := 0; i < p.Workload.ThreadCount.Value; i++ {
 
 		ctx, _ := context.WithCancel(context.Background())
-		w := NewWorker(&p, i, p.Performance.ThreadCount.Value, wLoad, nil, nil)
-		ctx = wLoad.InitThread(ctx, i, p.Performance.ThreadCount.Value)
+		w := NewWorker(&p, i, wLoad, nil, nil)
+		ctx = wLoad.InitThread(ctx, i, p.Workload.ThreadCount.Value)
 
 		for w.opCount == 0 || w.opsDone < w.opCount {
 			opsCount := 1
 			if w.doBatch {
-				opsCount = w.p.Performance.BatchSize.Value
+				opsCount = w.p.Workload.BatchSize.Value
 			}
 			state := ctx.Value(stateKey).(*State)
 			for j := 0; j < opsCount; j++ {

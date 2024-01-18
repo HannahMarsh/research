@@ -154,7 +154,7 @@ func main() {
 }
 
 func maxExecution() {
-	//if globalProps.Performance.MaxExecutionTime.Value > 0 {
+	//if globalProps.Workload.TargetExecutionTime.Value > 0 {
 	go func() {
 		select {
 		case <-globalContext.Done():

@@ -16,7 +16,6 @@ type Worker struct {
 	workDB          db.DB
 	cache           cache.Cache
 	workload        *Workload
-	doBatch         bool
 	opCount         int64
 	targetOpsPerMs  float64
 	threadID        int
@@ -24,47 +23,33 @@ type Worker struct {
 	opsDone         int64
 }
 
-func NewWorker(p *bconfig.Config, threadID int, threadCount int, workload *Workload, db db.DB, cache cache.Cache) *Worker {
+func NewWorker(p *bconfig.Config, threadID int, workload *Workload, db db.DB, cache cache.Cache) *Worker {
 	w := new(Worker)
 	w.p = p
-	if w.p.Performance.BatchSize.Value > 1 {
-		w.doBatch = true
-	}
 	w.threadID = threadID
 	w.workload = workload
 	w.workDB = db
 	w.cache = cache
 
-	var totalOpCount int64
-	if w.p.Workload.DoTransactions.Value {
-		totalOpCount = int64(p.Performance.OperationCount.Value)
-	} else {
-		if p.Performance.InsertCount.Value > 0 {
-			totalOpCount = int64(p.Performance.InsertCount.Value)
-		} else {
-			totalOpCount = int64(p.Performance.RecordCount.Value)
-		}
-	}
+	var totalOpCount = int64(p.Workload.TargetExecutionTime.Value * p.Workload.TargetOperationsPerSec.Value)
 
-	if totalOpCount < int64(threadCount) {
-		fmt.Printf("totalOpCount(%d/%d/%d): %d should be bigger than threadCount: %d",
-			p.Performance.OperationCount.Value,
-			p.Performance.InsertCount.Value,
-			p.Performance.RecordCount.Value,
-			totalOpCount,
-			threadCount)
+	if totalOpCount < int64(p.Workload.ThreadCount.Value) {
+		fmt.Printf("TargetExecutionTime(%d) * TargetOperationsPerSec(%d) should be bigger than ThreadCount(%d)",
+			p.Workload.TargetExecutionTime.Value,
+			p.Workload.TargetOperationsPerSec.Value,
+			p.Workload.ThreadCount.Value)
 
 		os.Exit(-1)
 	}
 
-	w.opCount = totalOpCount / int64(threadCount)
-	if threadID < int(totalOpCount%int64(threadCount)) {
+	w.opCount = totalOpCount / int64(p.Workload.ThreadCount.Value)
+	if threadID < int(totalOpCount%int64(p.Workload.ThreadCount.Value)) {
 		w.opCount++
 	}
 
 	targetPerThreadPerms := float64(-1)
-	if v := p.Performance.TargetOperationsPerSec.Value; v > 0 {
-		targetPerThread := float64(v) / float64(threadCount)
+	if v := p.Workload.TargetOperationsPerSec.Value; v > 0 {
+		targetPerThread := float64(v) / float64(p.Workload.ThreadCount.Value)
 		targetPerThreadPerms = targetPerThread / 1000.0
 	}
 
@@ -93,43 +78,19 @@ func (w *Worker) throttle(ctx context.Context, startTime time.Time) {
 }
 
 func (w *Worker) Run(ctx context.Context) {
-	// spread the thread operation out so they don't all hit the DB at the same time
+	// spread the thread operation out
 	if w.targetOpsPerMs > 0.0 && w.targetOpsPerMs <= 1.0 {
 		time.Sleep(time.Duration(rand.Int63n(w.targetOpsTickNs)))
 	}
 
-	startTime := time.Now()
-
-	for w.opCount == 0 || w.opsDone < w.opCount {
-		opsCount := 1
-		if w.doBatch {
-			opsCount = w.p.Performance.BatchSize.Value
-		}
-		go runAsync(w, ctx)
-
-		w.opsDone += int64(opsCount)
+	for startTime := time.Now(); w.opCount == 0 || w.opsDone < w.opCount; w.opsDone++ {
+		go w.workload.DoTransaction(ctx, w.workDB, w.cache)
 		w.throttle(ctx, startTime)
 
 		select {
 		case <-ctx.Done():
 			return
 		default:
-		}
-	}
-}
-
-func runAsync(w *Worker, ctx context.Context) {
-	if w.p.Workload.DoTransactions.Value {
-		if w.doBatch {
-			_, _ = w.workload.DoBatchTransaction(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
-		} else {
-			_, _ = w.workload.DoTransaction(ctx, w.workDB, w.cache)
-		}
-	} else {
-		if w.doBatch {
-			_ = w.workload.DoBatchInsert(ctx, w.p.Performance.BatchSize.Value, w.workDB, w.cache)
-		} else {
-			_ = w.workload.DoInsert(ctx, w.workDB, w.cache)
 		}
 	}
 }

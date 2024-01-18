@@ -157,15 +157,35 @@ func PlotMetrics(s time.Time, e time.Time) {
 	fmt.Printf("Plotting metrics...\n")
 	numBuckets := 40
 	start := s.Add(warmUptime)
-	end := s.Add(estimatedRunningTime)
+	end := start.Add(time.Duration(globalConfig.Workload.TargetExecutionTime.Value) * time.Second)
 	if e.Before(end) {
 		end = e
 	}
 
 	var pi = []*plotInfo{
 		{
+			title: "Transaction Latency as a Function of Time",
+			yAxis: "Latency (ms)",
+			categories: []category{
+				{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == TRANSACTION && hasTag(m, LATENCY)
+						},
+					},
+					reduce:   averageValue(func(m Metric) float64 { return 1000 * m.tags[LATENCY].(float64) }),
+					color:    DARK_BLUE,
+					showMean: true,
+				},
+			},
+			start:            start,
+			end:              end,
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
 			title: "Workload as a Function of Time",
-			yAxis: "Fraction of Read Requests",
+			yAxis: "Requests per second",
 			categories: []category{
 				{
 					plotLabel: "Read Transactions",
@@ -179,17 +199,6 @@ func PlotMetrics(s time.Time, e time.Time) {
 					showMean: false,
 				},
 				{
-					plotLabel: "Batch Read Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == TRANSACTION && has(m, OPERATION, BATCH_READ)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_YELLOW,
-					showMean: false,
-				},
-				{
 					plotLabel: "Insert Transactions",
 					filters: []func(m Metric) bool{
 						func(m Metric) bool {
@@ -198,61 +207,6 @@ func PlotMetrics(s time.Time, e time.Time) {
 					},
 					reduce:   countPerSecond,
 					color:    DARK_GREEN,
-					showMean: false,
-				},
-				{
-					plotLabel: "Batch Insert Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == TRANSACTION && has(m, OPERATION, BATCH_INSERT)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_BLUE,
-					showMean: false,
-				},
-				{
-					plotLabel: "Scan Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == TRANSACTION && has(m, OPERATION, SCAN)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_PURPLE,
-					showMean: false,
-				},
-				{
-					plotLabel: "Read/Modify/Write Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == TRANSACTION && has(m, OPERATION, READ_MODIFY_WRITE)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_PINK,
-					showMean: false,
-				},
-				{
-					plotLabel: "Update Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == TRANSACTION && has(m, OPERATION, UPDATE)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    DARK_ORANGE,
-					showMean: false,
-				},
-				{
-					plotLabel: "Batch Update Transactions",
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == TRANSACTION && has(m, OPERATION, BATCH_UPDATE)
-						},
-					},
-					reduce:   countPerSecond,
-					color:    GREY,
 					showMean: false,
 				},
 			},
@@ -301,26 +255,6 @@ func PlotMetrics(s time.Time, e time.Time) {
 					filters: []func(m Metric) bool{
 						func(m Metric) bool {
 							return m.metricType == DATABASE_OPERATION && hasTag(m, LATENCY)
-						},
-					},
-					reduce:   averageValue(func(m Metric) float64 { return 1000 * m.tags[LATENCY].(float64) }),
-					color:    DARK_BLUE,
-					showMean: true,
-				},
-			},
-			start:            start,
-			end:              end,
-			numBuckets:       numBuckets,
-			showNodeFailures: true,
-		},
-		{
-			title: "Transaction Latency as a Function of Time",
-			yAxis: "Latency (ms)",
-			categories: []category{
-				{
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == TRANSACTION && hasTag(m, LATENCY)
 						},
 					},
 					reduce:   averageValue(func(m Metric) float64 { return 1000 * m.tags[LATENCY].(float64) }),
@@ -743,13 +677,13 @@ func plotConfig(start time.Time, end time.Time, filename string) {
 	// Draw the txt on the image
 	addLabel(img, leftIndent+20, 40, toTitleCase(globalConfig.Workload.WorkloadIdentifier.Value)+" Configuration Summary:", "metrics/fonts/roboto/Roboto-Bold.ttf", 18.0)
 	addLabel(img, leftIndent+40, 90, fmt.Sprintf("Duration: %d seconds", int(end.Sub(start).Seconds())), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 120, fmt.Sprintf("Target Requests per Second: %d", config.Performance.TargetOperationsPerSec.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
+	addLabel(img, leftIndent+40, 120, fmt.Sprintf("Target Requests per Second: %d", config.Workload.TargetOperationsPerSec.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 150, fmt.Sprintf("Nodes: %d", len(config.Cache.Nodes)), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 180, fmt.Sprintf("Virtual Nodes: %d", config.Cache.VirtualNodes.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 210, fmt.Sprintf("Read Percentage: %d%%", int(config.Workload.ReadProportion.Value*100.0)), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
+	addLabel(img, leftIndent+40, 210, fmt.Sprintf("Read Percentage: %d%%", int((1.0-config.Workload.InsertProportion.Value)*100.0)), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 240, fmt.Sprintf("Failures: %d", failures), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 270, fmt.Sprintf("Key Range: %d to %d", config.Workload.KeyRangeLowerBound.Value, config.Workload.KeyRangeLowerBound.Value+config.Performance.InsertCount.Value-1), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 300, fmt.Sprintf("Concurrency: %v", config.Performance.ThreadCount.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
+	addLabel(img, leftIndent+40, 270, fmt.Sprintf("Key Range: 0 to %d", config.Workload.NumUniqueKeys.Value-1), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
+	addLabel(img, leftIndent+40, 300, fmt.Sprintf("Concurrency: %v", config.Workload.ThreadCount.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 330, fmt.Sprintf("Warmup Time: %d seconds", config.Measurements.WarmUpTime.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 360, fmt.Sprintf("Request Distribution: %s", config.Workload.RequestDistribution.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 

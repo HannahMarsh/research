@@ -2,7 +2,6 @@ package metrics
 
 import (
 	bconfig "benchmark/config"
-	"github.com/gocql/gocql"
 	"sync"
 	"time"
 )
@@ -12,8 +11,6 @@ import (
 var globalAllMetrics MetricSlice
 var mu sync.Mutex
 var globalConfig *bconfig.Config
-var globalSession *gocql.Session
-var estimatedRunningTime time.Duration
 var warmUptime time.Duration
 var globalStartTime time.Time
 
@@ -51,20 +48,7 @@ var (
 func Init(config *bconfig.Config) {
 	globalConfig = config
 	globalStartTime = time.Now()
-	estimatedRunningTime = EstimateRunningTime(config)
 	warmUptime = time.Duration(config.Measurements.WarmUpTime.Value) * time.Second
-
-	//hosts := strings.Split(config.Measurements.CassandraCluster.Value, ",")
-	//
-	//cluster := gocql.NewCluster(hosts...)
-	//cluster.Timeout = 30 * time.Second
-	//cluster.Consistency = gocql.Quorum
-	//
-	//session, err := cluster.CreateSession()
-	//if err != nil {
-	//	panic(err)
-	//}
-	//globalSession = session
 }
 
 type Metric struct {
@@ -139,39 +123,4 @@ func (ms MetricSlice) CountFrom(start time.Time, end time.Time) int {
 	return len(ms.FilterByTimestamp(func(time2 time.Time) bool {
 		return time2.Equal(start) || (time2.After(start) && time2.Before(end))
 	}))
-}
-
-func EstimateRunningTime(config *bconfig.Config) time.Duration {
-	var totalOpCount int64
-	if config.Workload.DoTransactions.Value {
-		totalOpCount = int64(config.Performance.OperationCount.Value)
-	} else {
-		if config.Performance.InsertCount.Value > 0 {
-			totalOpCount = int64(config.Performance.InsertCount.Value)
-		} else {
-			totalOpCount = int64(config.Performance.RecordCount.Value)
-		}
-	}
-
-	batchSize := 1
-	if config.Performance.BatchSize.Value > 1 {
-		batchSize = config.Performance.BatchSize.Value
-	}
-
-	totalDBInteractions := totalOpCount / int64(batchSize)
-
-	targetOpsPerSec := float64(config.Performance.TargetOperationsPerSec.Value)
-	if targetOpsPerSec <= 0 {
-		targetOpsPerSec = 1 // Set a default value if not specified
-	}
-
-	timePerOp := time.Second / time.Duration(targetOpsPerSec)
-	estimatedDuration := timePerOp * time.Duration(totalDBInteractions)
-
-	// Adjust for any additional delays (e.g., throttling, retries)
-	// This is a rough estimate and will depend on your specific implementation details
-	adjustmentFactor := 1.2 // Adjust this based on expected delays
-	estimatedDuration = time.Duration(float64(estimatedDuration) * adjustmentFactor)
-
-	return estimatedDuration
 }

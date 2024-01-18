@@ -26,7 +26,7 @@ func NewClient(p *bconfig.Config, workload *workload.Workload, db db.DB, cache_ 
 func (c *Client) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 
-	wg.Add(c.p.Performance.ThreadCount.Value)
+	wg.Add(c.p.Workload.ThreadCount.Value)
 	measureCtx, measureCancel := context.WithCancel(ctx)
 	measureCh := make(chan struct{}, 1)
 	//start := time.Now()
@@ -34,18 +34,6 @@ func (c *Client) Run(ctx context.Context) {
 		defer func() {
 			measureCh <- struct{}{}
 		}()
-		// load stage no need to warm up
-		if c.p.Workload.DoTransactions.Value {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(time.Duration(c.p.Measurements.WarmUpTime.Value) * time.Second):
-			}
-		}
-		// finish warming up
-		//measurement.EnableWarmUp(false)
-
-		//dur := c.p.Logging.LogInterval.Value
 		if c.p.Logging.LogInterval.Value > 0 {
 			t := time.NewTicker(time.Duration(c.p.Logging.LogInterval.Value) * time.Second)
 			defer t.Stop()
@@ -61,26 +49,24 @@ func (c *Client) Run(ctx context.Context) {
 		}
 	}()
 
-	for i := 0; i < c.p.Performance.ThreadCount.Value; i++ {
+	for i := 0; i < c.p.Workload.ThreadCount.Value; i++ {
 		go func(threadId int) {
 			defer wg.Done()
 
-			w := workload.NewWorker(c.p, threadId, c.p.Performance.ThreadCount.Value, c.workload, c.db, c.cache)
-			ctx := c.workload.InitThread(ctx, threadId, c.p.Performance.ThreadCount.Value)
-			ctx = c.db.InitThread(ctx, threadId, c.p.Performance.ThreadCount.Value)
+			w := workload.NewWorker(c.p, threadId, c.workload, c.db, c.cache)
+			ctx := c.workload.InitThread(ctx, threadId, c.p.Workload.ThreadCount.Value)
+			ctx = c.db.InitThread(ctx, threadId, c.p.Workload.ThreadCount.Value)
 			w.Run(ctx)
 			c.db.CleanupThread(ctx)
 		}(i)
 	}
 
 	wg.Wait()
-	if !c.p.Workload.DoTransactions.Value {
-		// when loading is finished, try to analyze table if possible.
-		if analyzeDB, ok := c.db.(db.AnalyzeDB); ok {
-			err := analyzeDB.Analyze(ctx, c.p.Database.CassandraTableName.Value)
-			if err != nil {
-				panic(err)
-			}
+	// when loading is finished, try to analyze table if possible.
+	if analyzeDB, ok := c.db.(db.AnalyzeDB); ok {
+		err := analyzeDB.Analyze(ctx, c.p.Database.CassandraTableName.Value)
+		if err != nil {
+			panic(err)
 		}
 	}
 	measureCancel()
