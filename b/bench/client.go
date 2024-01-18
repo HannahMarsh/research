@@ -66,6 +66,19 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	metrics.PlotMetrics(start, time.Now())
 }
 
+func maxExecution() {
+	maxExecutionTime := time.Duration(globalProps.Workload.TargetExecutionTime.Value+globalProps.Measurements.WarmUpTime.Value+5) * time.Second
+	go func() {
+		select {
+		case <-globalContext.Done():
+			return
+		case <-time.After(maxExecutionTime):
+			fmt.Printf("Max execution time reached, exit\n")
+			globalCancel()
+		}
+	}()
+}
+
 func dispTimer(start time.Time, ticker *time.Ticker) {
 	defer ticker.Stop()
 
@@ -81,10 +94,17 @@ func dispTimer(start time.Time, ticker *time.Ticker) {
 	warmupDigits := int(math.Log10(endWarmUp.Sub(start).Seconds())) + 1
 	afterWarmUp := false
 
+	maxExecutionTime := start.Add(time.Duration(globalProps.Workload.TargetExecutionTime.Value+globalProps.Measurements.WarmUpTime.Value+5) * time.Second)
+
 	for {
 		select {
 		case <-ticker.C:
 			now := time.Now()
+			if now.After(maxExecutionTime) {
+				fmt.Printf("\r  - max execution time reached, forcefully exiting.%s\n", spaces)
+				globalCancel()
+				return
+			}
 			if !afterWarmUp {
 				if !now.Before(endWarmUp) {
 					remainingTime := int(math.Round(end.Sub(time.Now()).Seconds()))

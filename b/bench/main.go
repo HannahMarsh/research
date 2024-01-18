@@ -52,7 +52,6 @@ var (
 func initialGlobal(onProperties func()) {
 	var err error
 	globalProps, err = bconfig.NewConfig(propertyFile)
-	//warmUpTime = time.Now().Add(time.Duration(globalProps.Measurements.WarmUpTime.Value) * time.Second)
 
 	if onProperties != nil {
 		onProperties()
@@ -65,8 +64,6 @@ func initialGlobal(onProperties func()) {
 			panic(err)
 		}
 	}()
-
-	//measurement.InitMeasure(globalProps)
 
 	metrics.Init(globalProps)
 
@@ -121,15 +118,10 @@ func main() {
 	}
 
 	rootCmd.AddCommand(
-		//newShellCommand(),
 		newRunCommand(),
 	)
 
 	cobra.EnablePrefixMatching = true
-
-	//start := time.Now()
-
-	go maxExecution()
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(rootCmd.UsageString())
@@ -144,19 +136,4 @@ func main() {
 	}
 
 	closeDone <- struct{}{}
-
-	//metrics.PlotMetrics(start, time.Now())
-}
-
-func maxExecution() {
-	go func() {
-		select {
-		case <-globalContext.Done():
-			return
-		case <-time.After(time.Duration(25 * time.Second)):
-			fmt.Printf("Max execution time reached, exit\n")
-			globalCancel()
-		}
-	}()
-	//}
 }
