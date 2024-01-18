@@ -5,6 +5,7 @@ import (
 	bconfig "benchmark/config"
 	"context"
 	"testing"
+	"time"
 )
 
 func TestWorkload(t *testing.T) {
@@ -15,10 +16,7 @@ func TestWorkload(t *testing.T) {
 	p := bconfig.GetDefaultConfig()
 	p.Workload.ThreadCount.Value = 200
 	p.Workload.NumUniqueKeys.Value = 10000
-	p.Workload.KeyRangeLowerBound.Value = 500
-	p.Workload.RecordCount.Value = 3 * (p.Workload.NumUniqueKeys.Value + p.Workload.KeyRangeLowerBound.Value)
-	p.Workload.BatchSize.Value = 1
-	wLoad, err := NewWorkload(&p)
+	wLoad, err := NewWorkload(&p, time.Now().Add(time.Duration(1)*time.Second))
 	var keys = make(map[string]int)
 	var nodes = make(map[string]int)
 	var numKeys = 0
@@ -43,9 +41,6 @@ func TestWorkload(t *testing.T) {
 
 		for w.opCount == 0 || w.opsDone < w.opCount {
 			opsCount := 1
-			if w.doBatch {
-				opsCount = w.p.Workload.BatchSize.Value
-			}
 			state := ctx.Value(stateKey).(*State)
 			for j := 0; j < opsCount; j++ {
 				key := w.workload.buildKeyName(w.workload.nextKeyNum(state))

@@ -65,7 +65,7 @@ func NewWorkload(p *bconfig.Config, warmUpTime time.Time) (*Workload, error) {
 	}
 	c.fieldLengthGenerator = getFieldLengthGenerator(p)
 
-	recordCount := p.Workload.TargetExecutionTime.Value * p.Workload.TargetOperationsPerSec.Value
+	recordCount := (p.Workload.TargetExecutionTime.Value + p.Measurements.WarmUpTime.Value) * p.Workload.TargetOperationsPerSec.Value
 
 	if int64(recordCount) < int64(p.Workload.NumUniqueKeys.Value) {
 		util.Fatalf("TargetExecutionTime(%d) * TargetOperationsPerSec(%d) = %d must be bigger than NumUniqueKeys(%d)",

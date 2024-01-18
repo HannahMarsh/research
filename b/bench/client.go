@@ -15,6 +15,7 @@ package main
 
 import (
 	"benchmark/client"
+	"benchmark/metrics"
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
@@ -41,44 +42,68 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 
 	fmt.Println("**********************************************")
 	fmt.Printf("Generating a %s request distribution with a keyrange of [%d, %d]. Key prefix = `%s`\n", globalProps.Workload.RequestDistribution.Value, 0, globalProps.Workload.NumUniqueKeys.Value-1, globalProps.Workload.KeyPrefix.Value)
-	fmt.Printf("Target Run time Duration: %ds\n", globalProps.Workload.TargetExecutionTime.Value)
+	fmt.Printf("Target Run time Duration (after %ds warm-up): %ds\n", globalProps.Measurements.WarmUpTime.Value, globalProps.Workload.TargetExecutionTime.Value)
 	fmt.Printf("Target Operations Per Sec: %s\n", humanize.Comma(int64(globalProps.Workload.TargetOperationsPerSec.Value)))
 	fmt.Printf("Approx Total Operations: %s\n", humanize.Comma(int64(globalProps.Workload.TargetExecutionTime.Value*globalProps.Workload.TargetOperationsPerSec.Value)))
 	fmt.Println("**********************************************")
 
-	start := time.Now()
-	ticker := time.NewTicker(1 * time.Second)
-	go dispTimer(start, ticker, time.Duration(globalProps.Workload.TargetExecutionTime.Value)*time.Second)
-
 	c := client.NewClient(globalProps, globalWorkload, globalDB, globalCache)
+
+	ticker := time.NewTicker(1 * time.Second)
+	start := time.Now()
+	go dispTimer(start, ticker)
+
 	c.Run(globalContext)
 
-	ticker.Stop()
+	globalContext.Done()
 
+	ticker.Stop()
+	fmt.Printf("\r  - Done running benchmark. Took %d seconds.%s\n", int(time.Since(start).Seconds())-globalProps.Measurements.WarmUpTime.Value, "              ")
 	fmt.Println("\n**********************************************")
-	fmt.Printf("Run finished, takes %s\n", time.Now().Sub(start))
+
+	time.Sleep(1 * time.Second)
+
+	metrics.PlotMetrics(start, time.Now())
 }
 
-func dispTimer(start time.Time, ticker *time.Ticker, estimatedRunningTime time.Duration) {
-	fmt.Println("Running benchmark...")
-	timer := time.NewTimer(0)
+func dispTimer(start time.Time, ticker *time.Ticker) {
 	defer ticker.Stop()
 
-	end := time.Now().Add(estimatedRunningTime)
-	digits := int(math.Log10(estimatedRunningTime.Seconds())) + 1
+	spaces := "                                             "
+
+	fmt.Printf("Warming up...\n  - remaining time: %ds%s", globalProps.Measurements.WarmUpTime.Value, spaces)
+
+	endWarmUp := start.Add(time.Duration(globalProps.Measurements.WarmUpTime.Value) * time.Second)
+
+	end := endWarmUp.Add(time.Duration(globalProps.Workload.TargetExecutionTime.Value) * time.Second)
+
+	digits := int(math.Log10(end.Sub(start).Seconds())) + 1
+	warmupDigits := int(math.Log10(endWarmUp.Sub(start).Seconds())) + 1
+	afterWarmUp := false
 
 	for {
 		select {
 		case <-ticker.C:
-			remainingTime := int(math.Round(end.Sub(time.Now()).Seconds()))
-			if remainingTime >= 0 {
-				fmt.Printf("\rEstimated remaining time: %ss       ", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), remainingTime))
+			now := time.Now()
+			if !afterWarmUp {
+				if !now.Before(endWarmUp) {
+					remainingTime := int(math.Round(end.Sub(time.Now()).Seconds()))
+					fmt.Printf("\r  - Done warming up. Took %d seconds.%s\nRunning benchmark...\n  - remaining time: %ss%s", globalProps.Measurements.WarmUpTime.Value, spaces, fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), remainingTime), spaces)
+					afterWarmUp = true
+				} else {
+					remainingTime := int(math.Round(endWarmUp.Sub(time.Now()).Seconds()))
+					fmt.Printf("\r  - remaining time: %ss%s", fmt.Sprintf(fmt.Sprintf("%%0%dd", warmupDigits), remainingTime), spaces)
+				}
 			} else {
-				fmt.Printf("\rDuration: %ss                ", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), int(math.Round(time.Now().Sub(start).Seconds()))))
+				remainingTime := int(math.Round(end.Sub(now).Seconds()))
+				if remainingTime >= 0 {
+					fmt.Printf("\r  - remaining time: %ss%s", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), remainingTime), spaces)
+				} else {
+					// fmt.Printf("\r  - Duration: %ss%s", fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), int(math.Round(time.Now().Sub(start).Seconds()))), spaces)
+				}
 			}
 		case <-globalContext.Done():
-			timer.Stop()
-			fmt.Printf("\n")
+
 			return // Exit the loop when the global context is canceled
 		}
 	}

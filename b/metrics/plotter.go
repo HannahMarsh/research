@@ -157,7 +157,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 	fmt.Printf("Plotting metrics...\n")
 	numBuckets := 40
 	start := s.Add(warmUptime)
-	end := start.Add(time.Duration(globalConfig.Workload.TargetExecutionTime.Value) * time.Second)
+	end := start.Add(time.Duration(globalConfig.Workload.TargetExecutionTime.Value+globalConfig.Measurements.WarmUpTime.Value) * time.Second)
 	if e.Before(end) {
 		end = e
 	}

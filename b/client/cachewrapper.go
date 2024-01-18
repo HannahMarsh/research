@@ -76,7 +76,7 @@ func (c *CacheWrapper) scheduleFailures() {
 		nodeIndex := i
 
 		warmUpTime := time.Duration(c.p.Measurements.WarmUpTime.Value) * time.Second
-		estimatedRunningTime := float64(c.p.Workload.TargetExecutionTime.Value)
+		estimatedRunningTime := float64(c.p.Workload.TargetExecutionTime.Value + c.p.Measurements.WarmUpTime.Value)
 		for j := 0; j < len(c.p.Cache.Nodes[nodeIndex].FailureIntervals); j++ {
 			failureIndex := j
 			interval := c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex]

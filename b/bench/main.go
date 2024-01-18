@@ -127,7 +127,7 @@ func main() {
 
 	cobra.EnablePrefixMatching = true
 
-	start := time.Now()
+	//start := time.Now()
 
 	go maxExecution()
 
@@ -145,7 +145,7 @@ func main() {
 
 	closeDone <- struct{}{}
 
-	metrics.PlotMetrics(start, time.Now())
+	//metrics.PlotMetrics(start, time.Now())
 }
 
 func maxExecution() {

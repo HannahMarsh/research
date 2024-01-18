@@ -31,11 +31,12 @@ func NewWorker(p *bconfig.Config, threadID int, workload *Workload, db db.DB, ca
 	w.workDB = db
 	w.cache = cache
 
-	var totalOpCount = int64(p.Workload.TargetExecutionTime.Value * p.Workload.TargetOperationsPerSec.Value)
+	var totalOpCount = int64((p.Workload.TargetExecutionTime.Value + p.Measurements.WarmUpTime.Value) * p.Workload.TargetOperationsPerSec.Value)
 
 	if totalOpCount < int64(p.Workload.ThreadCount.Value) {
-		fmt.Printf("TargetExecutionTime(%d) * TargetOperationsPerSec(%d) should be bigger than ThreadCount(%d)",
+		fmt.Printf("(TargetExecutionTime(%d) + WarmUpTime(%s)) * TargetOperationsPerSec(%d) should be bigger than ThreadCount(%d)",
 			p.Workload.TargetExecutionTime.Value,
+			p.Measurements.WarmUpTime.Value,
 			p.Workload.TargetOperationsPerSec.Value,
 			p.Workload.ThreadCount.Value)
 
