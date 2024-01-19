@@ -1,0 +1,566 @@
+@startuml
+namespace cache {
+    interface Cache  {
+        + Get(ctx context.Context, key string, fields []string) (<font color=blue>map</font>[string][]byte, error, int64)
+        + Set(ctx context.Context, key string, value <font color=blue>map</font>[string][]byte) (error, int64)
+
+    }
+    class Node << (S,Aquamarine) >> {
+        - isFailed bool
+        - failMutex sync.Mutex
+        - redisClient *redis.Client
+        - maxSize int64
+        - id int
+
+        + Size(ctx context.Context) (int64, error)
+        + Recover(ctx context.Context) 
+        + Fail() 
+        + Get(ctx context.Context, key string, fields []string) (<font color=blue>map</font>[string][]byte, error, int64)
+        + Set(ctx context.Context, key string, value <font color=blue>map</font>[string][]byte) (error, int64)
+
+    }
+    class NodeRing << (S,Aquamarine) >> {
+        - actualNodes int
+        - virtualNodes int
+
+        + Ring <font color=blue>map</font>[int]int
+        + SortedHashes []int
+
+        + GetNode(key string) int
+
+    }
+}
+
+"cache.Cache" <|-- "cache.Node"
+
+namespace client {
+    class CacheWrapper << (S,Aquamarine) >> {
+        - nodes []*cache.Node
+        - p *config.Config
+        - nodeRing *cache.NodeRing
+        - timers []*time.Timer
+        - ctx context.Context
+
+        - scheduleFailures() 
+        - addNode(address string, maxSize int, id int, ctx context.Context) 
+
+        + NumNodes() int
+        + Get(ctx context.Context, key string, fields []string) (<font color=blue>map</font>[string][]byte, error, int64)
+        + Set(ctx context.Context, key string, value <font color=blue>map</font>[string][]byte) (error, int64)
+
+    }
+    class Client << (S,Aquamarine) >> {
+        - p *config.Config
+        - workload *workload.Workload
+        - db db.DB
+        - cache *CacheWrapper
+
+        + Run(ctx context.Context) 
+
+    }
+    class DbWrapper << (S,Aquamarine) >> {
+        + DB db.DB
+        + P *config.Config
+
+        + Close() error
+        + InitThread(ctx context.Context, threadID int, threadCount int) context.Context
+        + CleanupThread(ctx context.Context) 
+        + Read(ctx context.Context, table string, key string, fields []string) (<font color=blue>map</font>[string][]byte, error)
+        + Insert(ctx context.Context, table string, key string, values <font color=blue>map</font>[string][]byte) error
+        + Delete(ctx context.Context, table string, key string) error
+        + Analyze(ctx context.Context, table string) error
+
+    }
+}
+
+"cache.Cache" <|-- "client.CacheWrapper"
+"db.AnalyzeDB" <|-- "client.DbWrapper"
+"db.DB" <|-- "client.DbWrapper"
+
+namespace config {
+    class ArrayProperty << (S,Aquamarine) >> {
+        + Description string
+        + Value int
+
+    }
+    class BoolProperty << (S,Aquamarine) >> {
+        + Description string
+        + Value bool
+
+    }
+    class CacheConfig << (S,Aquamarine) >> {
+        + VirtualNodes IntProperty
+        + Nodes []NodeConfig
+
+    }
+    class Config << (S,Aquamarine) >> {
+        + Database DatabaseConfig
+        + Cache CacheConfig
+        + Workload WorkloadConfig
+        + Measurements MeasurementsConfig
+        + Logging LoggingConfig
+
+        + ToString() string
+
+    }
+    class DatabaseConfig << (S,Aquamarine) >> {
+        + CassandraCluster StringProperty
+        + CassandraConnections IntProperty
+        + CassandraKeyspace StringProperty
+        + CassandraTableName StringProperty
+        + CassandraPassword StringProperty
+        + CassandraUsername StringProperty
+        + PasswordAuthenticator BoolProperty
+        + ReplicationStrategy StringProperty
+        + ReplicationFactor IntProperty
+
+    }
+    class FailureInterval << (S,Aquamarine) >> {
+        + Start float64
+        + End float64
+
+    }
+    class FloatProperty << (S,Aquamarine) >> {
+        + Description string
+        + Value float64
+
+    }
+    class IntProperty << (S,Aquamarine) >> {
+        + Description string
+        + Value int
+
+    }
+    class LoggingConfig << (S,Aquamarine) >> {
+        + DebugPprof StringProperty
+        + Label StringProperty
+        + LogInterval IntProperty
+        + Silence BoolProperty
+        + Status StringProperty
+        + Verbose BoolProperty
+
+    }
+    class MeasurementsConfig << (S,Aquamarine) >> {
+        + MetricsOutputDir StringProperty
+        + WarmUpTime IntProperty
+        + ZeroPadding IntProperty
+
+    }
+    class NodeConfig << (S,Aquamarine) >> {
+        + NodeId IntProperty
+        + Address StringProperty
+        + FailureIntervals []FailureInterval
+        + MaxSize IntProperty
+        + UseDefaultDatabase BoolProperty
+
+    }
+    class StringProperty << (S,Aquamarine) >> {
+        + Description string
+        + Value string
+
+    }
+    class WorkloadConfig << (S,Aquamarine) >> {
+        + PerformDataIntegrityChecks BoolProperty
+        + EnableDroppingDataOnStart BoolProperty
+        + MaxFields IntProperty
+        + AvFieldSizeBytes IntProperty
+        + FieldSizeDistribution StringProperty
+        + NumUniqueKeys IntProperty
+        + DbOperationRetryLimit IntProperty
+        + TargetExecutionTime IntProperty
+        + TargetOperationsPerSec IntProperty
+        + WorkloadIdentifier StringProperty
+        + Command StringProperty
+        + ExponentialFrac FloatProperty
+        + ExponentialPercentile FloatProperty
+        + HotspotDataFraction FloatProperty
+        + HotspotOpnFraction FloatProperty
+        + HashInsertOrder BoolProperty
+        + InsertProportion FloatProperty
+        + KeyPrefix StringProperty
+        + ReadAllFields BoolProperty
+        + RequestDistribution StringProperty
+
+    }
+}
+
+
+namespace db {
+    interface AnalyzeDB  {
+        + Analyze(ctx context.Context, table string) error
+
+    }
+    class CassandraDB << (S,Aquamarine) >> {
+        - p *config.Config
+        - session *gocql.Session
+        - verbose bool
+        - bufPool *util.BufPool
+        - fieldNames []string
+
+        - createKeyspaceIfNotExists() error
+        - createTableIfNotExists() error
+        - resetTable() error
+        - execQuery(ctx context.Context, query string, args ...<font color=blue>interface</font>{}) error
+
+        + Close() error
+        + InitThread(ctx context.Context, _ int, _ int) context.Context
+        + CleanupThread(_ctx context.Context) 
+        + Read(ctx context.Context, table string, key string, fields []string) (<font color=blue>map</font>[string][]byte, error)
+        + Insert(ctx context.Context, table string, key string, values <font color=blue>map</font>[string][]byte) error
+        + Delete(ctx context.Context, table string, key string) error
+
+    }
+    interface DB  {
+        + Close() error
+        + InitThread(ctx context.Context, threadID int, threadCount int) context.Context
+        + CleanupThread(ctx context.Context) 
+        + Read(ctx context.Context, table string, key string, fields []string) (<font color=blue>map</font>[string][]byte, error)
+        + Insert(ctx context.Context, table string, key string, values <font color=blue>map</font>[string][]byte) error
+        + Delete(ctx context.Context, table string, key string) error
+
+    }
+}
+
+"db.DB" <|-- "db.CassandraDB"
+
+namespace generator {
+    class AcknowledgedCounter << (S,Aquamarine) >> {
+        - c Counter
+        - lock util.SpinLock
+        - window []bool
+        - limit int64
+
+        + Next(r *rand.Rand) int64
+        + Last() int64
+        + Acknowledge(value int64) 
+
+    }
+    class Constant << (S,Aquamarine) >> {
+        - value int64
+
+        + Next(_ *rand.Rand) int64
+        + Last() int64
+
+    }
+    class Counter << (S,Aquamarine) >> {
+        - counter int64
+
+        + Next(_ *rand.Rand) int64
+        + Last() int64
+
+    }
+    class Discrete << (S,Aquamarine) >> {
+        - values []discretePair
+
+        + Next(r *rand.Rand) int64
+        + Add(weight float64, value int64) 
+
+    }
+    class Exponential << (S,Aquamarine) >> {
+        - gamma float64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    interface Generator  {
+        + Next(r *rand.Rand) int64
+        + Last() int64
+
+    }
+    class Histogram << (S,Aquamarine) >> {
+        - blockSize int64
+        - buckets []int64
+        - area int64
+        - weightedArea int64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Hotspot << (S,Aquamarine) >> {
+        - lowerBound int64
+        - upperBound int64
+        - hotInterval int64
+        - coldInterval int64
+        - hotsetFraction float64
+        - hotOpnFraction float64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Number << (S,Aquamarine) >> {
+        + LastValue int64
+
+        + SetLastValue(value int64) 
+        + Last() int64
+
+    }
+    class ScrambledZipfian << (S,Aquamarine) >> {
+        - gen *Zipfian
+        - min int64
+        - max int64
+        - itemCount int64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Sequential << (S,Aquamarine) >> {
+        - counter int64
+        - interval int64
+        - start int64
+
+        + Next(_ *rand.Rand) int64
+        + Last() int64
+
+    }
+    class SkewedLatest << (S,Aquamarine) >> {
+        - basis Generator
+        - zipfian *Zipfian
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Uniform << (S,Aquamarine) >> {
+        - lb int64
+        - ub int64
+        - interval int64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Zipfian << (S,Aquamarine) >> {
+        - lock util.SpinLock
+        - items int64
+        - base int64
+        - zipfianConstant float64
+        - alpha float64
+        - zetan float64
+        - theta float64
+        - eta float64
+        - zeta2Theta float64
+        - countForZeta int64
+        - allowItemCountDecrease bool
+
+        - zeta(st int64, n int64, thetaVal float64, initialSum float64) float64
+        - next(r *rand.Rand, itemCount int64) int64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class bucketInfo << (S,Aquamarine) >> {
+        - location int64
+        - value int64
+
+    }
+    class discretePair << (S,Aquamarine) >> {
+        + Weight float64
+        + Value int64
+
+    }
+}
+"generator.Number" *-- "generator.Discrete"
+"generator.Number" *-- "generator.Exponential"
+"generator.Number" *-- "generator.Histogram"
+"generator.Number" *-- "generator.Hotspot"
+"generator.Number" *-- "generator.ScrambledZipfian"
+"generator.Number" *-- "generator.SkewedLatest"
+"generator.Number" *-- "generator.Uniform"
+"generator.Number" *-- "generator.Zipfian"
+
+"generator.Generator" <|-- "generator.AcknowledgedCounter"
+"generator.Generator" <|-- "generator.Constant"
+"generator.Generator" <|-- "generator.Counter"
+"generator.Generator" <|-- "generator.Sequential"
+
+namespace metrics {
+    class Metric << (S,Aquamarine) >> {
+        - metricType string
+        - timestamp time.Time
+        - tags <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+
+        + TestTimestamp(test <font color=blue>func</font>(time.Time) bool) bool
+        + IsType(type_ string) bool
+
+    }
+    class MetricSlice << (S,Aquamarine) >> {
+        + Filter(tests ...<font color=blue>func</font>(Metric) bool) MetricSlice
+        + FilterByTimestamp(test <font color=blue>func</font>(time.Time) bool) MetricSlice
+        + CountFrom(start time.Time, end time.Time) int
+
+    }
+    class category << (S,Aquamarine) >> {
+        - filters []<font color=blue>func</font>(Metric) bool
+        - reduce <font color=blue>func</font>([][]Metric, time.Duration) float64
+        - plotLabel string
+        - color color.RGBA
+        - showMean bool
+
+    }
+    class metrics.MetricSlice << (T, #FF7700) >>  {
+    }
+    class plotInfo << (S,Aquamarine) >> {
+        - categories []category
+        - numBuckets int
+        - title string
+        - yAxis string
+        - path string
+        - csvPath string
+        - start time.Time
+        - end time.Time
+        - showNodeFailures bool
+
+        - makePlot() 
+        - plotNodeFailures(p *plot.Plot) 
+
+    }
+}
+
+
+namespace util {
+    class BufPool << (S,Aquamarine) >> {
+        - p *sync.Pool
+
+        + Get() []byte
+        + Put(buf []byte) 
+
+    }
+    class ConcurrentMap << (S,Aquamarine) >> {
+        - shards []*ConcurrentMapShared
+        - shardCount int
+
+        - fnv32(key int) uint32
+
+        + GetShard(key int) *ConcurrentMapShared
+        + MSet(data <font color=blue>map</font>[int]int64) 
+        + Set(key int, value int64) 
+        + Upsert(key int, value int64, cb UpsertCb) int64
+        + SetIfAbsent(key int, value int64) bool
+        + Get(key int) (int64, bool)
+        + Count() int
+        + Has(key int) bool
+        + Remove(key int) 
+        + RemoveCb(key int, cb RemoveCb) bool
+        + Pop(key int) (int64, bool)
+        + IsEmpty() bool
+        + Iter() <font color=blue>chan</font> Tuple
+        + IterBuffered() <font color=blue>chan</font> Tuple
+        + Items() <font color=blue>map</font>[int]int64
+        + IterCb(fn IterCb) 
+        + Keys() []int
+        + MarshalJSON() ([]byte, error)
+
+    }
+    class ConcurrentMapShared << (S,Aquamarine) >> {
+        - items <font color=blue>map</font>[int]int64
+
+    }
+    class FieldPair << (S,Aquamarine) >> {
+        + Field string
+        + Value []byte
+
+    }
+    class FieldPairs << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class RowCodec << (S,Aquamarine) >> {
+        - fieldIndices <font color=blue>map</font>[string]int64
+        - fields []string
+
+        + Decode(row []byte, fields []string) (<font color=blue>map</font>[string][]byte, error)
+        + Encode(buf []byte, values <font color=blue>map</font>[string][]byte) ([]byte, error)
+
+    }
+    class SpinLock << (S,Aquamarine) >> {
+        - f uint32
+
+        + Lock() 
+        + Unlock() 
+        + TryLock() bool
+        + String() string
+
+    }
+    class Tuple << (S,Aquamarine) >> {
+        + Key int
+        + Val int64
+
+    }
+    class util.FieldPairs << (T, #FF7700) >>  {
+    }
+    class util.IterCb << (T, #FF7700) >>  {
+    }
+    class util.RemoveCb << (T, #FF7700) >>  {
+    }
+    class util.UpsertCb << (T, #FF7700) >>  {
+    }
+}
+"sync.RWMutex" *-- "util.ConcurrentMapShared"
+
+
+namespace workload {
+    class State << (S,Aquamarine) >> {
+        - r *rand.Rand
+        - fieldNames []string
+
+    }
+    class Worker << (S,Aquamarine) >> {
+        - p *config.Config
+        - workDB db.DB
+        - cache cache.Cache
+        - workload *Workload
+        - opCount int64
+        - targetOpsPerMs float64
+        - threadID int
+        - targetOpsTickNs int64
+        - opsDone int64
+
+        - throttle(ctx context.Context, startTime time.Time) 
+
+        + Run(ctx context.Context) 
+
+    }
+    class Workload << (S,Aquamarine) >> {
+        - p *config.Config
+        - fieldNames []string
+        - fieldLengthGenerator generator.Generator
+        - readAllFields bool
+        - dataIntegrity bool
+        - keySequence generator.Generator
+        - operationChooser generator.Discrete
+        - keyChooser generator.Generator
+        - fieldChooser generator.Generator
+        - transactionInsertKeySequence generator.AcknowledgedCounter
+        - warmUpTime time.Time
+        - valuePool sync.Pool
+
+        - buildKeyName(keyNum int64) string
+        - nextKeyNum(state *State) int64
+        - buildSingleValue(state *State, key string) <font color=blue>map</font>[string][]byte
+        - buildValues(state *State, key string) <font color=blue>map</font>[string][]byte
+        - getValueBuffer(size int) []byte
+        - putValues(values <font color=blue>map</font>[string][]byte) 
+        - buildRandomValue(state *State) []byte
+        - buildDeterministicValue(state *State, key string, fieldKey string) []byte
+        - verifyRow(state *State, key string, values <font color=blue>map</font>[string][]byte) 
+        - doTransactionRead(ctx context.Context, db db.DB, cache_ cache.Cache, keyName string, fields []string) <font color=blue>map</font>[string][]byte
+        - doTransactionInsert(ctx context.Context, db db.DB, cache_ cache.Cache, dbKey string, values <font color=blue>map</font>[string][]byte) 
+
+        + InitThread(ctx context.Context, _ int, _ int) context.Context
+        + DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cache) 
+
+    }
+    class workload.contextKey << (T, #FF7700) >>  {
+    }
+    class workload.operationType << (T, #FF7700) >>  {
+    }
+}
+
+
+"__builtin__.int64" #.. "workload.operationType"
+"__builtin__.string" #.. "workload.contextKey"
+"metrics.[]Metric" #.. "metrics.MetricSlice"
+"util.<font color=blue>func</font>(bool, int64, int64) int64" #.. "util.UpsertCb"
+"util.<font color=blue>func</font>(int, int64) " #.. "util.IterCb"
+"util.<font color=blue>func</font>(int, int64, bool) bool" #.. "util.RemoveCb"
+"util.[]FieldPair" #.. "util.FieldPairs"
+@enduml

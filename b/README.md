@@ -1,3 +1,19 @@
+goplantuml \
+-hide-private-members \
+-recursive \
+-show-aggregations \
+-show-aliases \
+-show-compositions \
+-show-connection-labels \
+-show-implementations \
+"/Users/hanma/cloud computing research/research/b/bench" \
+"/Users/hanma/cloud computing research/research/b/cache" \
+"/Users/hanma/cloud computing research/research/b/client" \
+"/Users/hanma/cloud computing research/research/b/db" \
+"/Users/hanma/cloud computing research/research/b/generator" \
+"/Users/hanma/cloud computing research/research/b/workload" > "/Users/hanma/cloud computing research/research/b/diagram.puml"
+
+
 #Quick start
 ```shell
 docker run --name my-cassandra -d --cpus="1.0" -p 9042:9042 cassandra ;

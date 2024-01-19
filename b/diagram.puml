@@ -1,0 +1,334 @@
+@startuml
+namespace cache {
+    interface Cache  {
+        + Get(ctx context.Context, key string, fields []string) (<font color=blue>map</font>[string][]byte, error, int64)
+        + Set(ctx context.Context, key string, value <font color=blue>map</font>[string][]byte) (error, int64)
+
+    }
+    class Node << (S,Aquamarine) >> {
+        - isFailed bool
+        - failMutex sync.Mutex
+        - redisClient *redis.Client
+        - maxSize int64
+        - id int
+
+        + Size(ctx context.Context) (int64, error)
+        + Recover(ctx context.Context) 
+        + Fail() 
+        + Get(ctx context.Context, key string, fields []string) (<font color=blue>map</font>[string][]byte, error, int64)
+        + Set(ctx context.Context, key string, value <font color=blue>map</font>[string][]byte) (error, int64)
+
+    }
+    class NodeRing << (S,Aquamarine) >> {
+        - actualNodes int
+        - virtualNodes int
+
+        + Ring <font color=blue>map</font>[int]int
+        + SortedHashes []int
+
+        + GetNode(key string) int
+
+    }
+}
+
+"cache.Cache" <|-- "implements""cache.Node"
+
+
+namespace client {
+    class CacheWrapper << (S,Aquamarine) >> {
+        - nodes []*cache.Node
+        - p *config.Config
+        - nodeRing *cache.NodeRing
+        - timers []*time.Timer
+        - ctx context.Context
+
+        - scheduleFailures() 
+        - addNode(address string, maxSize int, id int, ctx context.Context) 
+
+        + NumNodes() int
+        + Get(ctx context.Context, key string, fields []string) (<font color=blue>map</font>[string][]byte, error, int64)
+        + Set(ctx context.Context, key string, value <font color=blue>map</font>[string][]byte) (error, int64)
+
+    }
+    class Client << (S,Aquamarine) >> {
+        - p *config.Config
+        - workload *workload.Workload
+        - db db.DB
+        - cache *CacheWrapper
+
+        + Run(ctx context.Context) 
+
+    }
+    class DbWrapper << (S,Aquamarine) >> {
+        + DB db.DB
+        + P *config.Config
+
+        + Close() error
+        + InitThread(ctx context.Context, threadID int, threadCount int) context.Context
+        + CleanupThread(ctx context.Context) 
+        + Read(ctx context.Context, table string, key string, fields []string) (<font color=blue>map</font>[string][]byte, error)
+        + Insert(ctx context.Context, table string, key string, values <font color=blue>map</font>[string][]byte) error
+        + Delete(ctx context.Context, table string, key string) error
+        + Analyze(ctx context.Context, table string) error
+
+    }
+}
+
+"cache.Cache" <|-- "implements""client.CacheWrapper"
+"db.AnalyzeDB" <|-- "implements""client.DbWrapper"
+"db.DB" <|-- "implements""client.DbWrapper"
+
+"client.DbWrapper""uses" o-- "config.Config"
+"client.DbWrapper""uses" o-- "db.DB"
+
+namespace db {
+    interface AnalyzeDB  {
+        + Analyze(ctx context.Context, table string) error
+
+    }
+    class CassandraDB << (S,Aquamarine) >> {
+        - p *config.Config
+        - session *gocql.Session
+        - verbose bool
+        - bufPool *util.BufPool
+        - fieldNames []string
+
+        - createKeyspaceIfNotExists() error
+        - createTableIfNotExists() error
+        - resetTable() error
+        - execQuery(ctx context.Context, query string, args ...<font color=blue>interface</font>{}) error
+
+        + Close() error
+        + InitThread(ctx context.Context, _ int, _ int) context.Context
+        + CleanupThread(_ctx context.Context) 
+        + Read(ctx context.Context, table string, key string, fields []string) (<font color=blue>map</font>[string][]byte, error)
+        + Insert(ctx context.Context, table string, key string, values <font color=blue>map</font>[string][]byte) error
+        + Delete(ctx context.Context, table string, key string) error
+
+    }
+    interface DB  {
+        + Close() error
+        + InitThread(ctx context.Context, threadID int, threadCount int) context.Context
+        + CleanupThread(ctx context.Context) 
+        + Read(ctx context.Context, table string, key string, fields []string) (<font color=blue>map</font>[string][]byte, error)
+        + Insert(ctx context.Context, table string, key string, values <font color=blue>map</font>[string][]byte) error
+        + Delete(ctx context.Context, table string, key string) error
+
+    }
+}
+
+"db.DB" <|-- "implements""db.CassandraDB"
+
+
+namespace generator {
+    class AcknowledgedCounter << (S,Aquamarine) >> {
+        - c Counter
+        - lock util.SpinLock
+        - window []bool
+        - limit int64
+
+        + Next(r *rand.Rand) int64
+        + Last() int64
+        + Acknowledge(value int64) 
+
+    }
+    class Constant << (S,Aquamarine) >> {
+        - value int64
+
+        + Next(_ *rand.Rand) int64
+        + Last() int64
+
+    }
+    class Counter << (S,Aquamarine) >> {
+        - counter int64
+
+        + Next(_ *rand.Rand) int64
+        + Last() int64
+
+    }
+    class Discrete << (S,Aquamarine) >> {
+        - values []discretePair
+
+        + Next(r *rand.Rand) int64
+        + Add(weight float64, value int64) 
+
+    }
+    class Exponential << (S,Aquamarine) >> {
+        - gamma float64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    interface Generator  {
+        + Next(r *rand.Rand) int64
+        + Last() int64
+
+    }
+    class Histogram << (S,Aquamarine) >> {
+        - blockSize int64
+        - buckets []int64
+        - area int64
+        - weightedArea int64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Hotspot << (S,Aquamarine) >> {
+        - lowerBound int64
+        - upperBound int64
+        - hotInterval int64
+        - coldInterval int64
+        - hotsetFraction float64
+        - hotOpnFraction float64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Number << (S,Aquamarine) >> {
+        + LastValue int64
+
+        + SetLastValue(value int64) 
+        + Last() int64
+
+    }
+    class ScrambledZipfian << (S,Aquamarine) >> {
+        - gen *Zipfian
+        - min int64
+        - max int64
+        - itemCount int64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Sequential << (S,Aquamarine) >> {
+        - counter int64
+        - interval int64
+        - start int64
+
+        + Next(_ *rand.Rand) int64
+        + Last() int64
+
+    }
+    class SkewedLatest << (S,Aquamarine) >> {
+        - basis Generator
+        - zipfian *Zipfian
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Uniform << (S,Aquamarine) >> {
+        - lb int64
+        - ub int64
+        - interval int64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class Zipfian << (S,Aquamarine) >> {
+        - lock util.SpinLock
+        - items int64
+        - base int64
+        - zipfianConstant float64
+        - alpha float64
+        - zetan float64
+        - theta float64
+        - eta float64
+        - zeta2Theta float64
+        - countForZeta int64
+        - allowItemCountDecrease bool
+
+        - zeta(st int64, n int64, thetaVal float64, initialSum float64) float64
+        - next(r *rand.Rand, itemCount int64) int64
+
+        + Next(r *rand.Rand) int64
+
+    }
+    class bucketInfo << (S,Aquamarine) >> {
+        - location int64
+        - value int64
+
+    }
+    class discretePair << (S,Aquamarine) >> {
+        + Weight float64
+        + Value int64
+
+    }
+}
+"generator.Number" *-- "extends""generator.Discrete"
+"generator.Number" *-- "extends""generator.Exponential"
+"generator.Number" *-- "extends""generator.Histogram"
+"generator.Number" *-- "extends""generator.Hotspot"
+"generator.Number" *-- "extends""generator.ScrambledZipfian"
+"generator.Number" *-- "extends""generator.SkewedLatest"
+"generator.Number" *-- "extends""generator.Uniform"
+"generator.Number" *-- "extends""generator.Zipfian"
+
+"generator.Generator" <|-- "implements""generator.AcknowledgedCounter"
+"generator.Generator" <|-- "implements""generator.Constant"
+"generator.Generator" <|-- "implements""generator.Counter"
+"generator.Generator" <|-- "implements""generator.Sequential"
+
+
+namespace workload {
+    class State << (S,Aquamarine) >> {
+        - r *rand.Rand
+        - fieldNames []string
+
+    }
+    class Worker << (S,Aquamarine) >> {
+        - p *config.Config
+        - workDB db.DB
+        - cache cache.Cache
+        - workload *Workload
+        - opCount int64
+        - targetOpsPerMs float64
+        - threadID int
+        - targetOpsTickNs int64
+        - opsDone int64
+
+        - throttle(ctx context.Context, startTime time.Time) 
+
+        + Run(ctx context.Context) 
+
+    }
+    class Workload << (S,Aquamarine) >> {
+        - p *config.Config
+        - fieldNames []string
+        - fieldLengthGenerator generator.Generator
+        - readAllFields bool
+        - dataIntegrity bool
+        - keySequence generator.Generator
+        - operationChooser generator.Discrete
+        - keyChooser generator.Generator
+        - fieldChooser generator.Generator
+        - transactionInsertKeySequence generator.AcknowledgedCounter
+        - warmUpTime time.Time
+        - valuePool sync.Pool
+
+        - buildKeyName(keyNum int64) string
+        - nextKeyNum(state *State) int64
+        - buildSingleValue(state *State, key string) <font color=blue>map</font>[string][]byte
+        - buildValues(state *State, key string) <font color=blue>map</font>[string][]byte
+        - getValueBuffer(size int) []byte
+        - putValues(values <font color=blue>map</font>[string][]byte) 
+        - buildRandomValue(state *State) []byte
+        - buildDeterministicValue(state *State, key string, fieldKey string) []byte
+        - verifyRow(state *State, key string, values <font color=blue>map</font>[string][]byte) 
+        - doTransactionRead(ctx context.Context, db db.DB, cache_ cache.Cache, keyName string, fields []string) <font color=blue>map</font>[string][]byte
+        - doTransactionInsert(ctx context.Context, db db.DB, cache_ cache.Cache, dbKey string, values <font color=blue>map</font>[string][]byte) 
+
+        + InitThread(ctx context.Context, _ int, _ int) context.Context
+        + DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cache) 
+
+    }
+    class workload.contextKey << (T, #FF7700) >>  {
+    }
+    class workload.operationType << (T, #FF7700) >>  {
+    }
+}
+
+
+
+"__builtin__.int64" #.. "alias of""workload.operationType"
+"__builtin__.string" #.. "alias of""workload.contextKey"
+@enduml

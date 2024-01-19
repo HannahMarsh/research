@@ -5,9 +5,7 @@ import (
 	bconfig "benchmark/config"
 	"benchmark/db"
 	"context"
-	"fmt"
 	"math/rand"
-	"os"
 	"time"
 )
 
@@ -23,7 +21,7 @@ type Worker struct {
 	opsDone         int64
 }
 
-func NewWorker(p *bconfig.Config, threadID int, workload *Workload, db db.DB, cache cache.Cache) *Worker {
+func NewWorker(p *bconfig.Config, threadID int, workload *Workload, db db.DB, cache cache.Cache, threadCount int, totalOpCount int64) *Worker {
 	w := new(Worker)
 	w.p = p
 	w.threadID = threadID
@@ -31,26 +29,14 @@ func NewWorker(p *bconfig.Config, threadID int, workload *Workload, db db.DB, ca
 	w.workDB = db
 	w.cache = cache
 
-	var totalOpCount = int64((p.Workload.TargetExecutionTime.Value + p.Measurements.WarmUpTime.Value) * p.Workload.TargetOperationsPerSec.Value)
-
-	if totalOpCount < int64(p.Workload.ThreadCount.Value) {
-		fmt.Printf("(TargetExecutionTime(%d) + WarmUpTime(%s)) * TargetOperationsPerSec(%d) should be bigger than ThreadCount(%d)",
-			p.Workload.TargetExecutionTime.Value,
-			p.Measurements.WarmUpTime.Value,
-			p.Workload.TargetOperationsPerSec.Value,
-			p.Workload.ThreadCount.Value)
-
-		os.Exit(-1)
-	}
-
-	w.opCount = totalOpCount / int64(p.Workload.ThreadCount.Value)
-	if threadID < int(totalOpCount%int64(p.Workload.ThreadCount.Value)) {
+	w.opCount = totalOpCount / int64(threadCount)
+	if threadID < int(totalOpCount%int64(threadCount)) {
 		w.opCount++
 	}
 
 	targetPerThreadPerms := float64(-1)
 	if v := p.Workload.TargetOperationsPerSec.Value; v > 0 {
-		targetPerThread := float64(v) / float64(p.Workload.ThreadCount.Value)
+		targetPerThread := float64(v) / float64(threadCount)
 		targetPerThreadPerms = targetPerThread / 1000.0
 	}
 

@@ -42,8 +42,8 @@ var (
 	LIGHT_PURPLE = color.RGBA{R: 180, G: 50, B: 200, A: 255}  // Light Teal
 	GREY         = color.RGBA{R: 120, G: 120, B: 150, A: 255} // Light Teal
 
-	DARK_COLORS  = []color.RGBA{DARK_PINK, DARK_PURPLE, DARK_BLUE, DARK_GREEN, DARK_YELLOW, DARK_RED}
-	LIGHT_COLORS = []color.RGBA{LIGHT_PINK, LIGHT_PURPLE, LIGHT_BLUE, LIGHT_GREEN, LIGHT_YELLOW, LIGHT_RED}
+	DARK_COLORS  = []color.RGBA{DARK_PINK, DARK_PURPLE, DARK_BLUE, DARK_GREEN, DARK_YELLOW, DARK_RED, DARK_ORANGE}
+	LIGHT_COLORS = []color.RGBA{LIGHT_PINK, LIGHT_PURPLE, LIGHT_BLUE, LIGHT_GREEN, LIGHT_YELLOW, LIGHT_RED, DARK_ORANGE}
 )
 
 type plotInfo struct {
@@ -161,6 +161,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 	if e.Before(end) {
 		end = e
 	}
+	end = end.Add(-1 * time.Second)
 
 	var pi = []*plotInfo{
 		{
@@ -195,7 +196,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 						},
 					},
 					reduce:   countPerSecond,
-					color:    DARK_RED,
+					color:    DARK_PURPLE,
 					showMean: false,
 				},
 				{
@@ -206,7 +207,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 						},
 					},
 					reduce:   countPerSecond,
-					color:    DARK_GREEN,
+					color:    DARK_ORANGE,
 					showMean: false,
 				},
 			},
@@ -683,7 +684,6 @@ func plotConfig(start time.Time, end time.Time, filename string) {
 	addLabel(img, leftIndent+40, 210, fmt.Sprintf("Read Percentage: %d%%", int((1.0-config.Workload.InsertProportion.Value)*100.0)), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 240, fmt.Sprintf("Failures: %d", failures), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 270, fmt.Sprintf("Key Range: 0 to %d", config.Workload.NumUniqueKeys.Value-1), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 300, fmt.Sprintf("Concurrency: %v", config.Workload.ThreadCount.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 330, fmt.Sprintf("Warmup Time: %d seconds", config.Measurements.WarmUpTime.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 	addLabel(img, leftIndent+40, 360, fmt.Sprintf("Request Distribution: %s", config.Workload.RequestDistribution.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
 

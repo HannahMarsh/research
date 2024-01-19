@@ -74,7 +74,6 @@ type WorkloadConfig struct {
 	DbOperationRetryLimit      IntProperty    `yaml:"DbOperationRetryLimit"`
 	TargetExecutionTime        IntProperty    `yaml:"TargetExecutionTime"`
 	TargetOperationsPerSec     IntProperty    `yaml:"TargetOperationsPerSec"`
-	ThreadCount                IntProperty    `yaml:"ThreadCount"`
 	WorkloadIdentifier         StringProperty `yaml:"WorkloadIdentifier"`
 	Command                    StringProperty `yaml:"Command"`
 	ExponentialFrac            FloatProperty  `yaml:"ExponentialFrac"`
@@ -89,20 +88,9 @@ type WorkloadConfig struct {
 }
 
 type MeasurementsConfig struct {
-	MetricsOutputDir           StringProperty `yaml:"MetricsOutputDir"`
-	MeasurementType            StringProperty `yaml:"MeasurementType"`
-	RawOutputDir               StringProperty `yaml:"RawOutputDir"`
-	HistogramPercentilesExport BoolProperty   `yaml:"HistogramPercentilesExport"`
-	HistogramOutputDir         StringProperty `yaml:"HistogramOutputDir"`
-	FieldLengthHistogramFile   StringProperty `yaml:"FieldLengthHistogramFile"`
-	OutputStyle                StringProperty `yaml:"OutputStyle"`
-	WarmUpTime                 IntProperty    `yaml:"WarmUpTime"`
-	ZeroPadding                IntProperty    `yaml:"ZeroPadding"`
-	CassandraCluster           StringProperty `yaml:"CassandraCluster"`
-	CassandraKeyspace          StringProperty `yaml:"CassandraKeyspace"`
-	CassandraTableName         StringProperty `yaml:"CassandraTableName"`
-	ReplicationStrategy        StringProperty `yaml:"ReplicationStrategy"`
-	ReplicationFactor          IntProperty    `yaml:"ReplicationFactor"`
+	MetricsOutputDir StringProperty `yaml:"MetricsOutputDir"`
+	WarmUpTime       IntProperty    `yaml:"WarmUpTime"`
+	ZeroPadding      IntProperty    `yaml:"ZeroPadding"`
 }
 
 type LoggingConfig struct {
@@ -240,6 +228,60 @@ var defaultConfig_ = Config{
 					Description: "Indicates whether to use the default database for the cache.",
 				},
 			},
+			{
+				NodeId: IntProperty{
+					Value:       5,
+					Description: "The ID of the node.",
+				},
+				Address: StringProperty{
+					Description: "Address and port of redis server",
+					Value:       "0.0.0.0:6383",
+				},
+				MaxSize: IntProperty{
+					Value:       1000000,
+					Description: "The maximum number of records to store in the cache.",
+				},
+				UseDefaultDatabase: BoolProperty{
+					Value:       true,
+					Description: "Indicates whether to use the default database for the cache.",
+				},
+			},
+			{
+				NodeId: IntProperty{
+					Value:       6,
+					Description: "The ID of the node.",
+				},
+				Address: StringProperty{
+					Description: "Address and port of redis server",
+					Value:       "0.0.0.0:6384",
+				},
+				MaxSize: IntProperty{
+					Value:       1000000,
+					Description: "The maximum number of records to store in the cache.",
+				},
+				UseDefaultDatabase: BoolProperty{
+					Value:       true,
+					Description: "Indicates whether to use the default database for the cache.",
+				},
+			},
+			{
+				NodeId: IntProperty{
+					Value:       7,
+					Description: "The ID of the node.",
+				},
+				Address: StringProperty{
+					Description: "Address and port of redis server",
+					Value:       "0.0.0.0:6385",
+				},
+				MaxSize: IntProperty{
+					Value:       1000000,
+					Description: "The maximum number of records to store in the cache.",
+				},
+				UseDefaultDatabase: BoolProperty{
+					Value:       true,
+					Description: "Indicates whether to use the default database for the cache.",
+				},
+			},
 		},
 		VirtualNodes: IntProperty{
 			Value:       50000,
@@ -265,35 +307,27 @@ var defaultConfig_ = Config{
 		},
 		FieldSizeDistribution: StringProperty{
 			Value:       "constant",
-			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', 'zipfian', and 'histogram'",
+			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', and 'zipfian'",
 		},
 		NumUniqueKeys: IntProperty{
-			Value:       20000,
+			Value:       2000,
 			Description: "If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.",
 		},
 		DbOperationRetryLimit: IntProperty{
-			Value:       1,
+			Value:       3,
 			Description: "The maximum number of times to retry a failed insert operation.",
 		},
 		TargetExecutionTime: IntProperty{
 			Value:       15,
-			Description: "The maximum time to run the benchmark before it is forcibly stopped.",
+			Description: "The target duration to run the benchmark for after the warmup time.",
 		},
 		TargetOperationsPerSec: IntProperty{
-			Value:       8000,
+			Value:       1000,
 			Description: "The target number of operations per second that the workload should aim to achieve.",
-		},
-		ThreadCount: IntProperty{
-			Value:       2000,
-			Description: "The number of concurrent threads to use when executing the workload.",
 		},
 		WorkloadIdentifier: StringProperty{
 			Value:       "workload1",
 			Description: "The name of the workload to be executed (for logging).",
-		},
-		Command: StringProperty{
-			Value:       "<>",
-			Description: "The specific command to run as part of the workload. This is set automatically by the program.",
 		},
 		ExponentialFrac: FloatProperty{
 			Value:       0.8571428571,
@@ -324,7 +358,7 @@ var defaultConfig_ = Config{
 			Description: "Indicates whether all fields should be read in read operations.",
 		},
 		InsertProportion: FloatProperty{
-			Value:       0.02,
+			Value:       0.01,
 			Description: "The proportion of insert operations in the workload.",
 		},
 		RequestDistribution: StringProperty{
@@ -337,30 +371,6 @@ var defaultConfig_ = Config{
 			Value:       "data/",
 			Description: "The directory where measurement data files are to be saved.",
 		},
-		MeasurementType: StringProperty{
-			Value:       "histogram",
-			Description: "Specifies the type of measurement for performance metrics. Valid values are 'histogram', 'raw', and 'csv'.",
-		},
-		RawOutputDir: StringProperty{
-			Value:       "data/raw.txt",
-			Description: "Directory for outputting raw measurement data (if there is any).",
-		},
-		HistogramPercentilesExport: BoolProperty{
-			Value:       false,
-			Description: "Enables the export of percentile data from histogram measurements.",
-		},
-		HistogramOutputDir: StringProperty{
-			Value:       "data/histogram/percentiles/",
-			Description: "The directory where histogram percentile data files are to be saved.",
-		},
-		FieldLengthHistogramFile: StringProperty{
-			Value:       "data/histogram/field-lengths.txt",
-			Description: "The file path of the histogram that has the generated field length distribution.",
-		},
-		OutputStyle: StringProperty{
-			Value:       "table",
-			Description: "Defines the formatting style for outputting measurement data. Valid values are 'plain' 'table', and 'json'.",
-		},
 		WarmUpTime: IntProperty{
 			Value:       5,
 			Description: "The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).",
@@ -368,26 +378,6 @@ var defaultConfig_ = Config{
 		ZeroPadding: IntProperty{
 			Value:       1,
 			Description: "The amount of zero-padding for numeric fields (for a fixed width representation).",
-		},
-		CassandraCluster: StringProperty{
-			Value:       "127.0.0.1:9043",
-			Description: "The host and port of the Cassandra cluster.",
-		},
-		CassandraKeyspace: StringProperty{
-			Value:       "measurements",
-			Description: "Keyspace to use within the Cassandra database.",
-		},
-		CassandraTableName: StringProperty{
-			Value:       "measurements_table",
-			Description: "Name of the table to use within the Cassandra keyspace.",
-		},
-		ReplicationStrategy: StringProperty{
-			Description: "Replication strategy to use for the Cassandra keyspace.",
-			Value:       "SimpleStrategy",
-		},
-		ReplicationFactor: IntProperty{
-			Description: "Replication factor to use for the Cassandra keyspace.",
-			Value:       1,
 		},
 	},
 	Logging: LoggingConfig{

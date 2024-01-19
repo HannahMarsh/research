@@ -68,60 +68,6 @@ func (d DbWrapper) Read(ctx context.Context, table string, key string, fields []
 	return d.DB.Read(ctx, table, key, fields)
 }
 
-func (d DbWrapper) BatchRead(ctx context.Context, table string, keys []string, fields []string) (_ []map[string][]byte, err error) {
-	batchDB, ok := d.DB.(db.BatchDB)
-	if ok {
-		start := time.Now()
-		defer func() {
-			dbMeasure(start, "BATCH_READ", err)
-		}()
-		return batchDB.BatchRead(ctx, table, keys, fields)
-	}
-	for _, key := range keys {
-		_, err := d.DB.Read(ctx, table, key, fields)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return nil, nil
-}
-
-func (d DbWrapper) Scan(ctx context.Context, table string, startKey string, count int, fields []string) (_ []map[string][]byte, err error) {
-	start := time.Now()
-	defer func() {
-		dbMeasure(start, "SCAN", err)
-	}()
-
-	return d.DB.Scan(ctx, table, startKey, count, fields)
-}
-
-func (d DbWrapper) Update(ctx context.Context, table string, key string, values map[string][]byte) (err error) {
-	start := time.Now()
-	defer func() {
-		dbMeasure(start, "UPDATE", err)
-	}()
-
-	return d.DB.Update(ctx, table, key, values)
-}
-
-func (d DbWrapper) BatchUpdate(ctx context.Context, table string, keys []string, values []map[string][]byte) (err error) {
-	batchDB, ok := d.DB.(db.BatchDB)
-	if ok {
-		start := time.Now()
-		defer func() {
-			dbMeasure(start, "BATCH_UPDATE", err)
-		}()
-		return batchDB.BatchUpdate(ctx, table, keys, values)
-	}
-	for i := range keys {
-		err := d.DB.Update(ctx, table, keys[i], values[i])
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (d DbWrapper) Insert(ctx context.Context, table string, key string, values map[string][]byte) (err error) {
 	start := time.Now()
 	defer func() {
@@ -131,24 +77,6 @@ func (d DbWrapper) Insert(ctx context.Context, table string, key string, values 
 	return d.DB.Insert(ctx, table, key, values)
 }
 
-func (d DbWrapper) BatchInsert(ctx context.Context, table string, keys []string, values []map[string][]byte) (err error) {
-	batchDB, ok := d.DB.(db.BatchDB)
-	if ok {
-		start := time.Now()
-		defer func() {
-			dbMeasure(start, "BATCH_INSERT", err)
-		}()
-		return batchDB.BatchInsert(ctx, table, keys, values)
-	}
-	for i := range keys {
-		err := d.DB.Insert(ctx, table, keys[i], values[i])
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (d DbWrapper) Delete(ctx context.Context, table string, key string) (err error) {
 	start := time.Now()
 	defer func() {
@@ -156,24 +84,6 @@ func (d DbWrapper) Delete(ctx context.Context, table string, key string) (err er
 	}()
 
 	return d.DB.Delete(ctx, table, key)
-}
-
-func (d DbWrapper) BatchDelete(ctx context.Context, table string, keys []string) (err error) {
-	batchDB, ok := d.DB.(db.BatchDB)
-	if ok {
-		start := time.Now()
-		defer func() {
-			dbMeasure(start, "BATCH_DELETE", err)
-		}()
-		return batchDB.BatchDelete(ctx, table, keys)
-	}
-	for _, key := range keys {
-		err := d.DB.Delete(ctx, table, key)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (d DbWrapper) Analyze(ctx context.Context, table string) error {

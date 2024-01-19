@@ -46,20 +46,6 @@ type DB interface {
 	// fields: The list of fields to read, nil|empty for reading all.
 	Read(ctx context.Context, table string, key string, fields []string) (map[string][]byte, error)
 
-	// Scan scans records from the database.
-	// table: The name of the table.
-	// startKey: The first record key to read.
-	// count: The number of records to read.
-	// fields: The list of fields to read, nil|empty for reading all.
-	Scan(ctx context.Context, table string, startKey string, count int, fields []string) ([]map[string][]byte, error)
-
-	// Update updates a record in the database. Any field/value pairs will be written into the
-	// database or overwritten the existing values with the same field name.
-	// table: The name of the table.
-	// key: The record key of the record to update.
-	// values: A map of field/value pairs to update in the record.
-	Update(ctx context.Context, table string, key string, values map[string][]byte) error
-
 	// Insert inserts a record in the database. Any field/value pairs will be written into the
 	// database.
 	// table: The name of the table.
@@ -71,31 +57,6 @@ type DB interface {
 	// table: The name of the table.
 	// key: The record key of the record to delete.
 	Delete(ctx context.Context, table string, key string) error
-}
-
-type BatchDB interface {
-	// BatchInsert inserts batch records in the database.
-	// table: The name of the table.
-	// keys: The keys of batch records.
-	// values: The values of batch records.
-	BatchInsert(ctx context.Context, table string, keys []string, values []map[string][]byte) error
-
-	// BatchRead reads records from the database.
-	// table: The name of the table.
-	// keys: The keys of records to read.
-	// fields: The list of fields to read, nil|empty for reading all.
-	BatchRead(ctx context.Context, table string, keys []string, fields []string) ([]map[string][]byte, error)
-
-	// BatchUpdate updates records in the database.
-	// table: The name of table.
-	// keys: The keys of records to update.
-	// values: The values of records to update.
-	BatchUpdate(ctx context.Context, table string, keys []string, values []map[string][]byte) error
-
-	// BatchDelete deletes records from the database.
-	// table: The name of the table.
-	// keys: The keys of the records to delete.
-	BatchDelete(ctx context.Context, table string, keys []string) error
 }
 
 // AnalyzeDB is the interface for the DB that can perform an analysis on given table.
@@ -261,7 +222,7 @@ func (k *CassandraDB) Read(ctx context.Context, table string, key string, fields
 
 	err := k.session.Query(query, key).WithContext(ctx).Scan(dest...)
 	if err == gocql.ErrNotFound {
-		return nil, nil
+		return nil, err
 	} else if err != nil {
 		return nil, err
 	}
@@ -273,92 +234,12 @@ func (k *CassandraDB) Read(ctx context.Context, table string, key string, fields
 	return m, nil
 }
 
-func (k *CassandraDB) Scan(ctx context.Context, table string, startKey string, count int, fields []string) ([]map[string][]byte, error) {
-	var query string
-
-	// If no fields are specified, read all fields
-	if len(fields) == 0 {
-		fields = k.fieldNames
-	}
-
-	// Construct the CQL query
-	// Note: This query assumes that the startKey is inclusive and there's an efficient way to sort/order the keys
-	query = fmt.Sprintf(`SELECT %s FROM %s.%s WHERE token(key) > token(?) LIMIT ?`, strings.Join(fields, ","), k.p.Database.CassandraKeyspace.Value, table)
-
-	if k.verbose {
-		fmt.Printf("%s\n", query)
-	}
-
-	iter := k.session.Query(query, startKey, count).WithContext(ctx).Iter()
-	defer iter.Close()
-
-	var results []map[string][]byte
-
-	// Iterate over the rows
-	for {
-		row := make(map[string]interface{})
-		if !iter.MapScan(row) {
-			break
-		}
-
-		// Convert the row to the desired format
-		result := make(map[string][]byte)
-		for _, field := range fields {
-			if value, ok := row[field]; ok {
-				result[field] = []byte(fmt.Sprintf("%v", value)) // Convert the value to bytes
-			}
-		}
-
-		results = append(results, result)
-	}
-
-	// Check for any errors that occurred during iteration
-	if err := iter.Close(); err != nil {
-		return nil, err
-	}
-
-	return results, nil
-}
-
 func (k *CassandraDB) execQuery(ctx context.Context, query string, args ...interface{}) error {
 	if k.verbose {
 		fmt.Printf("%s %v\n", query, args)
 	}
 
 	err := k.session.Query(query, args...).WithContext(ctx).Exec()
-	return err
-}
-
-func (k *CassandraDB) Update(ctx context.Context, table string, key string, values map[string][]byte) error {
-	buf := bytes.NewBuffer(k.bufPool.Get())
-	defer func() {
-		k.bufPool.Put(buf.Bytes())
-	}()
-
-	buf.WriteString("UPDATE ")
-	buf.WriteString(fmt.Sprintf("%s.%s", k.p.Database.CassandraKeyspace.Value, table))
-	buf.WriteString(" SET ")
-	firstField := true
-	pairs := util.NewFieldPairs(values)
-	args := make([]interface{}, 0, len(values)+1)
-	for _, p := range pairs {
-		if firstField {
-			firstField = false
-		} else {
-			buf.WriteString(", ")
-		}
-
-		buf.WriteString(p.Field)
-		buf.WriteString(" = ?") // Corrected line
-		args = append(args, p.Value)
-	}
-	buf.WriteString(" WHERE key = ?")
-
-	args = append(args, key)
-
-	query := buf.String()
-
-	err := k.execQuery(ctx, query, args...)
 	return err
 }
 

@@ -37,7 +37,7 @@ func TestWorkload(t *testing.T) {
 
 		ctx, _ := context.WithCancel(context.Background())
 		w := NewWorker(&p, i, wLoad, nil, nil)
-		ctx = wLoad.InitThread(ctx, i, p.Workload.ThreadCount.Value)
+		ctx = wLoad.InitThread(ctx, i, 800, 10000)
 
 		for w.opCount == 0 || w.opsDone < w.opCount {
 			opsCount := 1

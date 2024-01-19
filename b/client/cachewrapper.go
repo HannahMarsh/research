@@ -76,17 +76,17 @@ func (c *CacheWrapper) scheduleFailures() {
 		nodeIndex := i
 
 		warmUpTime := time.Duration(c.p.Measurements.WarmUpTime.Value) * time.Second
-		estimatedRunningTime := float64(c.p.Workload.TargetExecutionTime.Value + c.p.Measurements.WarmUpTime.Value)
+		targetRunningTime := float64(c.p.Workload.TargetExecutionTime.Value)
 		for j := 0; j < len(c.p.Cache.Nodes[nodeIndex].FailureIntervals); j++ {
 			failureIndex := j
 			interval := c.p.Cache.Nodes[nodeIndex].FailureIntervals[failureIndex]
-			startDelay := (time.Duration(interval.Start*estimatedRunningTime) * time.Second) + warmUpTime
-			endDelay := (time.Duration(interval.End*estimatedRunningTime) * time.Second) + warmUpTime
+			startDelay := (time.Duration(interval.Start*targetRunningTime) * time.Second) + warmUpTime
+			endDelay := (time.Duration(interval.End*targetRunningTime) * time.Second) + warmUpTime
 
 			// Schedule node failure
 			failTimer := time.AfterFunc(startDelay, func() {
 				go c.nodes[nodeIndex].Fail()
-				nodeFailureMeasure(time.Now(), nodeIndex, true)
+				go nodeFailureMeasure(time.Now(), nodeIndex, true)
 
 				// Schedule node recovery
 				recoverTimer := time.AfterFunc(endDelay-startDelay, func() {

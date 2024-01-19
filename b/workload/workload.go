@@ -124,8 +124,6 @@ func getFieldLengthGenerator(p *bconfig.Config) generator.Generator {
 		fieldLengthGenerator = generator.NewUniform(1, int64(p.Workload.AvFieldSizeBytes.Value))
 	case "zipfian":
 		fieldLengthGenerator = generator.NewZipfianWithRange(1, int64(p.Workload.AvFieldSizeBytes.Value), generator.ZipfianConstant)
-	case "histogram":
-		fieldLengthGenerator = generator.NewHistogramFromFile(p.Measurements.FieldLengthHistogramFile.Value)
 	default:
 		util.Fatalf("unknown field length distribution %s", p.Workload.FieldSizeDistribution.Value)
 	}

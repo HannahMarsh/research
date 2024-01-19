@@ -26,7 +26,10 @@ func NewClient(p *bconfig.Config, workload *workload.Workload, db db.DB, cache_ 
 func (c *Client) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 
-	wg.Add(c.p.Workload.ThreadCount.Value)
+	var totalOpCount = int64((c.p.Workload.TargetExecutionTime.Value + c.p.Measurements.WarmUpTime.Value) * c.p.Workload.TargetOperationsPerSec.Value)
+	threadCount := int(float64(totalOpCount) / 500.0)
+
+	wg.Add(threadCount)
 	measureCtx, measureCancel := context.WithCancel(ctx)
 	measureCh := make(chan struct{}, 1)
 	//start := time.Now()
@@ -49,13 +52,13 @@ func (c *Client) Run(ctx context.Context) {
 		}
 	}()
 
-	for i := 0; i < c.p.Workload.ThreadCount.Value; i++ {
+	for i := 0; i < threadCount; i++ {
 		go func(threadId int) {
 			defer wg.Done()
 
-			w := workload.NewWorker(c.p, threadId, c.workload, c.db, c.cache)
-			ctx := c.workload.InitThread(ctx, threadId, c.p.Workload.ThreadCount.Value)
-			ctx = c.db.InitThread(ctx, threadId, c.p.Workload.ThreadCount.Value)
+			w := workload.NewWorker(c.p, threadId, c.workload, c.db, c.cache, threadCount, totalOpCount)
+			ctx := c.workload.InitThread(ctx, threadId, threadCount)
+			ctx = c.db.InitThread(ctx, threadId, threadCount)
 			w.Run(ctx)
 			c.db.CleanupThread(ctx)
 		}(i)
