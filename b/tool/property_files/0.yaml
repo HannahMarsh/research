@@ -188,7 +188,7 @@ Workload:
         Description: |-
             The distribution of request types in the workload (to simulate different access patterns on the dataset).
             Options are 'uniform', 'sequential', 'zipfian', 'latest', 'hotspot', and 'exponential'.
-        Value: uniform
+        Value: zipfian
 Measurements:
     MetricsOutputDir:
         Description: The directory where measurement data files are to be saved.

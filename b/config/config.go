@@ -362,7 +362,7 @@ var defaultConfig_ = Config{
 			Description: "The proportion of insert operations in the workload.",
 		},
 		RequestDistribution: StringProperty{
-			Value:       "uniform",
+			Value:       "zipfian",
 			Description: "The distribution of request types in the workload (to simulate different access patterns on the dataset).\nOptions are 'uniform', 'sequential', 'zipfian', 'latest', 'hotspot', and 'exponential'.",
 		},
 	},
