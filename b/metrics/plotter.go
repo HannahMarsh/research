@@ -321,6 +321,37 @@ func PlotMetrics(s time.Time, e time.Time) {
 			showNodeFailures: true,
 		},
 		{
+			title: "Key Popularity Per Node",
+			yAxis: "Requests per second",
+			categories: []category{
+				{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, true)
+						},
+					},
+					reduce:    countPerSecond,
+					plotLabel: "Total Hits Per Second",
+					color:     DARK_GREEN,
+					showMean:  false,
+				},
+				{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, false)
+						}},
+					reduce:    countPerSecond,
+					plotLabel: "Total Misses Per Second",
+					color:     DARK_RED,
+					showMean:  false,
+				},
+			},
+			start:            start,
+			end:              end,
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
 			title: "Cache Hits Ratio as a Function of Time",
 			yAxis: "Average Hit Ratio per Second",
 			categories: forEachNode(func(nodeIndex int) category {
@@ -674,17 +705,42 @@ func plotConfig(start time.Time, end time.Time, filename string) {
 		failures += len(node.FailureIntervals)
 	}
 
-	// Draw the txt on the image
-	addLabel(img, leftIndent+20, 40, toTitleCase(globalConfig.Workload.WorkloadIdentifier.Value)+" Configuration Summary:", "metrics/fonts/roboto/Roboto-Bold.ttf", 18.0)
-	addLabel(img, leftIndent+40, 90, fmt.Sprintf("Duration: %d seconds", int(end.Sub(start).Seconds())), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 120, fmt.Sprintf("Target Requests per Second: %d", config.Workload.TargetOperationsPerSec.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 150, fmt.Sprintf("Nodes: %d", len(config.Cache.Nodes)), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 180, fmt.Sprintf("Virtual Nodes: %d", config.Cache.VirtualNodes.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 210, fmt.Sprintf("Read Percentage: %d%%", int((1.0-config.Workload.InsertProportion.Value)*100.0)), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 240, fmt.Sprintf("Failures: %d", failures), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 270, fmt.Sprintf("Key Range: 0 to %d", config.Workload.NumUniqueKeys.Value-1), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 330, fmt.Sprintf("Warmup Time: %d seconds", config.Measurements.WarmUpTime.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
-	addLabel(img, leftIndent+40, 360, fmt.Sprintf("Request Distribution: %s", config.Workload.RequestDistribution.Value), "metrics/fonts/roboto/Roboto-Medium.ttf", 16.0)
+	cur := 0
+
+	var add = func(left int, top int, bold bool, fontSize float64, str string) {
+		font := "metrics/fonts/roboto/Roboto-Medium.ttf"
+		if bold {
+			font = "metrics/fonts/roboto/Roboto-Bold.ttf"
+		}
+		cur += top
+		addLabel(img, leftIndent+left, cur, str, font, fontSize)
+	}
+	titleLeftSpacing := 15
+	titleTopSpacing := 40
+	leftSpacing := 30
+	topSpacing := 30
+	add(titleLeftSpacing, titleTopSpacing, true, 18.0, "Configuration Summary:")
+	add(leftSpacing, int(float64(topSpacing)*1.5), false, 16.0, fmt.Sprintf("Workload ID: %s", toTitleCase(globalConfig.Workload.WorkloadIdentifier.Value)))
+	add(leftSpacing, topSpacing, false, 16.0, fmt.Sprintf("Duration: %d seconds", int(end.Sub(start).Seconds())))
+	add(leftSpacing, topSpacing, false, 16.0, fmt.Sprintf("Warmup Time: %d seconds", config.Measurements.WarmUpTime.Value))
+	add(leftSpacing, topSpacing, false, 16.0, fmt.Sprintf("Target Requests per Second: %d", config.Workload.TargetOperationsPerSec.Value))
+	add(leftSpacing, topSpacing, false, 16.0, fmt.Sprintf("Approx. Total Requests: %d", int(float64(config.Workload.TargetOperationsPerSec.Value)*end.Sub(start).Seconds())))
+	add(leftSpacing, topSpacing, false, 16.0, fmt.Sprintf("Read Percentage: %d%%", int((1.0-config.Workload.InsertProportion.Value)*100.0)))
+	add(leftSpacing, topSpacing, false, 16.0, fmt.Sprintf("Key Range: [0 to %d]", config.Workload.NumUniqueKeys.Value-1))
+	add(leftSpacing, topSpacing, false, 16.0, fmt.Sprintf("Request Distribution: %s", toTitleCase(config.Workload.RequestDistribution.Value)))
+	if config.Workload.RequestDistribution.Value == "zipfian" {
+		add(leftSpacing, topSpacing, false, 16.0, fmt.Sprintf("Zipfian Constant: %.2f", config.Workload.ZipfianConstant.Value))
+	}
+
+	cur = 0
+	secondIndent := 350
+	add(titleLeftSpacing+secondIndent, titleTopSpacing, true, 18.0, "Cache Nodes:")
+	add(leftSpacing+secondIndent, int(float64(topSpacing)*1.5), false, 16.0, "Type: Redis")
+	add(leftSpacing+secondIndent, topSpacing, false, 16.0, fmt.Sprintf("Number of Nodes: %d", len(config.Cache.Nodes)))
+	add(leftSpacing+secondIndent, topSpacing, false, 16.0, fmt.Sprintf("Number of Virtual Nodes: %d", config.Cache.VirtualNodes.Value))
+	add(leftSpacing+secondIndent, topSpacing, false, 16.0, fmt.Sprintf("Number of Failures: %d", failures))
+	add(leftSpacing+secondIndent, topSpacing, false, 16.0, fmt.Sprintf("Max memory per node (mbs): %d", config.Cache.Nodes[0].MaxMemoryMbs.Value))
+	add(leftSpacing+secondIndent, topSpacing, false, 16.0, fmt.Sprintf("Max memory eviction policy: %s", config.Cache.Nodes[0].MaxMemoryPolicy.Value))
 
 	// Save the image to file
 	saveImage(filename, img)

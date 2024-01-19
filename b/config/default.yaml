@@ -42,9 +42,12 @@ Cache:
           FailureIntervals:
             - Start: 0.4
               End: 0.6
-          MaxSize:
-            Description: The maximum number of records to store in the cache.
-            Value: 1000000
+          MaxMemoryMbs:
+            Description: The maximum number of megabytes to store in the cache.
+            Value: 100
+          MaxMemoryPolicy:
+            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+            Value: allkeys-lfu
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
@@ -55,9 +58,12 @@ Cache:
             Description: Address and port of redis server
             Value: 0.0.0.0:6380
           FailureIntervals: []
-          MaxSize:
+          MaxMemoryMbs:
             Description: The maximum number of records to store in the cache.
-            Value: 1000000
+            Value: 100
+          MaxMemoryPolicy:
+            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+            Value: allkeys-lfu
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
@@ -68,9 +74,12 @@ Cache:
             Description: Address and port of redis server
             Value: 0.0.0.0:6381
           FailureIntervals: []
-          MaxSize:
-            Description: The maximum number of records to store in the cache.
-            Value: 1000000
+          MaxMemoryMbs:
+            Description: The maximum number of megabytes to store in the cache.
+            Value: 100
+          MaxMemoryPolicy:
+            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+            Value: allkeys-lfu
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
@@ -81,9 +90,12 @@ Cache:
             Description: Address and port of redis server
             Value: 0.0.0.0:6382
           FailureIntervals: []
-          MaxSize:
-            Description: The maximum number of records to store in the cache.
-            Value: 1000000
+          MaxMemoryMbs:
+            Description: The maximum number of megabytes to store in the cache.
+            Value: 100
+          MaxMemoryPolicy:
+            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+            Value: allkeys-lfu
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
@@ -94,9 +106,12 @@ Cache:
             Description: Address and port of redis server
             Value: 0.0.0.0:6383
           FailureIntervals: []
-          MaxSize:
-            Description: The maximum number of records to store in the cache.
-            Value: 1000000
+          MaxMemoryMbs:
+            Description: The maximum number of megabytes to store in the cache.
+            Value: 100
+          MaxMemoryPolicy:
+            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+            Value: allkeys-lfu
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
@@ -107,9 +122,12 @@ Cache:
             Description: Address and port of redis server
             Value: 0.0.0.0:6384
           FailureIntervals: []
-          MaxSize:
-            Description: The maximum number of records to store in the cache.
-            Value: 1000000
+          MaxMemoryMbs:
+            Description: The maximum number of megabytes to store in the cache.
+            Value: 100
+          MaxMemoryPolicy:
+            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+            Value: allkeys-lfu
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
@@ -120,9 +138,12 @@ Cache:
             Description: Address and port of redis server
             Value: 0.0.0.0:6385
           FailureIntervals: []
-          MaxSize:
-            Description: The maximum number of records to store in the cache.
-            Value: 1000000
+          MaxMemoryMbs:
+            Description: The maximum number of megabytes to store in the cache.
+            Value: 100
+          MaxMemoryPolicy:
+            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+            Value: allkeys-lfu
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
@@ -189,13 +210,16 @@ Workload:
             The distribution of request types in the workload (to simulate different access patterns on the dataset).
             Options are 'uniform', 'sequential', 'zipfian', 'latest', 'hotspot', and 'exponential'.
         Value: zipfian
+    ZipfianConstant:
+        Description: The constant to use for the zipfian distribution.
+        Value: 0.99
 Measurements:
     MetricsOutputDir:
         Description: The directory where measurement data files are to be saved.
         Value: data/
     WarmUpTime:
         Description: The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).
-        Value: 10
+        Value: 15
     ZeroPadding:
         Description: The amount of zero-padding for numeric fields (for a fixed width representation).
         Value: 1

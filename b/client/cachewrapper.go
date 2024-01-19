@@ -65,7 +65,7 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 
 	for i := 0; i < len(p.Cache.Nodes); i++ {
 		nodeConfig := p.Cache.Nodes[i]
-		c.addNode(nodeConfig.Address.Value, nodeConfig.MaxSize.Value, nodeConfig.NodeId.Value, ctx)
+		c.addNode(nodeConfig, ctx)
 	}
 	c.scheduleFailures()
 	return &c
@@ -101,8 +101,8 @@ func (c *CacheWrapper) scheduleFailures() {
 	}
 }
 
-func (c *CacheWrapper) addNode(address string, maxSize int, id int, ctx context.Context) {
-	node := cache.NewNode(address, int64(maxSize), id, ctx)
+func (c *CacheWrapper) addNode(p bconfig.NodeConfig, ctx context.Context) {
+	node := cache.NewNode(p, ctx)
 	c.nodes = append(c.nodes, node)
 }
 

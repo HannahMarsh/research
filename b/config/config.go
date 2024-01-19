@@ -55,7 +55,8 @@ type NodeConfig struct {
 	NodeId             IntProperty       `yaml:"NodeId"`
 	Address            StringProperty    `yaml:"Address"`
 	FailureIntervals   []FailureInterval `yaml:"FailureIntervals"`
-	MaxSize            IntProperty       `yaml:"MaxSize"`
+	MaxMemoryMbs       IntProperty       `yaml:"MaxMemoryMbs"`
+	MaxMemoryPolicy    StringProperty    `yaml:"MaxMemoryPolicy"`
 	UseDefaultDatabase BoolProperty      `yaml:"UseDefaultDatabase"`
 }
 
@@ -85,6 +86,7 @@ type WorkloadConfig struct {
 	KeyPrefix                  StringProperty `yaml:"KeyPrefix"`
 	ReadAllFields              BoolProperty   `yaml:"ReadAllFields"`
 	RequestDistribution        StringProperty `yaml:"RequestDistribution"`
+	ZipfianConstant            FloatProperty  `yaml:"ZipfianConstant"`
 }
 
 type MeasurementsConfig struct {
@@ -166,9 +168,13 @@ var defaultConfig_ = Config{
 						End:   0.6,
 					},
 				},
-				MaxSize: IntProperty{
-					Value:       1000000,
-					Description: "The maximum number of records to store in the cache.",
+				MaxMemoryMbs: IntProperty{
+					Value:       100,
+					Description: "The maximum number of megabytes to store in the cache.",
+				},
+				MaxMemoryPolicy: StringProperty{
+					Value:       "allkeys-lfu",
+					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
 				},
 				UseDefaultDatabase: BoolProperty{
 					Value:       true,
@@ -183,9 +189,13 @@ var defaultConfig_ = Config{
 					Description: "Address and port of redis server",
 					Value:       "0.0.0.0:6380",
 				},
-				MaxSize: IntProperty{
-					Value:       1000000,
+				MaxMemoryMbs: IntProperty{
+					Value:       100,
 					Description: "The maximum number of records to store in the cache.",
+				},
+				MaxMemoryPolicy: StringProperty{
+					Value:       "allkeys-lfu",
+					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
 				},
 				UseDefaultDatabase: BoolProperty{
 					Value:       true,
@@ -201,9 +211,13 @@ var defaultConfig_ = Config{
 					Description: "Address and port of redis server",
 					Value:       "0.0.0.0:6381",
 				},
-				MaxSize: IntProperty{
-					Value:       1000000,
-					Description: "The maximum number of records to store in the cache.",
+				MaxMemoryMbs: IntProperty{
+					Value:       100,
+					Description: "The maximum number of megabytes to store in the cache.",
+				},
+				MaxMemoryPolicy: StringProperty{
+					Value:       "allkeys-lfu",
+					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
 				},
 				UseDefaultDatabase: BoolProperty{
 					Value:       true,
@@ -219,9 +233,13 @@ var defaultConfig_ = Config{
 					Description: "Address and port of redis server",
 					Value:       "0.0.0.0:6382",
 				},
-				MaxSize: IntProperty{
-					Value:       1000000,
-					Description: "The maximum number of records to store in the cache.",
+				MaxMemoryMbs: IntProperty{
+					Value:       100,
+					Description: "The maximum number of megabytes to store in the cache.",
+				},
+				MaxMemoryPolicy: StringProperty{
+					Value:       "allkeys-lfu",
+					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
 				},
 				UseDefaultDatabase: BoolProperty{
 					Value:       true,
@@ -237,9 +255,13 @@ var defaultConfig_ = Config{
 					Description: "Address and port of redis server",
 					Value:       "0.0.0.0:6383",
 				},
-				MaxSize: IntProperty{
-					Value:       1000000,
-					Description: "The maximum number of records to store in the cache.",
+				MaxMemoryMbs: IntProperty{
+					Value:       100,
+					Description: "The maximum number of megabytes to store in the cache.",
+				},
+				MaxMemoryPolicy: StringProperty{
+					Value:       "allkeys-lfu",
+					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
 				},
 				UseDefaultDatabase: BoolProperty{
 					Value:       true,
@@ -255,9 +277,13 @@ var defaultConfig_ = Config{
 					Description: "Address and port of redis server",
 					Value:       "0.0.0.0:6384",
 				},
-				MaxSize: IntProperty{
-					Value:       1000000,
-					Description: "The maximum number of records to store in the cache.",
+				MaxMemoryMbs: IntProperty{
+					Value:       100,
+					Description: "The maximum number of megabytes to store in the cache.",
+				},
+				MaxMemoryPolicy: StringProperty{
+					Value:       "allkeys-lfu",
+					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
 				},
 				UseDefaultDatabase: BoolProperty{
 					Value:       true,
@@ -273,9 +299,13 @@ var defaultConfig_ = Config{
 					Description: "Address and port of redis server",
 					Value:       "0.0.0.0:6385",
 				},
-				MaxSize: IntProperty{
-					Value:       1000000,
-					Description: "The maximum number of records to store in the cache.",
+				MaxMemoryMbs: IntProperty{
+					Value:       100,
+					Description: "The maximum number of megabytes to store in the cache.",
+				},
+				MaxMemoryPolicy: StringProperty{
+					Value:       "allkeys-lfu",
+					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
 				},
 				UseDefaultDatabase: BoolProperty{
 					Value:       true,
@@ -365,6 +395,10 @@ var defaultConfig_ = Config{
 			Value:       "zipfian",
 			Description: "The distribution of request types in the workload (to simulate different access patterns on the dataset).\nOptions are 'uniform', 'sequential', 'zipfian', 'latest', 'hotspot', and 'exponential'.",
 		},
+		ZipfianConstant: FloatProperty{
+			Value:       0.99,
+			Description: "The constant to use for the zipfian distribution.",
+		},
 	},
 	Measurements: MeasurementsConfig{
 		MetricsOutputDir: StringProperty{
@@ -372,7 +406,7 @@ var defaultConfig_ = Config{
 			Description: "The directory where measurement data files are to be saved.",
 		},
 		WarmUpTime: IntProperty{
-			Value:       10,
+			Value:       15,
 			Description: "The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).",
 		},
 		ZeroPadding: IntProperty{

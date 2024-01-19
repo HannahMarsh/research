@@ -1,9 +1,11 @@
 package cache
 
 import (
+	bconfig "benchmark/config"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/go-redis/redis/v8"
 	"log"
 	"sync"
@@ -13,7 +15,6 @@ type Node struct {
 	isFailed    bool
 	failMutex   sync.Mutex
 	redisClient *redis.Client
-	maxSize     int64
 	id          int
 }
 
@@ -22,8 +23,13 @@ type Cache interface {
 	Set(ctx context.Context, key string, value map[string][]byte) (error, int64)
 }
 
-func NewNode(address string, maxSize int64, id int, ctx context.Context) *Node {
+func NewNode(p bconfig.NodeConfig, ctx context.Context) *Node {
+	address := p.Address.Value
+	maxMemMbs := p.MaxMemoryMbs.Value
+	maxMemoryPolicy := p.MaxMemoryPolicy.Value
+
 	c := new(Node)
+	c.id = p.NodeId.Value
 	opts := &redis.Options{
 		Addr:     address,
 		Password: "", // no password set
@@ -33,13 +39,47 @@ func NewNode(address string, maxSize int64, id int, ctx context.Context) *Node {
 	// Initialize Redis client
 	c.redisClient = redis.NewClient(opts)
 
-	c.isFailed = false
-	c.maxSize = maxSize
-	c.id = id
+	// Set max memory
+	if err := c.redisClient.ConfigSet(ctx, "maxmemory", fmt.Sprintf("%dmb", maxMemMbs)).Err(); err != nil {
+		panic(err)
+	}
 
-	err := c.redisClient.FlushDB(ctx).Err()
+	// Verify the configuration
+	maxMemoryRes, err := c.redisClient.ConfigGet(ctx, "maxmemory").Result()
 	if err != nil {
-		log.Printf("Failed to clear cache: %v", err)
+		panic(err)
+	} // maxMemoryRes is a slice of interfaces, where the actual value is at the second position
+
+	maxMemory, ok := maxMemoryRes[1].(string) // Redis config values are typically strings
+	if !ok {
+		panic("maxmemory is not a string")
+	}
+	expectedMaxMemory := fmt.Sprintf("%d", maxMemMbs*1024*1024) // Convert megabytes to bytes
+	if maxMemory != expectedMaxMemory {
+		panic(fmt.Errorf("maxmemory is not set properly: %s != %s bytes", maxMemory, expectedMaxMemory))
+	}
+
+	// Set max memory policy
+	if err = c.redisClient.ConfigSet(ctx, "maxmemory-policy", maxMemoryPolicy).Err(); err != nil {
+		panic(err)
+	}
+
+	// Verify the configuration
+	maxMemoryPolicyRes, err := c.redisClient.ConfigGet(ctx, "maxmemory-policy").Result()
+	if err != nil {
+		panic(err)
+	} // maxMemoryPolicyRes is a slice of interfaces, where the actual value is at the second position
+	maxMemPolicy, ok := maxMemoryPolicyRes[1].(string)
+	if !ok {
+		panic("maxmemory-policy is not a string")
+	} else if maxMemPolicy != maxMemoryPolicy {
+		panic(fmt.Errorf("maxmemory-policy is not set properly: %s != %s", maxMemPolicy, maxMemoryPolicy))
+	}
+
+	c.isFailed = false
+
+	if err = c.redisClient.FlushDB(ctx).Err(); err != nil {
+		panic(fmt.Errorf("failed to clear cache: %v", err))
 	}
 
 	return c
@@ -116,16 +156,9 @@ func (c *Node) Set(ctx context.Context, key string, value map[string][]byte) (er
 		return errors.New("simulated failure - cache node is not available"), 0
 	}
 	size_ := int64(0)
+
 	if size, err := c.Size(ctx); err == nil {
 		size_ = size
-		if size >= c.maxSize {
-			// cache is full, flush it
-			err = c.redisClient.FlushDB(ctx).Err()
-			if err != nil {
-				log.Printf("Failed to clear cache: %v", err)
-				return err, size
-			}
-		}
 	}
 	// Serialize the map into a JSON string for storage
 	serializedValue, err := json.Marshal(value)
