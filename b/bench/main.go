@@ -69,6 +69,8 @@ func initialGlobal(onProperties func()) {
 
 	workloadName := globalProps.Workload.WorkloadIdentifier
 
+	warmUpTime = time.Now().Add(time.Duration(globalProps.Measurements.WarmUpTime.Value) * time.Second)
+
 	if globalWorkload, err = workload.NewWorkload(globalProps, warmUpTime); err != nil {
 		util.Fatalf("create workload %s failed %v", workloadName, err)
 	}
@@ -78,7 +80,6 @@ func initialGlobal(onProperties func()) {
 	}
 	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
 	globalCache = client.NewCache(globalProps, globalContext)
-	warmUpTime = time.Now().Add(time.Duration(globalProps.Measurements.WarmUpTime.Value) * time.Second)
 
 }
 

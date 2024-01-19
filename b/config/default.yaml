@@ -153,7 +153,7 @@ Workload:
         Value: 15
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 1000
+        Value: 2000
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1
@@ -195,7 +195,7 @@ Measurements:
         Value: data/
     WarmUpTime:
         Description: The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).
-        Value: 5
+        Value: 3
     ZeroPadding:
         Description: The amount of zero-padding for numeric fields (for a fixed width representation).
         Value: 1

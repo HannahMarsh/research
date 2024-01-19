@@ -39,7 +39,13 @@ var letters = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 // RandBytes fills the bytes with alphabetic characters randomly
 func RandBytes(r *rand.Rand, b []byte) {
 	for i := range b {
-		b[i] = letters[r.Intn(len(letters))]
+		//b[i] = letters[r.Intn(len(letters))]
+		index := r.Intn(len(letters))
+		if index < 0 || index >= len(letters) {
+			panic(fmt.Sprintf("RandBytes: index out of range: %d", index))
+		}
+		b[i] = letters[index]
+
 	}
 }
 

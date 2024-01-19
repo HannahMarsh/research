@@ -77,26 +77,26 @@ func NewWorkload(p *bconfig.Config, warmUpTime time.Time) (*Workload, error) {
 
 	c.keySequence = generator.NewCounter(int64(0))
 	c.operationChooser = createOperationGenerator(p)
-	var keyrangeUpperBound = int64(p.Workload.NumUniqueKeys.Value) - 1
+	var keyrangeUpperBound = int64(p.Workload.NumUniqueKeys.Value)
 
 	c.transactionInsertKeySequence = generator.NewAcknowledgedCounter(int64(recordCount))
 	switch p.Workload.RequestDistribution.Value {
 	case "uniform":
-		c.keyChooser = generator.NewUniform(int64(0), keyrangeUpperBound)
+		c.keyChooser = generator.NewUniform(int64(1), keyrangeUpperBound)
 	case "sequential":
-		c.keyChooser = generator.NewSequential(int64(0), keyrangeUpperBound)
+		c.keyChooser = generator.NewSequential(int64(1), keyrangeUpperBound)
 	case "zipfian":
 		insertProportion := p.Workload.InsertProportion.Value
 		opCount := recordCount
 		expectedNewKeys := int64(float64(opCount) * insertProportion * 2.0)
-		keyrangeUpperBound = int64(0) + int64(p.Workload.NumUniqueKeys.Value) + expectedNewKeys
-		c.keyChooser = generator.NewScrambledZipfian(int64(0), keyrangeUpperBound, generator.ZipfianConstant)
+		keyrangeUpperBound = int64(1) + int64(p.Workload.NumUniqueKeys.Value) + expectedNewKeys
+		c.keyChooser = generator.NewScrambledZipfian(int64(1), keyrangeUpperBound, generator.ZipfianConstant)
 	case "latest":
 		c.keyChooser = generator.NewSkewedLatest(&c.transactionInsertKeySequence)
 	case "hotspot":
 		hotsetFraction := p.Workload.HotspotDataFraction.Value
 		hotopnFraction := p.Workload.HotspotOpnFraction.Value
-		c.keyChooser = generator.NewHotspot(int64(0), keyrangeUpperBound, hotsetFraction, hotopnFraction)
+		c.keyChooser = generator.NewHotspot(int64(1), keyrangeUpperBound, hotsetFraction, hotopnFraction)
 	case "exponential":
 		percentile := p.Workload.ExponentialPercentile.Value
 		frac := p.Workload.ExponentialFrac.Value
@@ -107,7 +107,7 @@ func NewWorkload(p *bconfig.Config, warmUpTime time.Time) (*Workload, error) {
 	c.fieldChooser = generator.NewUniform(0, int64(c.p.Workload.MaxFields.Value)-1)
 	c.valuePool = sync.Pool{
 		New: func() interface{} {
-			return make([]byte, c.p.Workload.AvFieldSizeBytes.Value)
+			return make([]byte, c.p.Workload.AvFieldSizeBytes.Value+1)
 		},
 	}
 
@@ -301,15 +301,18 @@ func (c *Workload) verifyRow(state *State, key string, values map[string][]byte)
 }
 
 func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cache) {
-	state := ctx.Value(stateKey).(*State)
-	r := state.r
 
-	if time.Now().Before(c.warmUpTime) {
+	if c.p.Workload.InsertProportion.Value < 1.0 && time.Now().Before(c.warmUpTime) {
+		state := ctx.Value(stateKey).(*State)
+		r := state.r
 		dbKey, values := getKeyAndValues(c, r, state)
+		defer c.putValues(values)
 		_, _ = cache_.Set(ctx, dbKey, values)
 		return
 	}
 
+	state := ctx.Value(stateKey).(*State)
+	r := state.r
 	operation := operationType(c.operationChooser.Next(r))
 
 	switch operation {
@@ -353,6 +356,9 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 		for retries := 0; retries < c.p.Workload.DbOperationRetryLimit.Value; retries++ {
 			dbValues, dbErr := db.Read(ctx, c.p.Database.CassandraTableName.Value, keyName, fields)
 
+			if dbErr != nil && dbErr.Error() == "not found" {
+				break
+			}
 			if dbErr == nil {
 				// Successfully got values from database
 				values = dbValues

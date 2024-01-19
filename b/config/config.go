@@ -322,7 +322,7 @@ var defaultConfig_ = Config{
 			Description: "The target duration to run the benchmark for after the warmup time.",
 		},
 		TargetOperationsPerSec: IntProperty{
-			Value:       1000,
+			Value:       2000,
 			Description: "The target number of operations per second that the workload should aim to achieve.",
 		},
 		WorkloadIdentifier: StringProperty{
@@ -372,7 +372,7 @@ var defaultConfig_ = Config{
 			Description: "The directory where measurement data files are to be saved.",
 		},
 		WarmUpTime: IntProperty{
-			Value:       5,
+			Value:       3,
 			Description: "The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).",
 		},
 		ZeroPadding: IntProperty{
