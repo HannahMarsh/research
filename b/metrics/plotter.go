@@ -56,6 +56,7 @@ type plotInfo struct {
 	start            time.Time
 	end              time.Time
 	showNodeFailures bool
+	logScale         bool
 }
 
 type category struct {
@@ -183,6 +184,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			end:              end,
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
+			logScale:         false,
 		},
 		{
 			title: "Workload as a Function of Time",
@@ -215,6 +217,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			end:              end,
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
+			logScale:         false,
 		},
 		{
 			title: "Database Requests per Second as a Function of Time",
@@ -247,6 +250,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			end:              end,
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
+			logScale:         false,
 		},
 		{
 			title: "Database Latency as a Function of Time",
@@ -267,6 +271,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			end:              end,
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
+			logScale:         false,
 		},
 		{
 			title: "Cache Requests Per Node as a Function of Time",
@@ -288,6 +293,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			end:              end,
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
+			logScale:         false,
 		},
 		{
 			title: "All Cache Requests as a Function of Time",
@@ -319,6 +325,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			end:              end,
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
+			logScale:         false,
 		},
 		{
 			title: "Cache Hits Ratio as a Function of Time",
@@ -343,6 +350,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			end:              end,
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
+			logScale:         false,
 		},
 		{
 			title: "Cache Size as a Function of Time",
@@ -364,6 +372,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			end:              end,
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
+			logScale:         true,
 		},
 		{
 			title: "Proportion of Read Transactions that go to the Database as a Function of Time",
@@ -388,6 +397,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			path:             indPath + "individual/db_request_proportion.png",
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
+			logScale:         false,
 		},
 	}
 	cols := 3
@@ -460,6 +470,13 @@ func (plt *plotInfo) makePlot() {
 	resolution := float64(plt.numBuckets)
 	timeSlice := time.Duration(float64(duration.Nanoseconds()) / resolution)
 
+	if plt.logScale {
+		p.Y.Scale = plot.LogScale{}
+		p.Y.Tick.Marker = plot.LogTicks{}
+		p.Y.Label.Text += " (log scale)"
+		p.X.Min = timeSlice.Seconds() / 2.0
+	}
+
 	data := make(map[string]plotter.XYs)
 
 	for _, cat := range plt.categories {
@@ -506,21 +523,52 @@ func (plt *plotInfo) makePlot() {
 			}
 			pts[i].X = float64(i) * timeSlice.Seconds()
 		}
-		pts[0].Y = pts[1].Y + ((pts[1].Y - pts[2].Y) / 3.0)
+		if !plt.logScale {
+			pts[0].Y = pts[1].Y + ((pts[1].Y - pts[2].Y) / 3.0)
+		}
 		mean := sum_ / float64(count)
 		p.Y.Max = math.Max(p.Y.Max, maxY*1.2)
+
 		//filename := plt.csvPath + "-" + replace(cat.plotLabel, "[,\\\\\\/\\s\\(\\)]+", "_") + ".csv"
 		if cat.plotLabel == "" {
 			data[p.Y.Label.Text] = pts
 		} else {
 			data[cat.plotLabel] = pts
 		}
+		pts = getSmooth(pts)
+		if plt.logScale {
+			if p.Y.Max <= 0.00001 {
+				p.Y.Max = 0.00001
+			}
+			if p.Y.Min <= 0.00001 {
+				p.Y.Min = 0.00001
+			}
+			if p.X.Min <= 0.00001 {
+				p.X.Min = 0.00001
+			}
+			if p.X.Max <= 0.00001 {
+				p.X.Max = 0.00001
+			}
+			for i := 0; i < len(pts); i++ {
+				if pts[i].X <= 0.000001 {
+					pts[i].X = p.X.Min
+				}
+				if pts[i].Y <= 0.00001 {
+					pts[i].Y = p.Y.Min
+				}
+			}
+			for _, pt := range pts {
+				if pt.X < 0.000001 || pt.Y < 0.00001 {
+					fmt.Printf("here")
+				}
+			}
+		}
 		//exportCategoryDataToCSV(cat, pts, filename)
-		if line, err := plotter.NewLine(getSmooth(pts)); err == nil {
+		if line, err := plotter.NewLine(pts); err == nil {
 			line.Color = cat.color
 			p.Add(line)
 
-			if cat.showMean && !math.IsNaN(mean) {
+			if cat.showMean && !math.IsNaN(mean) && !plt.logScale {
 				if mean > 0 && mean < 1.0 {
 					addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.2f)", mean), cat.color)
 				} else {
@@ -548,11 +596,26 @@ func (plt *plotInfo) makePlot() {
 		}
 	}
 
-	if plt.showNodeFailures {
+	if plt.showNodeFailures && !plt.logScale {
 		plt.plotNodeFailures(p)
 	}
 
 	height := vg.Length(4.0 * (1 + (0.03 * float64(len(plt.categories)))))
+
+	if plt.logScale {
+		if p.Y.Max <= 0.00001 {
+			p.Y.Max = 0.00001
+		}
+		if p.Y.Min <= 0.00001 {
+			p.Y.Min = 0.00001
+		}
+		if p.X.Min <= 0.00001 {
+			p.X.Min = 0.00001
+		}
+		if p.X.Max <= 0.00001 {
+			p.X.Max = 0.00001
+		}
+	}
 
 	// Save the plot to a PNG file
 	if err := p.Save(8*vg.Inch, height*vg.Inch, plt.path); err != nil {

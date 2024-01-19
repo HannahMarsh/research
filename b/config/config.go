@@ -310,7 +310,7 @@ var defaultConfig_ = Config{
 			Description: "The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', and 'zipfian'",
 		},
 		NumUniqueKeys: IntProperty{
-			Value:       2000,
+			Value:       90000,
 			Description: "If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.",
 		},
 		DbOperationRetryLimit: IntProperty{
@@ -322,7 +322,7 @@ var defaultConfig_ = Config{
 			Description: "The target duration to run the benchmark for after the warmup time.",
 		},
 		TargetOperationsPerSec: IntProperty{
-			Value:       2000,
+			Value:       8000,
 			Description: "The target number of operations per second that the workload should aim to achieve.",
 		},
 		WorkloadIdentifier: StringProperty{
@@ -372,7 +372,7 @@ var defaultConfig_ = Config{
 			Description: "The directory where measurement data files are to be saved.",
 		},
 		WarmUpTime: IntProperty{
-			Value:       3,
+			Value:       10,
 			Description: "The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).",
 		},
 		ZeroPadding: IntProperty{

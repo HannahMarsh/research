@@ -39,7 +39,7 @@ type Workload struct {
 }
 
 type State struct {
-	r *rand.Rand
+	randPool sync.Pool
 	// fieldNames is a copy of core.fieldNames to be goroutine-local
 	fieldNames []string
 }
@@ -114,6 +114,16 @@ func NewWorkload(p *bconfig.Config, warmUpTime time.Time) (*Workload, error) {
 	return c, nil
 }
 
+// GetRand provides a *rand.Rand from the pool.
+func (state *State) GetRand() *rand.Rand {
+	return state.randPool.Get().(*rand.Rand)
+}
+
+// PutRand puts a *rand.Rand back into the pool.
+func (state *State) PutRand(r *rand.Rand) {
+	state.randPool.Put(r)
+}
+
 func getFieldLengthGenerator(p *bconfig.Config) generator.Generator {
 	var fieldLengthGenerator generator.Generator
 
@@ -172,11 +182,15 @@ func workloadMeasure(start time.Time, operationType string, err error, hitDataba
 }
 
 func (c *Workload) InitThread(ctx context.Context, _ int, _ int) context.Context {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	// r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	fieldNames := make([]string, len(c.fieldNames))
 	copy(fieldNames, c.fieldNames)
 	state := &State{
-		r:          r,
+		randPool: sync.Pool{
+			New: func() interface{} {
+				// Each rand.Rand has a unique seed to avoid generating the same sequence.
+				return rand.New(rand.NewSource(time.Now().UnixNano()))
+			}},
 		fieldNames: fieldNames,
 	}
 	return context.WithValue(ctx, stateKey, state)
@@ -192,7 +206,8 @@ func (c *Workload) buildKeyName(keyNum int64) string {
 }
 
 func (c *Workload) nextKeyNum(state *State) int64 {
-	r := state.r
+	r := state.GetRand()
+	defer state.PutRand(r)
 	keyNum := int64(0)
 	if _, ok := c.keyChooser.(*generator.Exponential); ok {
 		keyNum = -1
@@ -205,7 +220,9 @@ func (c *Workload) nextKeyNum(state *State) int64 {
 	return keyNum
 }
 
-func getKeyAndValues(c *Workload, r *rand.Rand, state *State) (string, map[string][]byte) {
+func getKeyAndValues(c *Workload, state *State) (string, map[string][]byte) {
+	r := state.GetRand()
+	defer state.PutRand(r)
 	dbKey := c.buildKeyName(c.keySequence.Next(r))
 	values := c.buildValues(state, dbKey)
 	return dbKey, values
@@ -214,7 +231,8 @@ func getKeyAndValues(c *Workload, r *rand.Rand, state *State) (string, map[strin
 func (c *Workload) buildSingleValue(state *State, key string) map[string][]byte {
 	values := make(map[string][]byte, 1)
 
-	r := state.r
+	r := state.GetRand()
+	defer state.PutRand(r)
 	fieldKey := state.fieldNames[c.fieldChooser.Next(r)]
 
 	var buf []byte
@@ -261,8 +279,8 @@ func (c *Workload) putValues(values map[string][]byte) {
 }
 
 func (c *Workload) buildRandomValue(state *State) []byte {
-	// TODO: use pool for the buffer
-	r := state.r
+	r := state.GetRand()
+	defer state.PutRand(r)
 	buf := c.getValueBuffer(int(c.fieldLengthGenerator.Next(r)))
 	util.RandBytes(r, buf)
 	return buf
@@ -270,7 +288,8 @@ func (c *Workload) buildRandomValue(state *State) []byte {
 
 func (c *Workload) buildDeterministicValue(state *State, key string, fieldKey string) []byte {
 	// TODO: use pool for the buffer
-	r := state.r
+	r := state.GetRand()
+	defer state.PutRand(r)
 	size := c.fieldLengthGenerator.Next(r)
 	buf := c.getValueBuffer(int(size + 21))
 	b := bytes.NewBuffer(buf[0:0])
@@ -304,15 +323,15 @@ func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cac
 
 	if c.p.Workload.InsertProportion.Value < 1.0 && time.Now().Before(c.warmUpTime) {
 		state := ctx.Value(stateKey).(*State)
-		r := state.r
-		dbKey, values := getKeyAndValues(c, r, state)
+		dbKey, values := getKeyAndValues(c, state)
 		defer c.putValues(values)
 		_, _ = cache_.Set(ctx, dbKey, values)
 		return
 	}
 
 	state := ctx.Value(stateKey).(*State)
-	r := state.r
+	r := state.GetRand()
+	defer state.PutRand(r)
 	operation := operationType(c.operationChooser.Next(r))
 
 	switch operation {
