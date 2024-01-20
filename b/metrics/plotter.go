@@ -51,16 +51,19 @@ type plotInfo struct {
 	numBuckets       int
 	title            string
 	yAxis            string
+	xAxis            string
 	path             string
 	csvPath          string
 	start            time.Time
 	end              time.Time
 	showNodeFailures bool
+	barchart         bool
 }
 
 type category struct {
 	filters   []func(Metric) bool
 	reduce    func([][]Metric, time.Duration) float64
+	values    map[int64]int64
 	plotLabel string
 	color     color.RGBA
 	showMean  bool
@@ -118,6 +121,10 @@ func countPerSecond(m [][]Metric, timeSlice time.Duration) float64 {
 	return float64(len(m[0])) / timeSlice.Seconds()
 }
 
+func totalCount(m [][]Metric, timeSlice time.Duration) float64 {
+	return float64(len(m[0]))
+}
+
 func averageValue(value func(Metric) float64) func([][]Metric, time.Duration) float64 {
 	return func(m [][]Metric, timeSlice time.Duration) float64 {
 		sum_ := 0.0
@@ -140,6 +147,29 @@ func forEachNode(f func(int) category) []category {
 		nodeCategories = append(nodeCategories, f(nodeIndex))
 	}
 	return nodeCategories
+}
+
+func forEachNodeMulti(f func(int) []category) []category {
+	var nodeCategories []category
+	for _, node := range globalConfig.Cache.Nodes {
+		nodeIndex := node.NodeId.Value - 1
+		c := f(nodeIndex)
+		for _, cc := range c {
+			nodeCategories = append(nodeCategories, cc)
+		}
+	}
+	return nodeCategories
+}
+
+func getPopularities(nodeIndex int, f func(map[int64]int64) category) category {
+	pops := make(map[int64]int64)
+	for _, pop := range KEYS[nodeIndex] {
+		if _, ok := pops[pop]; !ok {
+			pops[pop] = 0
+		}
+		pops[pop] += 1
+	}
+	return f(pops)
 }
 
 func PlotMetrics(s time.Time, e time.Time) {
@@ -321,35 +351,23 @@ func PlotMetrics(s time.Time, e time.Time) {
 			showNodeFailures: true,
 		},
 		{
-			title: "Key Popularity Per Node",
-			yAxis: "Requests per second",
-			categories: []category{
-				{
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, true)
-						},
-					},
-					reduce:    countPerSecond,
-					plotLabel: "Total Hits Per Second",
-					color:     DARK_GREEN,
-					showMean:  false,
-				},
-				{
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == CACHE_OPERATION && has(m, SUCCESSFUL, false)
-						}},
-					reduce:    countPerSecond,
-					plotLabel: "Total Misses Per Second",
-					color:     DARK_RED,
-					showMean:  false,
-				},
-			},
-			start:            start,
-			end:              end,
-			numBuckets:       numBuckets,
-			showNodeFailures: true,
+			title: "Reverse CDF of Key Popularity Distribution Per Node",
+			yAxis: "Reverse Cumulative Frequency",
+			xAxis: "Key Popularity",
+			categories: forEachNode(func(nodeIndex int) category {
+				return getPopularities(nodeIndex, func(pops map[int64]int64) category {
+					return category{
+						values:    pops,
+						plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+						color:     DARK_COLORS[nodeIndex],
+						showMean:  false,
+					}
+				})
+			}),
+			start:      start,
+			end:        end,
+			numBuckets: numBuckets,
+			barchart:   true,
 		},
 		{
 			title: "Cache Hits Ratio as a Function of Time",
@@ -437,11 +455,20 @@ func PlotMetrics(s time.Time, e time.Time) {
 				if curIndex < len(pi) {
 					fmt.Printf("\t(%d/%d): %s\n", curIndex+1, len(pi), pi[curIndex].title)
 					// pi[curIndex].indPath = indPath + "individual/" + strings.Replace(toTitleCase(strings.TrimSuffix(strings.ToLower(pi[curIndex].title), " as a function of time")), " ", "_", -1) + ".png"
-					pi[curIndex].path = fmt.Sprintf("%s%02d-", pngPath, curIndex+1) + replace(toTitleCase(replace(strings.ToLower(pi[curIndex].title), "[\\)\\s]+as a function of time", "")), "[\\s\\(\\)]+", "_") + ".png"
-					pi[curIndex].csvPath = fmt.Sprintf("%s%02d-", csvPath, curIndex+1) + replace(toTitleCase(replace(strings.ToLower(pi[curIndex].title), "[\\)\\s]+as a function of time", "")), "[\\s\\(\\)]+", "_") + "csv"
+
+					var xAxis = "distribution per node"
+					if !pi[curIndex].barchart {
+						xAxis = "as a function of time"
+					}
+					pi[curIndex].path = fmt.Sprintf("%s%02d-", pngPath, curIndex+1) + replace(toTitleCase(replace(strings.ToLower(pi[curIndex].title), "[\\)\\s]+"+xAxis, "")), "[\\s\\(\\)]+", "_") + ".png"
+					pi[curIndex].csvPath = fmt.Sprintf("%s%02d-", csvPath, curIndex+1) + replace(toTitleCase(replace(strings.ToLower(pi[curIndex].title), "[\\)\\s]+"+xAxis, "")), "[\\s\\(\\)]+", "_") + ".csv"
 
 					row = append(row, pi[curIndex].path)
-					pi[curIndex].makePlot()
+					if pi[curIndex].barchart {
+						pi[curIndex].makeCDFPlot()
+					} else {
+						pi[curIndex].makePlot()
+					}
 					curIndex += 1
 				}
 			}
@@ -580,6 +607,229 @@ func (plt *plotInfo) makePlot() {
 
 	if plt.showNodeFailures {
 		plt.plotNodeFailures(p)
+	}
+
+	height := vg.Length(4.0 * (1 + (0.03 * float64(len(plt.categories)))))
+
+	// Save the plot to a PNG file
+	if err := p.Save(8*vg.Inch, height*vg.Inch, plt.path); err != nil {
+		log.Panic(err)
+	}
+
+	exportCategoryDataToCSV(data, plt.csvPath)
+
+}
+
+func (plt *plotInfo) makeCDFPlot() {
+
+	extraPadding := float64(len(plt.categories)) * 7.0
+
+	p := plot.New()
+	p.Title.Text = plt.title
+
+	p.Y.Scale = plot.LogScale{}
+	p.Y.Tick.Marker = plot.LogTicks{} // This will format the ticks appropriately for log scale
+	p.X.Scale = plot.LogScale{}
+	p.X.Tick.Marker = plot.LogTicks{} // This will format the ticks appropriately for log scale
+
+	p.Title.Padding = vg.Points(extraPadding) // Increase the padding to create more space
+	p.Title.TextStyle.Font.Size = 15
+	p.X.Label.Text = plt.xAxis
+	p.Y.Label.Text = plt.yAxis
+	p.X.Min = 1.0
+	p.Y.Min = 1.0
+
+	yMin := 1.0
+
+	// Adjust legend position
+	p.Legend.Top = true                           // Position the legend at the top of the plot
+	p.Legend.Left = true                          // Position the legend to the left side of the plot
+	p.Legend.XOffs = vg.Points(5)                 // Move the legend to the right
+	p.Legend.YOffs = vg.Points(extraPadding - 15) // Move the legend up
+
+	data := make(map[string]plotter.XYs)
+
+	max_ := float64(0)
+
+	for _, cat := range plt.categories {
+		for k, _ := range cat.values {
+			max_ = math.Max(float64(k), max_)
+		}
+	}
+
+	for _, cat := range plt.categories {
+
+		totalKeys := 0.0
+		numKeys := 0.0
+
+		for _, v := range cat.values {
+			totalKeys += float64(v)
+			numKeys++
+		}
+
+		var pts plotter.XYs
+		cumulativeCount := 0.0
+
+		for i := int64(max_); i > int64(0); i-- {
+			v, exists := cat.values[i]
+			if !exists || v < 0 {
+				v = 0
+			}
+			cumulativeCount += float64(v)
+
+			if cumulativeCount <= 0 {
+				cumulativeCount = 1.0
+			}
+
+			yMin = math.Min(yMin, cumulativeCount/totalKeys)
+			pts = append(pts, plotter.XY{X: float64(i), Y: float64(cumulativeCount / totalKeys)})
+		}
+
+		if cat.plotLabel == "" {
+			data[p.Y.Label.Text] = pts
+		} else {
+			data[cat.plotLabel] = pts
+		}
+
+		//pts = getSmoothn(pts, 10000)
+
+		mean := float64(totalKeys) / float64(numKeys)
+
+		//exportCategoryDataToCSV(cat, pts, filename)
+		if line, err := plotter.NewLine(pts); err == nil {
+			line.Color = cat.color
+			p.Add(line)
+
+			if cat.showMean && !math.IsNaN(mean) {
+				if mean > 0 && mean < 1.0 {
+					addHorizontalLine(p, mean, fmt.Sprintf("mean popularity per key\n(%.2f)", mean), cat.color)
+				} else {
+					addHorizontalLine(p, mean, fmt.Sprintf("mean popularity per key\n(%.0f)", mean), cat.color)
+				}
+
+			} else if !cat.showMean {
+				if !math.IsNaN(mean) {
+					if mean > 0 && mean < 1.0 {
+						cat.plotLabel += fmt.Sprintf(", (mean popularity per key = %.2f)", mean)
+					} else {
+						cat.plotLabel += fmt.Sprintf(", (mean popularity per key = %.0f)", mean)
+					}
+				} else {
+					cat.plotLabel += ", (mean = 0)"
+				}
+			}
+
+			if cat.plotLabel != "" {
+				p.Legend.Add(cat.plotLabel, line)
+			}
+
+		} else {
+			log.Panic(err)
+		}
+	}
+
+	height := vg.Length(4.0 * (1 + (0.03 * float64(len(plt.categories)))))
+
+	p.X.Min = 1.0
+	// Save the plot to a PNG file
+	if err := p.Save(8*vg.Inch, height*vg.Inch, plt.path); err != nil {
+		log.Panic(err)
+	}
+
+	exportCategoryDataToCSV(data, plt.csvPath)
+}
+
+func (plt *plotInfo) makeBarChart() {
+
+	extraPadding := 10.0 + float64(len(plt.categories))*10.0
+
+	p := plot.New()
+	p.Title.Text = plt.title
+
+	p.Y.Scale = plot.LogScale{}
+	p.Y.Tick.Marker = plot.LogTicks{} // This will format the ticks appropriately for log scale
+	p.X.Scale = plot.LogScale{}
+	p.X.Tick.Marker = plot.LogTicks{} // This will format the ticks appropriately for log scale
+
+	p.Title.Padding = vg.Points(extraPadding) // Increase the padding to create more space
+	p.Title.TextStyle.Font.Size = 15
+	p.X.Label.Text = plt.xAxis
+	p.Y.Label.Text = plt.yAxis
+	p.X.Min = 1.0
+	p.Y.Min = 1.0
+
+	// Adjust legend position
+	p.Legend.Top = true                           // Position the legend at the top of the plot
+	p.Legend.Left = true                          // Position the legend to the left side of the plot
+	p.Legend.XOffs = vg.Points(5)                 // Move the legend to the right
+	p.Legend.YOffs = vg.Points(extraPadding - 10) // Move the legend up
+
+	data := make(map[string]plotter.XYs)
+
+	for _, cat := range plt.categories {
+
+		count := 0
+		sum_ := int64(0)
+		index := 0
+		pts := make(plotter.XYs, len(cat.values))
+		// Extract keys to a slice
+		keys := make([]int64, 0, len(cat.values))
+		for k := range cat.values {
+			keys = append(keys, k)
+		}
+
+		// Sort the keys slice
+		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+
+		for _, key := range keys {
+			v := cat.values[key]
+			count++
+			sum_ += v
+			pts[index].X = float64(key)
+			pts[index].Y = float64(v)
+			index++
+		}
+		if cat.plotLabel == "" {
+			data[p.Y.Label.Text] = pts
+		} else {
+			data[cat.plotLabel] = pts
+		}
+
+		pts = getSmooth(pts)
+
+		mean := float64(sum_) / float64(count)
+
+		//exportCategoryDataToCSV(cat, pts, filename)
+		if line, err := plotter.NewLine(pts); err == nil {
+			line.Color = cat.color
+			p.Add(line)
+
+			if cat.showMean && !math.IsNaN(mean) {
+				if mean > 0 && mean < 1.0 {
+					addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.2f)", mean), cat.color)
+				} else {
+					addHorizontalLine(p, mean, fmt.Sprintf("mean\n(%.0f)", mean), cat.color)
+				}
+
+			} else if !cat.showMean {
+				if !math.IsNaN(mean) {
+					if mean > 0 && mean < 1.0 {
+						cat.plotLabel += fmt.Sprintf(", (mean = %.2f)", mean)
+					} else {
+						cat.plotLabel += fmt.Sprintf(", (mean = %.0f)", mean)
+					}
+				} else {
+					cat.plotLabel += ", (mean = 0)"
+				}
+			}
+
+			if cat.plotLabel != "" {
+				p.Legend.Add(cat.plotLabel, line)
+			}
+
+		} else {
+			log.Panic(err)
+		}
 	}
 
 	height := vg.Length(4.0 * (1 + (0.03 * float64(len(plt.categories)))))
@@ -957,6 +1207,55 @@ func getSmooth(pts plotter.XYs) plotter.XYs {
 		newX := xMin + float64(i)*step
 		newPts[i].X = newX
 		newPts[i].Y = interpolator.Predict(newX)
+	}
+
+	return newPts
+}
+
+func getSmoothn(pts plotter.XYs, n int) plotter.XYs {
+	// Sort the points by X values.
+	sort.Slice(pts, func(i, j int) bool {
+		return pts[i].X < pts[j].X
+	})
+
+	// Extract X and Y values from the points.
+	xs := make([]float64, len(pts))
+	ys := make([]float64, len(pts))
+	for i, pt := range pts {
+		xs[i] = pt.X
+		ys[i] = pt.Y
+	}
+
+	// Create AkimaSpline manually.
+	var interpolator interp.AkimaSpline
+
+	if err := interpolator.Fit(xs, ys); err != nil {
+		panic(err)
+	}
+
+	// Number of points for the smooth curve.
+	numPoints := 1000
+
+	// Calculate the range and step for new X values.
+	xMin := xs[0]
+	xMax := xs[len(xs)-1]
+	step := math.Max(0.0000001, (xMax-xMin)/float64(numPoints-1))
+
+	// Generate new points.
+	var newPts plotter.XYs
+	for i := 0; i < numPoints; i++ {
+		newX := xMin + float64(i)*step
+		pt := plotter.XY{X: newX, Y: interpolator.Predict(newX)}
+		newPts = append(newPts, pt)
+		if i > numPoints-3 {
+			step2 := math.Max(0.0000001, (xMax-xMin)/float64(1000000))
+
+			for j := 0; j < 3*numPoints; j++ {
+				newX2 := newX + float64(j)*step2
+				pt = plotter.XY{X: newX2, Y: interpolator.Predict(newX2)}
+				newPts = append(newPts, pt)
+			}
+		}
 	}
 
 	return newPts

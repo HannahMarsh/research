@@ -2,6 +2,7 @@ package metrics
 
 import (
 	bconfig "benchmark/config"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -30,6 +31,7 @@ var (
 	DATABASE     = "DATABASE"
 	SIZE         = "SIZE"
 	NODE_FAILURE = "NODE_FAILURE"
+	KEY          = "KEY"
 
 	// string values
 	BATCH_READ        = "BATCH_READ"
@@ -43,12 +45,17 @@ var (
 	INTERVAL          = "INTERVAL"
 	START             = "START"
 	END               = "END"
+	KEYS              []map[string]int64
 )
 
 func Init(config *bconfig.Config) {
 	globalConfig = config
 	globalStartTime = time.Now()
 	warmUptime = time.Duration(config.Measurements.WarmUpTime.Value) * time.Second
+
+	for _, _ = range config.Cache.Nodes {
+		KEYS = append(KEYS, make(map[string]int64))
+	}
 }
 
 type Metric struct {
@@ -78,6 +85,20 @@ func AddMeasurement(name string, newTimestamp time.Time, values map[string]inter
 		defer mu.Unlock()
 
 		values[TAG] = name
+		if values[KEY] != nil && values[NODE_INDEX] != nil {
+			if key, isString := values[KEY].(string); isString {
+				if nodeIndex, isInt := values[NODE_INDEX].(int); isInt {
+					if _, ok := KEYS[nodeIndex][key]; !ok {
+						KEYS[nodeIndex][key] = 0
+					}
+					KEYS[nodeIndex][key] += 1
+				} else {
+					panic(fmt.Errorf("node index is not an int: %v", values[NODE_INDEX]))
+				}
+			} else {
+				panic(fmt.Errorf("key is not a string: %v", values[KEY]))
+			}
+		}
 		globalAllMetrics = append(globalAllMetrics, Metric{timestamp: newTimestamp, metricType: name, tags: values})
 	}()
 }

@@ -90,7 +90,7 @@ func NewWorkload(p *bconfig.Config, warmUpTime time.Time) (*Workload, error) {
 		opCount := recordCount
 		expectedNewKeys := int64(float64(opCount) * insertProportion * 2.0)
 		keyrangeUpperBound = int64(1) + int64(p.Workload.NumUniqueKeys.Value) + expectedNewKeys
-		c.keyChooser = generator.NewScrambledZipfian(int64(1), keyrangeUpperBound, generator.ZipfianConstant)
+		c.keyChooser = generator.NewScrambledZipfian(int64(1), keyrangeUpperBound, p.Workload.ZipfianConstant.Value)
 	case "latest":
 		c.keyChooser = generator.NewSkewedLatest(&c.transactionInsertKeySequence)
 	case "hotspot":

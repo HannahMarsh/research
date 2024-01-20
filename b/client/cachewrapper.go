@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func cacheMeasure(start time.Time, nodeIndex int, operationType string, err error, cacheSize int64) {
+func cacheMeasure(start time.Time, key string, nodeIndex int, operationType string, err error, cacheSize int64) {
 	latency := time.Now().Sub(start)
 	if err != nil {
 		metrics2.AddMeasurement(metrics2.CACHE_OPERATION, start,
@@ -19,6 +19,7 @@ func cacheMeasure(start time.Time, nodeIndex int, operationType string, err erro
 				metrics2.LATENCY:    latency.Seconds(),
 				metrics2.NODE_INDEX: nodeIndex,
 				metrics2.SIZE:       cacheSize,
+				metrics2.KEY:        key,
 			})
 		return
 	} else {
@@ -29,6 +30,7 @@ func cacheMeasure(start time.Time, nodeIndex int, operationType string, err erro
 				metrics2.LATENCY:    latency.Seconds(),
 				metrics2.NODE_INDEX: nodeIndex,
 				metrics2.SIZE:       cacheSize,
+				metrics2.KEY:        key,
 			})
 	}
 }
@@ -116,7 +118,7 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (_ 
 	nodeIndex := c.nodeRing.GetNode(key)
 
 	defer func() {
-		cacheMeasure(start, nodeIndex, metrics2.READ, err, size)
+		cacheMeasure(start, key, nodeIndex, metrics2.READ, err, size)
 	}()
 
 	return c.nodes[nodeIndex].Get(ctx, key, fields)
@@ -128,7 +130,7 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 	nodeIndex := c.nodeRing.GetNode(key)
 
 	defer func() {
-		cacheMeasure(start, nodeIndex, metrics2.INSERT, err, size)
+		cacheMeasure(start, key, nodeIndex, metrics2.INSERT, err, size)
 	}()
 
 	return c.nodes[nodeIndex].Set(ctx, key, value)
