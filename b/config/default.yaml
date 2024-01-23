@@ -44,7 +44,7 @@ Cache:
               End: 0.6
           MaxMemoryMbs:
             Description: The maximum number of megabytes to store in the cache.
-            Value: 100
+            Value: 10
           MaxMemoryPolicy:
             Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
             Value: allkeys-lfu
@@ -60,7 +60,7 @@ Cache:
           FailureIntervals: []
           MaxMemoryMbs:
             Description: The maximum number of records to store in the cache.
-            Value: 100
+            Value: 10
           MaxMemoryPolicy:
             Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
             Value: allkeys-lfu
@@ -76,7 +76,7 @@ Cache:
           FailureIntervals: []
           MaxMemoryMbs:
             Description: The maximum number of megabytes to store in the cache.
-            Value: 100
+            Value: 10
           MaxMemoryPolicy:
             Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
             Value: allkeys-lfu
@@ -92,55 +92,7 @@ Cache:
           FailureIntervals: []
           MaxMemoryMbs:
             Description: The maximum number of megabytes to store in the cache.
-            Value: 100
-          MaxMemoryPolicy:
-            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
-            Value: allkeys-lfu
-          UseDefaultDatabase:
-            Description: Indicates whether to use the default database for the cache.
-            Value: true
-        - NodeId:
-            Description: The ID of the node.
-            Value: 5
-          Address:
-            Description: Address and port of redis server
-            Value: 0.0.0.0:6383
-          FailureIntervals: []
-          MaxMemoryMbs:
-            Description: The maximum number of megabytes to store in the cache.
-            Value: 100
-          MaxMemoryPolicy:
-            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
-            Value: allkeys-lfu
-          UseDefaultDatabase:
-            Description: Indicates whether to use the default database for the cache.
-            Value: true
-        - NodeId:
-            Description: The ID of the node.
-            Value: 6
-          Address:
-            Description: Address and port of redis server
-            Value: 0.0.0.0:6384
-          FailureIntervals: []
-          MaxMemoryMbs:
-            Description: The maximum number of megabytes to store in the cache.
-            Value: 100
-          MaxMemoryPolicy:
-            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
-            Value: allkeys-lfu
-          UseDefaultDatabase:
-            Description: Indicates whether to use the default database for the cache.
-            Value: true
-        - NodeId:
-            Description: The ID of the node.
-            Value: 7
-          Address:
-            Description: Address and port of redis server
-            Value: 0.0.0.0:6385
-          FailureIntervals: []
-          MaxMemoryMbs:
-            Description: The maximum number of megabytes to store in the cache.
-            Value: 100
+            Value: 10
           MaxMemoryPolicy:
             Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
             Value: allkeys-lfu
@@ -171,7 +123,7 @@ Workload:
         Value: 2
     TargetExecutionTime:
         Description: The target duration to run the benchmark for after the warmup time.
-        Value: 10
+        Value: 6
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
         Value: 7000

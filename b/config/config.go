@@ -169,7 +169,7 @@ var defaultConfig_ = Config{
 					},
 				},
 				MaxMemoryMbs: IntProperty{
-					Value:       100,
+					Value:       10,
 					Description: "The maximum number of megabytes to store in the cache.",
 				},
 				MaxMemoryPolicy: StringProperty{
@@ -190,7 +190,7 @@ var defaultConfig_ = Config{
 					Value:       "0.0.0.0:6380",
 				},
 				MaxMemoryMbs: IntProperty{
-					Value:       100,
+					Value:       10,
 					Description: "The maximum number of records to store in the cache.",
 				},
 				MaxMemoryPolicy: StringProperty{
@@ -212,7 +212,7 @@ var defaultConfig_ = Config{
 					Value:       "0.0.0.0:6381",
 				},
 				MaxMemoryMbs: IntProperty{
-					Value:       100,
+					Value:       10,
 					Description: "The maximum number of megabytes to store in the cache.",
 				},
 				MaxMemoryPolicy: StringProperty{
@@ -234,7 +234,7 @@ var defaultConfig_ = Config{
 					Value:       "0.0.0.0:6382",
 				},
 				MaxMemoryMbs: IntProperty{
-					Value:       100,
+					Value:       10,
 					Description: "The maximum number of megabytes to store in the cache.",
 				},
 				MaxMemoryPolicy: StringProperty{
@@ -246,72 +246,72 @@ var defaultConfig_ = Config{
 					Description: "Indicates whether to use the default database for the cache.",
 				},
 			},
-			{
-				NodeId: IntProperty{
-					Value:       5,
-					Description: "The ID of the node.",
-				},
-				Address: StringProperty{
-					Description: "Address and port of redis server",
-					Value:       "0.0.0.0:6383",
-				},
-				MaxMemoryMbs: IntProperty{
-					Value:       100,
-					Description: "The maximum number of megabytes to store in the cache.",
-				},
-				MaxMemoryPolicy: StringProperty{
-					Value:       "allkeys-lfu",
-					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
-				},
-				UseDefaultDatabase: BoolProperty{
-					Value:       true,
-					Description: "Indicates whether to use the default database for the cache.",
-				},
-			},
-			{
-				NodeId: IntProperty{
-					Value:       6,
-					Description: "The ID of the node.",
-				},
-				Address: StringProperty{
-					Description: "Address and port of redis server",
-					Value:       "0.0.0.0:6384",
-				},
-				MaxMemoryMbs: IntProperty{
-					Value:       100,
-					Description: "The maximum number of megabytes to store in the cache.",
-				},
-				MaxMemoryPolicy: StringProperty{
-					Value:       "allkeys-lfu",
-					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
-				},
-				UseDefaultDatabase: BoolProperty{
-					Value:       true,
-					Description: "Indicates whether to use the default database for the cache.",
-				},
-			},
-			{
-				NodeId: IntProperty{
-					Value:       7,
-					Description: "The ID of the node.",
-				},
-				Address: StringProperty{
-					Description: "Address and port of redis server",
-					Value:       "0.0.0.0:6385",
-				},
-				MaxMemoryMbs: IntProperty{
-					Value:       100,
-					Description: "The maximum number of megabytes to store in the cache.",
-				},
-				MaxMemoryPolicy: StringProperty{
-					Value:       "allkeys-lfu",
-					Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
-				},
-				UseDefaultDatabase: BoolProperty{
-					Value:       true,
-					Description: "Indicates whether to use the default database for the cache.",
-				},
-			},
+			//{
+			//	NodeId: IntProperty{
+			//		Value:       5,
+			//		Description: "The ID of the node.",
+			//	},
+			//	Address: StringProperty{
+			//		Description: "Address and port of redis server",
+			//		Value:       "0.0.0.0:6383",
+			//	},
+			//	MaxMemoryMbs: IntProperty{
+			//		Value:       100,
+			//		Description: "The maximum number of megabytes to store in the cache.",
+			//	},
+			//	MaxMemoryPolicy: StringProperty{
+			//		Value:       "allkeys-lfu",
+			//		Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
+			//	},
+			//	UseDefaultDatabase: BoolProperty{
+			//		Value:       true,
+			//		Description: "Indicates whether to use the default database for the cache.",
+			//	},
+			//},
+			//{
+			//	NodeId: IntProperty{
+			//		Value:       6,
+			//		Description: "The ID of the node.",
+			//	},
+			//	Address: StringProperty{
+			//		Description: "Address and port of redis server",
+			//		Value:       "0.0.0.0:6384",
+			//	},
+			//	MaxMemoryMbs: IntProperty{
+			//		Value:       100,
+			//		Description: "The maximum number of megabytes to store in the cache.",
+			//	},
+			//	MaxMemoryPolicy: StringProperty{
+			//		Value:       "allkeys-lfu",
+			//		Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
+			//	},
+			//	UseDefaultDatabase: BoolProperty{
+			//		Value:       true,
+			//		Description: "Indicates whether to use the default database for the cache.",
+			//	},
+			//},
+			//{
+			//	NodeId: IntProperty{
+			//		Value:       7,
+			//		Description: "The ID of the node.",
+			//	},
+			//	Address: StringProperty{
+			//		Description: "Address and port of redis server",
+			//		Value:       "0.0.0.0:6385",
+			//	},
+			//	MaxMemoryMbs: IntProperty{
+			//		Value:       100,
+			//		Description: "The maximum number of megabytes to store in the cache.",
+			//	},
+			//	MaxMemoryPolicy: StringProperty{
+			//		Value:       "allkeys-lfu",
+			//		Description: "The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies",
+			//	},
+			//	UseDefaultDatabase: BoolProperty{
+			//		Value:       true,
+			//		Description: "Indicates whether to use the default database for the cache.",
+			//	},
+			//},
 		},
 		VirtualNodes: IntProperty{
 			Value:       50000,
@@ -348,7 +348,7 @@ var defaultConfig_ = Config{
 			Description: "The maximum number of times to retry a failed insert operation.",
 		},
 		TargetExecutionTime: IntProperty{
-			Value:       10,
+			Value:       6,
 			Description: "The target duration to run the benchmark for after the warmup time.",
 		},
 		TargetOperationsPerSec: IntProperty{
