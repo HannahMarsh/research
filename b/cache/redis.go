@@ -112,8 +112,8 @@ func (c *Node) Fail() {
 }
 
 func (c *Node) Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
-	c.failMutex.Lock()
-	defer c.failMutex.Unlock()
+	//c.failMutex.Lock()
+	//defer c.failMutex.Unlock()
 
 	if c.isFailed {
 		//time.Sleep(100 * time.Millisecond)

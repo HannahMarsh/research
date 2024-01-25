@@ -44,7 +44,7 @@ Cache:
               End: 0.6
           MaxMemoryMbs:
             Description: The maximum number of megabytes to store in the cache.
-            Value: 10
+            Value: 40
           MaxMemoryPolicy:
             Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
             Value: allkeys-lfu
@@ -59,8 +59,8 @@ Cache:
             Value: 0.0.0.0:6380
           FailureIntervals: []
           MaxMemoryMbs:
-            Description: The maximum number of records to store in the cache.
-            Value: 10
+            Description: The maximum number of megabytes to store in the cache.
+            Value: 40
           MaxMemoryPolicy:
             Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
             Value: allkeys-lfu
@@ -76,7 +76,7 @@ Cache:
           FailureIntervals: []
           MaxMemoryMbs:
             Description: The maximum number of megabytes to store in the cache.
-            Value: 10
+            Value: 40
           MaxMemoryPolicy:
             Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
             Value: allkeys-lfu
@@ -92,7 +92,7 @@ Cache:
           FailureIntervals: []
           MaxMemoryMbs:
             Description: The maximum number of megabytes to store in the cache.
-            Value: 10
+            Value: 40
           MaxMemoryPolicy:
             Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
             Value: allkeys-lfu
@@ -120,13 +120,13 @@ Workload:
         Value: 30000
     DbOperationRetryLimit:
         Description: The maximum number of times to retry a failed insert operation.
-        Value: 2
+        Value: 3
     TargetExecutionTime:
         Description: The target duration to run the benchmark for after the warmup time.
         Value: 10
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 7000
+        Value: 15000
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1
