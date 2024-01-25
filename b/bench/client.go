@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool, command string) {
+func runClientCommandFunc(cmd *cobra.Command, args []string, command string) {
 
 	// Parse the flags
 	if err := cmd.Flags().Parse(args); err != nil {
@@ -66,17 +66,48 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, doTransactions bool
 	metrics.PlotMetrics(start, time.Now())
 }
 
-func maxExecution() {
-	maxExecutionTime := time.Duration(globalProps.Workload.TargetExecutionTime.Value+globalProps.Measurements.WarmUpTime.Value+5) * time.Second
-	go func() {
-		select {
-		case <-globalContext.Done():
-			return
-		case <-time.After(maxExecutionTime):
-			fmt.Printf("Max execution time reached, exit\n")
-			globalCancel()
+func loadClientCommandFunc(cmd *cobra.Command, args []string, command string) {
+
+	// Parse the flags
+	if err := cmd.Flags().Parse(args); err != nil {
+		fmt.Printf("Error parsing flags: %v\n", err)
+		return
+	}
+
+	initialLoadGlobal(func() {
+		globalProps.Workload.Command.Value = command
+		globalProps.Workload.RequestDistribution.Value = "sequential"
+		globalProps.Workload.TargetOperationsPerSec.Value = 2000
+		globalProps.Workload.TargetExecutionTime.Value = globalProps.Workload.NumUniqueKeys.Value / globalProps.Workload.TargetOperationsPerSec.Value
+		globalProps.Measurements.WarmUpTime.Value = 0
+
+		if cmd.Flags().Changed("wid") {
+			// We set the threadArg via command line.
+			globalProps.Workload.WorkloadIdentifier.Value = workloadId
 		}
-	}()
+	})
+
+	fmt.Println("**********************************************")
+	fmt.Printf("Generating a %s request distribution with a keyrange of [%d, %d]. Key prefix = `%s`\n", globalProps.Workload.RequestDistribution.Value, 0, globalProps.Workload.NumUniqueKeys.Value-1, globalProps.Workload.KeyPrefix.Value)
+	fmt.Printf("Target Run time Duration (after %ds warm-up): %ds\n", globalProps.Measurements.WarmUpTime.Value, globalProps.Workload.TargetExecutionTime.Value)
+	fmt.Printf("Target Operations Per Sec: %s\n", humanize.Comma(int64(globalProps.Workload.TargetOperationsPerSec.Value)))
+	fmt.Printf("Approx Total Operations: %s\n", humanize.Comma(int64(globalProps.Workload.TargetExecutionTime.Value*globalProps.Workload.TargetOperationsPerSec.Value)))
+	fmt.Println("**********************************************")
+
+	c := client.NewClient(globalProps, globalWorkload, globalDB, nil)
+
+	start := time.Now()
+
+	c.Load(globalContext)
+
+	globalContext.Done()
+
+	fmt.Printf("\r  - Done loading data to benchmark. Took %d seconds.%s\n", int(time.Since(start).Seconds())-globalProps.Measurements.WarmUpTime.Value, "              ")
+	fmt.Println("\n**********************************************")
+
+	time.Sleep(1 * time.Second)
+
+	metrics.PlotMetrics(start, time.Now())
 }
 
 func dispTimer(start time.Time, ticker *time.Ticker) {
@@ -130,7 +161,11 @@ func dispTimer(start time.Time, ticker *time.Ticker) {
 }
 
 func runTransCommandFunc(cmd *cobra.Command, args []string) {
-	runClientCommandFunc(cmd, args, true, "run")
+	runClientCommandFunc(cmd, args, "run")
+}
+
+func loadTransCommandFunc(cmd *cobra.Command, args []string) {
+	loadClientCommandFunc(cmd, args, "load")
 }
 
 func initClientCommand(m *cobra.Command) {
@@ -144,6 +179,17 @@ func newRunCommand() *cobra.Command {
 		Use:   "run",
 		Short: "run benchmark",
 		Run:   runTransCommandFunc,
+	}
+
+	initClientCommand(m)
+	return m
+}
+
+func newLoadCommand() *cobra.Command {
+	m := &cobra.Command{
+		Use:   "load",
+		Short: "load benchmark",
+		Run:   loadTransCommandFunc,
 	}
 
 	initClientCommand(m)

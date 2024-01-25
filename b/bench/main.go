@@ -83,6 +83,39 @@ func initialGlobal(onProperties func()) {
 
 }
 
+func initialLoadGlobal(onProperties func()) {
+	var err error
+	globalProps, err = bconfig.NewConfig(propertyFile)
+
+	if onProperties != nil {
+		onProperties()
+	}
+
+	addr := globalProps.Logging.DebugPprof.Value
+	go func() {
+		err := http.ListenAndServe(addr, nil)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	metrics.Init(globalProps)
+
+	workloadName := globalProps.Workload.WorkloadIdentifier
+
+	warmUpTime = time.Now()
+
+	if globalWorkload, err = workload.NewWorkload(globalProps, warmUpTime); err != nil {
+		util.Fatalf("create workload %s failed %v", workloadName, err)
+	}
+
+	if globalDB, err = db.NewDatabase(globalProps); err != nil {
+		util.Fatalf("create db failed: %v", err)
+	}
+	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
+	globalCache = nil
+}
+
 func main() {
 
 	globalContext, globalCancel = context.WithCancel(context.Background())
@@ -120,6 +153,7 @@ func main() {
 
 	rootCmd.AddCommand(
 		newRunCommand(),
+		newLoadCommand(),
 	)
 
 	cobra.EnablePrefixMatching = true

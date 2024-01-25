@@ -81,3 +81,22 @@ func (w *Worker) Run(ctx context.Context) {
 		}
 	}
 }
+
+func (w *Worker) Load(ctx context.Context) {
+	// spread the thread operation out
+	if w.targetOpsPerMs > 0.0 && w.targetOpsPerMs <= 1.0 {
+		time.Sleep(time.Duration(rand.Int63n(w.targetOpsTickNs)))
+	}
+
+	for startTime := time.Now(); w.opCount == 0 || w.opsDone < w.opCount; w.opsDone++ {
+		go w.workload.DoInsertion(ctx, w.workDB, nil, nil, nil)
+		w.throttle(ctx, startTime)
+
+		select {
+		case <-ctx.Done():
+			return
+		default:
+
+		}
+	}
+}

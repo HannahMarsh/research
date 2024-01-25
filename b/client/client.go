@@ -75,3 +75,49 @@ func (c *Client) Run(ctx context.Context) {
 	measureCancel()
 	<-measureCh
 }
+
+func (c *Client) Load(ctx context.Context) {
+	var wg sync.WaitGroup
+
+	var totalOpCount = int64((c.p.Workload.TargetExecutionTime.Value + c.p.Measurements.WarmUpTime.Value) * c.p.Workload.TargetOperationsPerSec.Value)
+	threadCount := int(float64(totalOpCount) / 500.0)
+
+	wg.Add(threadCount)
+	measureCtx, measureCancel := context.WithCancel(ctx)
+	measureCh := make(chan struct{}, 1)
+	//start := time.Now()
+	go func() {
+		defer func() {
+			measureCh <- struct{}{}
+		}()
+		if c.p.Logging.LogInterval.Value > 0 {
+			t := time.NewTicker(time.Duration(c.p.Logging.LogInterval.Value) * time.Second)
+			defer t.Stop()
+
+			for {
+				select {
+				case <-t.C:
+					//metrics.PlotMetrics(start, time.Now(), "data/")
+				case <-measureCtx.Done():
+					return
+				}
+			}
+		}
+	}()
+
+	for i := 0; i < threadCount; i++ {
+		go func(threadId int) {
+			defer wg.Done()
+
+			w := workload.NewWorker(c.p, threadId, c.workload, c.db, nil, threadCount, totalOpCount)
+			ctx := c.workload.InitThread(ctx, threadId, threadCount)
+			ctx = c.db.InitThread(ctx, threadId, threadCount)
+			w.Load(ctx)
+			c.db.CleanupThread(ctx)
+		}(i)
+	}
+
+	wg.Wait()
+	measureCancel()
+	<-measureCh
+}

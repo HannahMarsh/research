@@ -347,15 +347,24 @@ func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cac
 			}
 		}
 	case insert:
-		keyNum := c.transactionInsertKeySequence.Next(r)
-		keyName := c.buildKeyName(keyNum)
-		values := c.buildValues(state, keyName)
-		defer c.transactionInsertKeySequence.Acknowledge(keyNum)
-		defer c.putValues(values)
-		c.doTransactionInsert(ctx, db, cache_, keyName, values)
+		c.DoInsertion(ctx, db, cache_, r, state)
 	default:
 		panic("unhandled default case")
 	}
+}
+
+func (c *Workload) DoInsertion(ctx context.Context, db db.DB, cache_ cache.Cache, r *rand.Rand, state *State) {
+	if r == nil || state == nil {
+		state = ctx.Value(stateKey).(*State)
+		r = state.GetRand()
+		defer state.PutRand(r)
+	}
+	keyNum := c.transactionInsertKeySequence.Next(r)
+	keyName := c.buildKeyName(keyNum)
+	values := c.buildValues(state, keyName)
+	defer c.transactionInsertKeySequence.Acknowledge(keyNum)
+	defer c.putValues(values)
+	c.doTransactionInsert(ctx, db, cache_, keyName, values)
 }
 
 func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache.Cache, keyName string, fields []string) map[string][]byte {
@@ -411,7 +420,7 @@ func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cac
 	for retries := 0; retries < c.p.Workload.DbOperationRetryLimit.Value; retries++ {
 		err := db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values)
 
-		if err != nil {
+		if err != nil && cache_ != nil {
 			_, _ = cache_.Set(ctx, dbKey, values)
 			go workloadMeasure(start, metrics2.INSERT, err, true)
 			return

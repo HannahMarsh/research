@@ -28,7 +28,7 @@ type DbWrapper struct {
 
 func dbMeasure(start time.Time, operationType string, err error) {
 	latency := time.Now().Sub(start)
-	if err != nil {
+	if err != nil && err.Error() != "not found" {
 		metrics2.AddMeasurement(metrics2.DATABASE_OPERATION, start,
 			map[string]interface{}{
 				metrics2.SUCCESSFUL: false,

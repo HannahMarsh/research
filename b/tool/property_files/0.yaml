@@ -114,19 +114,19 @@ Workload:
         Value: 500
     FieldSizeDistribution:
         Description: The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', and 'zipfian'
-        Value: constant
+        Value: uniform
     NumUniqueKeys:
         Description: If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.
-        Value: 30000
+        Value: 20000
     DbOperationRetryLimit:
         Description: The maximum number of times to retry a failed insert operation.
-        Value: 2
+        Value: 1
     TargetExecutionTime:
         Description: The target duration to run the benchmark for after the warmup time.
-        Value: 6
+        Value: 7
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 7000
+        Value: 5000
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1
@@ -150,7 +150,7 @@ Workload:
         Value: true
     InsertProportion:
         Description: The proportion of insert operations in the workload.
-        Value: 0.03
+        Value: 0.02
     KeyPrefix:
         Description: The prefix to be used for keys in the workload.
         Value: key
@@ -171,7 +171,7 @@ Measurements:
         Value: data/
     WarmUpTime:
         Description: The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).
-        Value: 5
+        Value: 6
     ZeroPadding:
         Description: The amount of zero-padding for numeric fields (for a fixed width representation).
         Value: 1

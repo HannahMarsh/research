@@ -647,6 +647,8 @@ func (plt *plotInfo) makeCDFPlot() {
 	p.Legend.XOffs = vg.Points(5)                 // Move the legend to the right
 	p.Legend.YOffs = vg.Points(extraPadding - 15) // Move the legend up
 
+	hasPlotters := false
+
 	data := make(map[string]plotter.XYs)
 
 	max_ := float64(0)
@@ -696,35 +698,38 @@ func (plt *plotInfo) makeCDFPlot() {
 		mean := float64(totalKeys) / float64(numKeys)
 
 		//exportCategoryDataToCSV(cat, pts, filename)
-		if line, err := plotter.NewLine(pts); err == nil {
-			line.Color = cat.color
-			p.Add(line)
+		if pts != nil {
+			if line, err := plotter.NewLine(pts); err == nil {
+				hasPlotters = true
+				line.Color = cat.color
+				p.Add(line)
 
-			if cat.showMean && !math.IsNaN(mean) {
-				if mean > 0 && mean < 1.0 {
-					addHorizontalLine(p, mean, fmt.Sprintf("mean popularity per key\n(%.2f)", mean), cat.color)
-				} else {
-					addHorizontalLine(p, mean, fmt.Sprintf("mean popularity per key\n(%.0f)", mean), cat.color)
-				}
-
-			} else if !cat.showMean {
-				if !math.IsNaN(mean) {
+				if cat.showMean && !math.IsNaN(mean) {
 					if mean > 0 && mean < 1.0 {
-						cat.plotLabel += fmt.Sprintf(", (mean popularity per key = %.2f)", mean)
+						addHorizontalLine(p, mean, fmt.Sprintf("mean popularity per key\n(%.2f)", mean), cat.color)
 					} else {
-						cat.plotLabel += fmt.Sprintf(", (mean popularity per key = %.0f)", mean)
+						addHorizontalLine(p, mean, fmt.Sprintf("mean popularity per key\n(%.0f)", mean), cat.color)
 					}
-				} else {
-					cat.plotLabel += ", (mean = 0)"
+
+				} else if !cat.showMean {
+					if !math.IsNaN(mean) {
+						if mean > 0 && mean < 1.0 {
+							cat.plotLabel += fmt.Sprintf(", (mean popularity per key = %.2f)", mean)
+						} else {
+							cat.plotLabel += fmt.Sprintf(", (mean popularity per key = %.0f)", mean)
+						}
+					} else {
+						cat.plotLabel += ", (mean = 0)"
+					}
 				}
-			}
 
-			if cat.plotLabel != "" {
-				p.Legend.Add(cat.plotLabel, line)
-			}
+				if cat.plotLabel != "" {
+					p.Legend.Add(cat.plotLabel, line)
+				}
 
-		} else {
-			log.Panic(err)
+			} else {
+				log.Panic(err)
+			}
 		}
 	}
 
@@ -732,11 +737,13 @@ func (plt *plotInfo) makeCDFPlot() {
 
 	p.X.Min = 1.0
 	// Save the plot to a PNG file
-	if err := p.Save(8*vg.Inch, height*vg.Inch, plt.path); err != nil {
-		log.Panic(err)
-	}
+	if hasPlotters {
+		if err := p.Save(8*vg.Inch, height*vg.Inch, plt.path); err != nil {
+			log.Panic(err)
+		}
 
-	exportCategoryDataToCSV(data, plt.csvPath)
+		exportCategoryDataToCSV(data, plt.csvPath)
+	}
 }
 
 func (plt *plotInfo) makeBarChart() {
@@ -887,8 +894,10 @@ func tilePlots(tiled string, fileNames [][]string) {
 			}
 			img, err := openImage(fileName)
 			if err != nil {
-				log.Fatal(err)
+				continue
+				//log.Fatal(err)
 			}
+
 			imagesArray[i][j] = img
 			if img.Bounds().Dx() > maxWidth {
 				maxWidth = img.Bounds().Dx()
