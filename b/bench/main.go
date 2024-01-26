@@ -78,7 +78,7 @@ func initialGlobal(onProperties func()) {
 	if globalDB, err = db.NewDatabase(globalProps); err != nil {
 		util.Fatalf("create db failed: %v", err)
 	}
-	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
+	globalDB = client.NewDbWrapper(globalDB, globalProps)
 	globalCache = client.NewCache(globalProps, globalContext)
 
 }
@@ -112,7 +112,7 @@ func initialLoadGlobal(onProperties func()) {
 	if globalDB, err = db.NewDatabase(globalProps); err != nil {
 		util.Fatalf("create db failed: %v", err)
 	}
-	globalDB = client.DbWrapper{P: globalProps, DB: globalDB}
+	globalDB = client.NewDbWrapper(globalDB, globalProps)
 	globalCache = nil
 }
 

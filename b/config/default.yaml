@@ -28,6 +28,9 @@ Database:
     ReplicationFactor:
         Description: Replication factor to use for the Cassandra keyspace.
         Value: 1
+    TimeoutMs:
+        Description: The timeout, in milliseconds, for database operations.
+        Value: 75
 Cache:
     VirtualNodes:
         Description: The number of virtual nodes.

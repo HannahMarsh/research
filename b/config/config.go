@@ -48,6 +48,7 @@ type DatabaseConfig struct {
 	PasswordAuthenticator BoolProperty   `yaml:"PasswordAuthenticator"`
 	ReplicationStrategy   StringProperty `yaml:"ReplicationStrategy"`
 	ReplicationFactor     IntProperty    `yaml:"ReplicationFactor"`
+	TimeoutMs             IntProperty    `yaml:"TimeoutMs"`
 }
 
 type NodeConfig struct {
@@ -147,6 +148,10 @@ var defaultConfig_ = Config{
 		ReplicationFactor: IntProperty{
 			Description: "Replication factor to use for the Cassandra keyspace.",
 			Value:       1,
+		},
+		TimeoutMs: IntProperty{
+			Description: "Timeout in milliseconds for Cassandra operations.",
+			Value:       3000,
 		},
 	},
 	Cache: CacheConfig{

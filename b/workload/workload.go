@@ -405,7 +405,7 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 			start2 := time.Now()
 			dbValues, dbErr := db.Read(ctx, c.p.Database.CassandraTableName.Value, keyName, fields)
 			go transactionMeasure(start2, metrics2.READ, dbErr, true)
-			if dbErr == nil && cache_ != nil {
+			if dbErr == nil && cache_ != nil && dbValues != nil {
 				// Successfully got values from database
 				values = dbValues
 				_, _ = cache_.Set(ctx, keyName, dbValues)

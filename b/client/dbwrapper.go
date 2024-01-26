@@ -23,8 +23,17 @@ import (
 )
 
 type DbWrapper struct {
-	DB db.DB
-	P  *bconfig.Config
+	DB      db.DB
+	P       *bconfig.Config
+	timeout time.Duration
+}
+
+func NewDbWrapper(db db.DB, p *bconfig.Config) *DbWrapper {
+	return &DbWrapper{
+		DB:      db,
+		P:       p,
+		timeout: time.Duration(p.Database.TimeoutMs.Value) * time.Millisecond,
+	}
 }
 
 func dbMeasure(start time.Time, latency time.Duration, operationType string, err error) {
@@ -60,8 +69,6 @@ func (d DbWrapper) CleanupThread(ctx context.Context) {
 	d.DB.CleanupThread(ctx)
 }
 
-var timeout int64 = 100
-
 func (d DbWrapper) Read(ctx context.Context, table string, key string, fields []string) (map[string][]byte, error) {
 	//start := time.Now()
 	//defer func() {
@@ -75,7 +82,7 @@ func (d DbWrapper) Read(ctx context.Context, table string, key string, fields []
 
 	value, err := d.DB.Read(ctx, table, key, fields)
 	latency := time.Now().Sub(start)
-	if err == nil && latency.Milliseconds() > timeout {
+	if err == nil && latency.Milliseconds() > d.timeout.Milliseconds() {
 		err = fmt.Errorf("operation %s timeout", operationType)
 	}
 	go dbMeasure(start, latency, operationType, err)
@@ -88,8 +95,8 @@ func (d DbWrapper) Insert(ctx context.Context, table string, key string, values 
 
 	err := d.DB.Insert(ctx, table, key, values)
 	latency := time.Now().Sub(start)
-	if err == nil && latency.Milliseconds() > timeout {
-		//err = fmt.Errorf("operation %s timeout", operationType)
+	if err == nil && latency.Milliseconds() > d.timeout.Milliseconds() {
+		err = fmt.Errorf("operation %s timeout", operationType)
 	}
 	go dbMeasure(start, latency, operationType, err)
 	return err
