@@ -154,6 +154,12 @@ func (c *Node) Get(ctx context.Context, key string, fields []string) (map[string
 	return result, nil, size_
 }
 
+func (c *Node) IsHottest(ctx context.Context, key string) bool {
+	str := c.redisClient.Get(ctx, key)
+	_, err := str.Result()
+	return err == nil
+}
+
 func (c *Node) Set(ctx context.Context, key string, value map[string][]byte) (error, int64) {
 	if c.isFailed {
 		return errors.New("simulated failure - cache node is not available"), 0
@@ -171,4 +177,11 @@ func (c *Node) Set(ctx context.Context, key string, value map[string][]byte) (er
 
 	_, err = c.redisClient.Set(ctx, key, serializedValue, 0).Result() // '0' means no expiration
 	return err, size_
+}
+
+func (c *Node) Add(ctx context.Context, key string) {
+	_, err := c.redisClient.Set(ctx, key, uint8(1), 0).Result()
+	if err != nil {
+		// panic(err)
+	} // '0' means no expiration
 }

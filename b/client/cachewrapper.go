@@ -5,6 +5,7 @@ import (
 	bconfig "benchmark/config"
 	metrics2 "benchmark/metrics"
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -52,11 +53,12 @@ func nodeFailureMeasure(t time.Time, nodeIndex int, isStart bool) {
 }
 
 type CacheWrapper struct {
-	nodes    []*cache.Node
-	p        *bconfig.Config
-	nodeRing *cache.NodeRing
-	timers   []*time.Timer // Timers for scheduling node failures
-	ctx      context.Context
+	nodes       []*cache.Node
+	p           *bconfig.Config
+	nodeRing    *cache.NodeRing
+	timers      []*time.Timer // Timers for scheduling node failures
+	ctx         context.Context
+	hottestKeys *cache.Node
 }
 
 func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
@@ -64,6 +66,13 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c.p = p
 	c.ctx = ctx
 	c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value)
+	backUpSize := bconfig.IntProperty{Value: p.Cache.NumHottestKeysBackup.Value / 1000}
+	c.hottestKeys = cache.NewNode(bconfig.NodeConfig{
+		Address:            p.Cache.BackUpAddress,
+		MaxMemoryMbs:       backUpSize,
+		MaxMemoryPolicy:    p.Cache.Nodes[0].MaxMemoryPolicy,
+		UseDefaultDatabase: p.Cache.Nodes[0].UseDefaultDatabase,
+	}, ctx)
 
 	for i := 0; i < len(p.Cache.Nodes); i++ {
 		nodeConfig := p.Cache.Nodes[i]
@@ -88,11 +97,13 @@ func (c *CacheWrapper) scheduleFailures() {
 			// Schedule node failure
 			failTimer := time.AfterFunc(startDelay, func() {
 				go c.nodes[nodeIndex].Fail()
+				c.nodeRing.ReconfigureRingAfterFailure(nodeIndex)
 				go nodeFailureMeasure(time.Now(), nodeIndex, true)
 
 				// Schedule node recovery
 				recoverTimer := time.AfterFunc(endDelay-startDelay, func() {
 					go c.nodes[nodeIndex].Recover(c.ctx)
+					c.nodeRing.ReconfigureRingAfterRecovery(nodeIndex)
 					nodeFailureMeasure(time.Now(), nodeIndex, false)
 				})
 				c.timers = append(c.timers, recoverTimer)
@@ -115,11 +126,15 @@ func (c *CacheWrapper) NumNodes() int {
 func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (_ map[string][]byte, err error, size int64) {
 
 	start := time.Now()
-	nodeIndex := c.nodeRing.GetNode(key)
+	nodeIndex, isBackup := c.nodeRing.GetNode(key)
 
 	defer func() {
 		cacheMeasure(start, key, nodeIndex, metrics2.READ, err, size)
 	}()
+
+	if isBackup && !c.hottestKeys.IsHottest(ctx, key) {
+		return nil, fmt.Errorf("key %s is not in hottest keys", key), 0
+	}
 
 	return c.nodes[nodeIndex].Get(ctx, key, fields)
 }
@@ -127,11 +142,13 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (_ 
 func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]byte) (err error, size int64) {
 
 	start := time.Now()
-	nodeIndex := c.nodeRing.GetNode(key)
+	nodeIndex, _ := c.nodeRing.GetNode(key)
 
 	defer func() {
 		cacheMeasure(start, key, nodeIndex, metrics2.INSERT, err, size)
 	}()
+
+	go c.hottestKeys.Add(ctx, key)
 
 	return c.nodes[nodeIndex].Set(ctx, key, value)
 }

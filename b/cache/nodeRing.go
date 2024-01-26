@@ -14,6 +14,7 @@ type NodeRing struct {
 	SortedHashes []int       // sorted list of hashes
 	actualNodes  int         // # of actual nodes
 	virtualNodes int         // # of virtual nodes per actual node
+	failures     map[int]bool
 }
 
 // generateRandomString creates a random string of a given length.
@@ -42,11 +43,16 @@ func NewNodeRing(actualNodes int, virtualNodes int) *NodeRing {
 		}
 	}
 	sort.Ints(hashes) // sort the hashes for binary search
+	failures := make(map[int]bool)
+	for i := 0; i < actualNodes; i++ {
+		failures[i] = false
+	}
 	return &NodeRing{
 		Ring:         ring,
 		SortedHashes: hashes,
 		actualNodes:  actualNodes,
 		virtualNodes: virtualNodes,
+		failures:     failures,
 	}
 }
 
@@ -62,12 +68,7 @@ func hashFunc(key string) int {
 }
 
 // GetNode returns the node index a key maps to.
-func (nr *NodeRing) GetNode(key string) int {
-
-	//rand.Seed(time.Now().UnixNano())
-	//
-	//return rand.Intn(nr.actualNodes)
-
+func (nr *NodeRing) GetNode(key string) (int, bool) {
 	hash := hashFunc(key) // first, get the hash for the key
 
 	// binary search: find the index of the first hash that is >= to the key's hash
@@ -75,8 +76,23 @@ func (nr *NodeRing) GetNode(key string) int {
 		return nr.SortedHashes[i] >= hash
 	}) % len(nr.SortedHashes)
 	if index, exists := nr.Ring[nr.SortedHashes[idx]]; exists {
-		return index
+		if !nr.failures[index] {
+			return index, false
+		}
+		for nr.failures[index] {
+			idx = (idx + 1) % len(nr.SortedHashes)
+			index = nr.Ring[nr.SortedHashes[idx]]
+		}
+		return index, true
 	} else {
 		panic("NodeRing: GetNode: node does not exist")
 	}
+}
+
+func (nr *NodeRing) ReconfigureRingAfterFailure(failedNodeIndex int) {
+	nr.failures[failedNodeIndex] = true
+}
+
+func (nr *NodeRing) ReconfigureRingAfterRecovery(recoveredNodeIndex int) {
+	nr.failures[recoveredNodeIndex] = false
 }

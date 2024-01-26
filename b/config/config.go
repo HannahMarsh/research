@@ -61,8 +61,10 @@ type NodeConfig struct {
 }
 
 type CacheConfig struct {
-	VirtualNodes IntProperty  `yaml:"VirtualNodes"`
-	Nodes        []NodeConfig `yaml:"Nodes"`
+	VirtualNodes         IntProperty    `yaml:"VirtualNodes"`
+	Nodes                []NodeConfig   `yaml:"Nodes"`
+	NumHottestKeysBackup IntProperty    `yaml:"NumHottestKeysBackup"`
+	BackUpAddress        StringProperty `yaml:"BackUpAddress"`
 }
 
 type WorkloadConfig struct {
@@ -319,6 +321,14 @@ var defaultConfig_ = Config{
 		VirtualNodes: IntProperty{
 			Value:       50000,
 			Description: "The number of virtual nodes.",
+		},
+		NumHottestKeysBackup: IntProperty{
+			Description: "The number of hottest keys to backup.",
+			Value:       1000,
+		},
+		BackUpAddress: StringProperty{
+			Description: "Address and port of redis server",
+			Value:       "0.0.0.0:6383",
 		},
 	},
 	Workload: WorkloadConfig{
