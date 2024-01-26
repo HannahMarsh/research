@@ -65,13 +65,6 @@ func (c *Client) Run(ctx context.Context) {
 	}
 
 	wg.Wait()
-	// when loading is finished, try to analyze table if possible.
-	if analyzeDB, ok := c.db.(db.AnalyzeDB); ok {
-		err := analyzeDB.Analyze(ctx, c.p.Database.CassandraTableName.Value)
-		if err != nil {
-			panic(err)
-		}
-	}
 	measureCancel()
 	<-measureCh
 }

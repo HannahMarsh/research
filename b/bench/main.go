@@ -163,11 +163,9 @@ func main() {
 	}
 
 	globalCancel()
-	if globalDB != nil {
-		err := globalDB.Close()
-		if err != nil {
-			panic(err)
-		}
+	err := globalDB.Close()
+	if err != nil {
+		panic(err)
 	}
 
 	closeDone <- struct{}{}

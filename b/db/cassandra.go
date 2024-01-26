@@ -13,63 +13,19 @@ import (
 	"github.com/gocql/gocql"
 )
 
-// cassandra properties
-const (
-	cassandraCluster     = "cassandra.cluster"
-	cassandraKeyspace    = "cassandra.keyspace"
-	cassandraConnections = "cassandra.connections"
-	cassandraUsername    = "cassandra.username"
-	cassandraPassword    = "cassandra.password"
-
-	cassandraUsernameDefault    = "cassandra"
-	cassandraPasswordDefault    = "cassandra"
-	cassandraClusterDefault     = "127.0.0.1:9042"
-	cassandraKeyspaceDefault    = "test"
-	cassandraConnectionsDefault = 2 // refer to https://github.com/gocql/gocql/blob/master/cluster.go#L52
-)
-
-// DB is the layer to access the database to be benchmarked.
 type DB interface {
-	// Close closes the database layer.
 	Close() error
-
-	// InitThread initializes the state associated to the goroutine worker.
-	// The Returned context will be passed to the following usage.
-	InitThread(ctx context.Context, threadID int, threadCount int) context.Context
-
-	// CleanupThread cleans up the state when the worker finished.
-	CleanupThread(ctx context.Context)
-
-	// Read reads a record from the database and returns a map of each field/value pair.
-	// table: The name of the table.
-	// key: The record key of the record to read.
-	// fields: The list of fields to read, nil|empty for reading all.
+	InitThread(ctx context.Context, _ int, _ int) context.Context
+	CleanupThread(_ctx context.Context)
 	Read(ctx context.Context, table string, key string, fields []string) (map[string][]byte, error)
-
-	// Insert inserts a record in the database. Any field/value pairs will be written into the
-	// database.
-	// table: The name of the table.
-	// key: The record key of the record to insert.
-	// values: A map of field/value pairs to insert in the record.
 	Insert(ctx context.Context, table string, key string, values map[string][]byte) error
-
-	// Delete deletes a record from the database.
-	// table: The name of the table.
-	// key: The record key of the record to delete.
-	Delete(ctx context.Context, table string, key string) error
-}
-
-// AnalyzeDB is the interface for the DB that can perform an analysis on given table.
-type AnalyzeDB interface {
-	// Analyze performs a key distribution analysis for the table.
-	// table: The name of the table.
-	Analyze(ctx context.Context, table string) error
 }
 
 type CassandraDB struct {
-	p       *bconfig.Config
-	session *gocql.Session
-	verbose bool
+	p          *bconfig.Config
+	session    *gocql.Session
+	verbose    bool
+	maxTimeout time.Duration
 
 	bufPool *util.BufPool
 
@@ -104,6 +60,7 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 
 	d.verbose = p.Logging.Verbose.Value
 	d.session = session
+	d.maxTimeout = 15 * time.Millisecond
 
 	d.bufPool = util.NewBufPool()
 
@@ -207,6 +164,12 @@ func (k *CassandraDB) Read(ctx context.Context, table string, key string, fields
 		fields = k.fieldNames
 	}
 
+	//start := time.Now()
+
+	// Create a new context with the timeout
+	//ctx, cancel := context.WithTimeout(ctx, k.maxTimeout)
+	//defer cancel()
+
 	query = fmt.Sprintf(`SELECT %s FROM %s.%s WHERE key = ?`, strings.Join(fields, ","), k.p.Database.CassandraKeyspace.Value, table)
 
 	if k.verbose {
@@ -230,6 +193,14 @@ func (k *CassandraDB) Read(ctx context.Context, table string, key string, fields
 	for i, v := range dest {
 		m[fields[i]] = *v.(*[]byte)
 	}
+
+	//v := time.Since(start).Abs().Seconds()
+	//
+	//fmt.Printf("Read latency: %f\n", v)
+	//
+	//if v > k.maxTimeout.Seconds() {
+	//	return nil, fmt.Errorf("timeout")
+	//}
 
 	return m, nil
 }

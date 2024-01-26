@@ -158,7 +158,7 @@ func createOperationGenerator(p *bconfig.Config) generator.Discrete {
 	return operationChooser
 }
 
-func workloadMeasure(start time.Time, operationType string, err error, hitDatabase bool) {
+func transactionMeasure(start time.Time, operationType string, err error, hitDatabase bool) {
 	latency := time.Now().Sub(start)
 	if err != nil {
 		metrics2.AddMeasurement(metrics2.TRANSACTION, start,
@@ -181,6 +181,15 @@ func workloadMeasure(start time.Time, operationType string, err error, hitDataba
 	}
 }
 
+func workloadMeasure(start time.Time, operationType string) {
+	latency := time.Now().Sub(start)
+	metrics2.AddMeasurement(metrics2.WORKLOAD, start,
+		map[string]interface{}{
+			metrics2.OPERATION: operationType,
+			metrics2.LATENCY:   latency.Seconds(),
+		})
+}
+
 func (c *Workload) InitThread(ctx context.Context, _ int, _ int) context.Context {
 	// r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	fieldNames := make([]string, len(c.fieldNames))
@@ -201,8 +210,9 @@ func (c *Workload) buildKeyName(keyNum int64) string {
 		keyNum = util.Hash64(keyNum)
 	}
 
-	prefix := "key"
-	return fmt.Sprintf("%s%0[3]*[2]d", prefix, keyNum, int64(c.p.Measurements.ZeroPadding.Value))
+	prefix := c.p.Workload.KeyPrefix.Value
+	keyNum = keyNum % int64(c.p.Workload.NumUniqueKeys.Value)
+	return fmt.Sprintf("%s%0[3]*[2]d", prefix, keyNum, int64(1))
 }
 
 func (c *Workload) nextKeyNum(state *State) int64 {
@@ -354,49 +364,56 @@ func (c *Workload) DoTransaction(ctx context.Context, db db.DB, cache_ cache.Cac
 }
 
 func (c *Workload) DoInsertion(ctx context.Context, db db.DB, cache_ cache.Cache, r *rand.Rand, state *State) {
+	//if r == nil || state == nil {
+	//	state = ctx.Value(stateKey).(*State)
+	//	r = state.GetRand()
+	//	defer state.PutRand(r)
+	//}
+	//keyNum := c.transactionInsertKeySequence.Next(r)
+	//keyName := c.buildKeyName(keyNum)
+	//values := c.buildValues(state, keyName)
+	//defer c.transactionInsertKeySequence.Acknowledge(keyNum)
+	//defer c.putValues(values)
+	//c.doTransactionInsert(ctx, db, cache_, keyName, values)
 	if r == nil || state == nil {
 		state = ctx.Value(stateKey).(*State)
 		r = state.GetRand()
 		defer state.PutRand(r)
 	}
-	keyNum := c.transactionInsertKeySequence.Next(r)
-	keyName := c.buildKeyName(keyNum)
+	defer c.transactionInsertKeySequence.Acknowledge(c.transactionInsertKeySequence.Next(r))
+	keyName := c.buildKeyName(c.nextKeyNum(state))
 	values := c.buildValues(state, keyName)
-	defer c.transactionInsertKeySequence.Acknowledge(keyNum)
+
 	defer c.putValues(values)
 	c.doTransactionInsert(ctx, db, cache_, keyName, values)
 }
 
 func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache.Cache, keyName string, fields []string) map[string][]byte {
 	start := time.Now()
+	defer workloadMeasure(start, metrics2.INSERT)
 
-	var hitDatabase = false
 	var values map[string][]byte = nil
-	var err error = nil
 
 	// First, attempt to get the value from the cache
 	if cachedValues, cacheErr, _ := cache_.Get(ctx, keyName, fields); cacheErr == nil && cachedValues != nil {
 		// Cache hit
 		values = cachedValues
+		go transactionMeasure(start, metrics2.READ, nil, false)
 
 	} else { // Cache miss, go to database
-		hitDatabase = true
 		for retries := 0; retries < c.p.Workload.DbOperationRetryLimit.Value; retries++ {
+			start2 := time.Now()
 			dbValues, dbErr := db.Read(ctx, c.p.Database.CassandraTableName.Value, keyName, fields)
-
-			if dbErr != nil && dbErr.Error() == "not found" {
-				break
-			}
-			if dbErr == nil {
+			go transactionMeasure(start2, metrics2.READ, dbErr, true)
+			if dbErr == nil && cache_ != nil {
 				// Successfully got values from database
 				values = dbValues
 				_, _ = cache_.Set(ctx, keyName, dbValues)
 				break
+			} else if dbErr != nil && dbErr.Error() == "not found" {
+				return nil
 			} else {
 				// Database error
-				err = dbErr
-				go workloadMeasure(start, metrics2.READ, dbErr, true)
-
 				select {
 				case <-ctx.Done():
 					if errors.Is(ctx.Err(), context.Canceled) {
@@ -407,26 +424,22 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 			}
 		}
 	}
-
-	if err == nil {
-		go workloadMeasure(start, metrics2.READ, nil, hitDatabase)
-	}
 	return values
 }
 
 func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cache.Cache, dbKey string, values map[string][]byte) {
 	start := time.Now()
+	defer workloadMeasure(start, metrics2.INSERT)
 
 	for retries := 0; retries < c.p.Workload.DbOperationRetryLimit.Value; retries++ {
-		err := db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values)
+		start2 := time.Now()
+		dbErr := db.Insert(ctx, c.p.Database.CassandraTableName.Value, dbKey, values)
+		go transactionMeasure(start2, metrics2.INSERT, dbErr, true)
 
-		if err != nil && cache_ != nil {
+		if dbErr == nil && cache_ != nil {
 			_, _ = cache_.Set(ctx, dbKey, values)
-			go workloadMeasure(start, metrics2.INSERT, err, true)
-			return
+			break
 		}
-
-		go workloadMeasure(start, metrics2.INSERT, nil, true)
 
 		select {
 		case <-ctx.Done():
@@ -436,4 +449,5 @@ func (c *Workload) doTransactionInsert(ctx context.Context, db db.DB, cache_ cac
 		default:
 		}
 	}
+
 }

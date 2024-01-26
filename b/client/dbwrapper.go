@@ -18,6 +18,7 @@ import (
 	"benchmark/db"
 	metrics2 "benchmark/metrics"
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -26,9 +27,9 @@ type DbWrapper struct {
 	P  *bconfig.Config
 }
 
-func dbMeasure(start time.Time, operationType string, err error) {
-	latency := time.Now().Sub(start)
-	if err != nil && err.Error() != "not found" {
+func dbMeasure(start time.Time, latency time.Duration, operationType string, err error) {
+
+	if err != nil {
 		metrics2.AddMeasurement(metrics2.DATABASE_OPERATION, start,
 			map[string]interface{}{
 				metrics2.SUCCESSFUL: false,
@@ -59,36 +60,37 @@ func (d DbWrapper) CleanupThread(ctx context.Context) {
 	d.DB.CleanupThread(ctx)
 }
 
-func (d DbWrapper) Read(ctx context.Context, table string, key string, fields []string) (_ map[string][]byte, err error) {
+var timeout int64 = 100
+
+func (d DbWrapper) Read(ctx context.Context, table string, key string, fields []string) (map[string][]byte, error) {
+	//start := time.Now()
+	//defer func() {
+	//	dbMeasure(start, "READ", err)
+	//}()
+	//
+	//return d.CassandraDB.Read(ctx, table, key, fields)
+
 	start := time.Now()
-	defer func() {
-		dbMeasure(start, "READ", err)
-	}()
+	var operationType = metrics2.READ
 
-	return d.DB.Read(ctx, table, key, fields)
-}
-
-func (d DbWrapper) Insert(ctx context.Context, table string, key string, values map[string][]byte) (err error) {
-	start := time.Now()
-	defer func() {
-		dbMeasure(start, "INSERT", err)
-	}()
-
-	return d.DB.Insert(ctx, table, key, values)
-}
-
-func (d DbWrapper) Delete(ctx context.Context, table string, key string) (err error) {
-	start := time.Now()
-	defer func() {
-		dbMeasure(start, "DELETE", err)
-	}()
-
-	return d.DB.Delete(ctx, table, key)
-}
-
-func (d DbWrapper) Analyze(ctx context.Context, table string) error {
-	if analyzeDB, ok := d.DB.(db.AnalyzeDB); ok {
-		return analyzeDB.Analyze(ctx, table)
+	value, err := d.DB.Read(ctx, table, key, fields)
+	latency := time.Now().Sub(start)
+	if err == nil && latency.Milliseconds() > timeout {
+		err = fmt.Errorf("operation %s timeout", operationType)
 	}
-	return nil
+	go dbMeasure(start, latency, operationType, err)
+	return value, err
+}
+
+func (d DbWrapper) Insert(ctx context.Context, table string, key string, values map[string][]byte) error {
+	start := time.Now()
+	var operationType = metrics2.INSERT
+
+	err := d.DB.Insert(ctx, table, key, values)
+	latency := time.Now().Sub(start)
+	if err == nil && latency.Milliseconds() > timeout {
+		//err = fmt.Errorf("operation %s timeout", operationType)
+	}
+	go dbMeasure(start, latency, operationType, err)
+	return err
 }

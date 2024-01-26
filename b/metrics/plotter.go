@@ -201,7 +201,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 				{
 					filters: []func(m Metric) bool{
 						func(m Metric) bool {
-							return m.metricType == TRANSACTION && hasTag(m, LATENCY)
+							return m.metricType == WORKLOAD && hasTag(m, LATENCY)
 						},
 					},
 					reduce:   averageValue(func(m Metric) float64 { return 1000 * m.tags[LATENCY].(float64) }),
@@ -222,7 +222,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 					plotLabel: "Read Transactions",
 					filters: []func(m Metric) bool{
 						func(m Metric) bool {
-							return m.metricType == TRANSACTION && has(m, OPERATION, READ)
+							return m.metricType == WORKLOAD && has(m, OPERATION, READ)
 						},
 					},
 					reduce:   countPerSecond,
@@ -233,7 +233,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 					plotLabel: "Insert Transactions",
 					filters: []func(m Metric) bool{
 						func(m Metric) bool {
-							return m.metricType == TRANSACTION && has(m, OPERATION, INSERT)
+							return m.metricType == WORKLOAD && has(m, OPERATION, INSERT)
 						},
 					},
 					reduce:   countPerSecond,
@@ -480,6 +480,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 	tilePlots(summaryPath, piPath)
 
 	fmt.Printf("Summary plot saved to %s\n", summaryPath)
+	getDBErrors()
 
 }
 
@@ -491,6 +492,26 @@ func replace(originalString string, pattern string, replacement string) string {
 func toTitleCase(str string) string {
 	caser := cases.Title(language.English, cases.NoLower)
 	return caser.String(str)
+}
+
+func getDBErrors() {
+	errs := make(map[string]int64)
+	if mtrcs := Filter(func(m Metric) bool {
+		return m.metricType == DATABASE_OPERATION && hasTag(m, ERROR) && !has(m, ERROR, nil) && !has(m, ERROR, "")
+	}); mtrcs != nil {
+		for _, m := range mtrcs {
+			if err, ok := m.tags[ERROR].(string); ok {
+				if _, exists := errs[err]; !exists {
+					errs[err] = 0
+				}
+				errs[err] += 1
+			}
+		}
+	}
+	for err, count := range errs {
+		fmt.Printf("%s: %d\n", err, count)
+	}
+
 }
 
 func (plt *plotInfo) makePlot() {

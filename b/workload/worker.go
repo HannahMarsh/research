@@ -76,6 +76,7 @@ func (w *Worker) Run(ctx context.Context) {
 
 		select {
 		case <-ctx.Done():
+			//time.Sleep(100 * time.Millisecond)
 			return
 		default:
 		}

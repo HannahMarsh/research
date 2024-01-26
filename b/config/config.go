@@ -91,7 +91,6 @@ type WorkloadConfig struct {
 type MeasurementsConfig struct {
 	MetricsOutputDir StringProperty `yaml:"MetricsOutputDir"`
 	WarmUpTime       IntProperty    `yaml:"WarmUpTime"`
-	ZeroPadding      IntProperty    `yaml:"ZeroPadding"`
 }
 
 type LoggingConfig struct {
@@ -407,10 +406,6 @@ var defaultConfig_ = Config{
 		WarmUpTime: IntProperty{
 			Value:       6,
 			Description: "The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).",
-		},
-		ZeroPadding: IntProperty{
-			Value:       1,
-			Description: "The amount of zero-padding for numeric fields (for a fixed width representation).",
 		},
 	},
 	Logging: LoggingConfig{

@@ -75,10 +75,11 @@ func loadClientCommandFunc(cmd *cobra.Command, args []string, command string) {
 	}
 
 	initialLoadGlobal(func() {
+		globalProps.Workload.WorkloadIdentifier.Value = "load1"
 		globalProps.Workload.Command.Value = command
 		globalProps.Workload.RequestDistribution.Value = "sequential"
-		globalProps.Workload.TargetOperationsPerSec.Value = 2000
-		globalProps.Workload.TargetExecutionTime.Value = globalProps.Workload.NumUniqueKeys.Value / globalProps.Workload.TargetOperationsPerSec.Value
+		globalProps.Workload.TargetOperationsPerSec.Value = 500
+		globalProps.Workload.TargetExecutionTime.Value = int(1.2 * float64(globalProps.Workload.NumUniqueKeys.Value/globalProps.Workload.TargetOperationsPerSec.Value))
 		globalProps.Measurements.WarmUpTime.Value = 0
 
 		if cmd.Flags().Changed("wid") {
