@@ -45,6 +45,7 @@ var (
 	INTERVAL          = "INTERVAL"
 	START             = "START"
 	END               = "END"
+	HOTTEST           = "HOTTEST"
 	KEYS              []map[string]int64
 )
 

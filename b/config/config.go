@@ -61,10 +61,11 @@ type NodeConfig struct {
 }
 
 type CacheConfig struct {
-	VirtualNodes         IntProperty    `yaml:"VirtualNodes"`
-	Nodes                []NodeConfig   `yaml:"Nodes"`
-	NumHottestKeysBackup IntProperty    `yaml:"NumHottestKeysBackup"`
-	BackUpAddress        StringProperty `yaml:"BackUpAddress"`
+	VirtualNodes          IntProperty    `yaml:"VirtualNodes"`
+	Nodes                 []NodeConfig   `yaml:"Nodes"`
+	NumHottestKeysBackup  IntProperty    `yaml:"NumHottestKeysBackup"`
+	BackUpAddress         StringProperty `yaml:"BackUpAddress"`
+	EnableReconfiguration BoolProperty   `yaml:"EnableReconfiguration"`
 }
 
 type WorkloadConfig struct {
@@ -329,6 +330,10 @@ var defaultConfig_ = Config{
 		BackUpAddress: StringProperty{
 			Description: "Address and port of redis server",
 			Value:       "0.0.0.0:6383",
+		},
+		EnableReconfiguration: BoolProperty{
+			Description: "Indicates whether to enable configuration of the cache.",
+			Value:       true,
 		},
 	},
 	Workload: WorkloadConfig{

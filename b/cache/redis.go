@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"log"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -157,6 +159,14 @@ func (c *Node) Get(ctx context.Context, key string, fields []string) (map[string
 func (c *Node) IsHottest(ctx context.Context, key string) bool {
 	str := c.redisClient.Get(ctx, key)
 	_, err := str.Result()
+	//size, _ := c.Size(ctx)
+	//usedMemory, err2 := c.GetUsedMemory(ctx)
+	//if err2 != nil {
+	//	fmt.Printf("error: %v\n", err2)
+	//}
+	//if size > 0 {
+	//	fmt.Printf("size: %d, used mempry: %d\n", size, usedMemory)
+	//}
 	return err == nil
 }
 
@@ -180,8 +190,42 @@ func (c *Node) Set(ctx context.Context, key string, value map[string][]byte) (er
 }
 
 func (c *Node) Add(ctx context.Context, key string) {
-	_, err := c.redisClient.Set(ctx, key, uint8(1), 0).Result()
+	_, err := c.redisClient.Set(ctx, key, make([]byte, 1100), 0).Result()
 	if err != nil {
-		// panic(err)
+		//panic(err)
 	} // '0' means no expiration
+}
+
+func (c *Node) AddGetHottest(ctx context.Context, key string) {
+	c.redisClient.Get(ctx, key)
+}
+
+// GetUsedMemory returns the amount of memory used by the Redis instance in bytes.
+func (c *Node) GetUsedMemory(ctx context.Context) (int64, error) {
+	// Execute the INFO command with the 'memory' section.
+	infoCmd := c.redisClient.Info(ctx, "memory")
+	info, err := infoCmd.Result()
+	if err != nil {
+		return 0, err
+	}
+
+	// Parse the used_memory field from the result.
+	for _, line := range strings.Split(info, "\n") {
+		if strings.HasPrefix(line, "used_memory:") {
+			parts := strings.Split(line, ":")
+			if len(parts) == 2 {
+				// Trim any extra whitespace and carriage return characters
+				usedMemoryStr := strings.TrimSpace(parts[1])
+				usedMemoryStr = strings.Trim(usedMemoryStr, "\r")
+
+				usedMemory, err := strconv.ParseInt(usedMemoryStr, 10, 64)
+				if err != nil {
+					return 0, fmt.Errorf("error parsing used_memory: %v", err)
+				}
+				return usedMemory, nil
+			}
+		}
+	}
+
+	return 0, errors.New("used_memory not found in INFO output")
 }

@@ -415,6 +415,27 @@ func PlotMetrics(s time.Time, e time.Time) {
 			showNodeFailures: true,
 		},
 		{
+			title: "Number of \"Hottest Key\" Requests Per Node as a Function of Time",
+			yAxis: "Num Requests",
+			categories: forEachNode(func(nodeIndex int) category {
+				return category{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex) && has(m, HOTTEST, true)
+						},
+					},
+					reduce:    countPerSecond,
+					plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+					color:     DARK_COLORS[nodeIndex],
+					showMean:  false,
+				}
+			}),
+			start:            start,
+			end:              end,
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
 			title: "Proportion of Read Transactions that go to the Database as a Function of Time",
 			yAxis: "Fraction of Read Requests",
 			categories: []category{
@@ -481,6 +502,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 
 	fmt.Printf("Summary plot saved to %s\n", summaryPath)
 	getDBErrors()
+	getCacheErrors()
 
 }
 
@@ -495,9 +517,31 @@ func toTitleCase(str string) string {
 }
 
 func getDBErrors() {
+	fmt.Printf("Database Errors:\n")
 	errs := make(map[string]int64)
 	if mtrcs := Filter(func(m Metric) bool {
 		return m.metricType == DATABASE_OPERATION && hasTag(m, ERROR) && !has(m, ERROR, nil) && !has(m, ERROR, "")
+	}); mtrcs != nil {
+		for _, m := range mtrcs {
+			if err, ok := m.tags[ERROR].(string); ok {
+				if _, exists := errs[err]; !exists {
+					errs[err] = 0
+				}
+				errs[err] += 1
+			}
+		}
+	}
+	for err, count := range errs {
+		fmt.Printf("%s: %d\n", err, count)
+	}
+
+}
+
+func getCacheErrors() {
+	fmt.Printf("\nCache Errors:\n")
+	errs := make(map[string]int64)
+	if mtrcs := Filter(func(m Metric) bool {
+		return m.metricType == CACHE_OPERATION && hasTag(m, ERROR) && !has(m, ERROR, nil) && !has(m, ERROR, "")
 	}); mtrcs != nil {
 		for _, m := range mtrcs {
 			if err, ok := m.tags[ERROR].(string); ok {

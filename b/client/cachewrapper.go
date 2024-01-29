@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func cacheMeasure(start time.Time, key string, nodeIndex int, operationType string, err error, cacheSize int64) {
+func cacheMeasure(start time.Time, key string, nodeIndex int, operationType string, err error, cacheSize int64, isHottest bool) {
 	latency := time.Now().Sub(start)
 	if err != nil {
 		metrics2.AddMeasurement(metrics2.CACHE_OPERATION, start,
@@ -21,6 +21,7 @@ func cacheMeasure(start time.Time, key string, nodeIndex int, operationType stri
 				metrics2.NODE_INDEX: nodeIndex,
 				metrics2.SIZE:       cacheSize,
 				metrics2.KEY:        key,
+				metrics2.HOTTEST:    isHottest,
 			})
 		return
 	} else {
@@ -32,6 +33,7 @@ func cacheMeasure(start time.Time, key string, nodeIndex int, operationType stri
 				metrics2.NODE_INDEX: nodeIndex,
 				metrics2.SIZE:       cacheSize,
 				metrics2.KEY:        key,
+				metrics2.HOTTEST:    isHottest,
 			})
 	}
 }
@@ -65,8 +67,10 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c := CacheWrapper{}
 	c.p = p
 	c.ctx = ctx
-	c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value)
-	backUpSize := bconfig.IntProperty{Value: p.Cache.NumHottestKeysBackup.Value / 1000}
+	c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value, p.Cache.EnableReconfiguration.Value)
+
+	backUpSize := bconfig.IntProperty{Value: 5}
+	//backUpSize := bconfig.IntProperty{Value: p.Cache.NumHottestKeysBackup.Value / 1000}
 	c.hottestKeys = cache.NewNode(bconfig.NodeConfig{
 		Address:            p.Cache.BackUpAddress,
 		MaxMemoryMbs:       backUpSize,
@@ -128,12 +132,20 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (_ 
 	start := time.Now()
 	nodeIndex, isBackup := c.nodeRing.GetNode(key)
 
+	go c.hottestKeys.AddGetHottest(ctx, key)
+
+	isHottest := c.hottestKeys.IsHottest(ctx, key)
+
 	defer func() {
-		cacheMeasure(start, key, nodeIndex, metrics2.READ, err, size)
+		cacheMeasure(start, key, nodeIndex, metrics2.READ, err, size, isHottest)
 	}()
 
-	if isBackup && !c.hottestKeys.IsHottest(ctx, key) {
-		return nil, fmt.Errorf("key %s is not in hottest keys", key), 0
+	if isBackup {
+		if !isHottest {
+			return nil, fmt.Errorf("key is hashed to a failed node and redirected to a backup node, but it is not among the hottest keys"), 0
+		} else {
+			return c.hottestKeys.Get(ctx, key, fields)
+		}
 	}
 
 	return c.nodes[nodeIndex].Get(ctx, key, fields)
@@ -144,8 +156,10 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 	start := time.Now()
 	nodeIndex, _ := c.nodeRing.GetNode(key)
 
+	isHottest := c.hottestKeys.IsHottest(ctx, key)
+
 	defer func() {
-		cacheMeasure(start, key, nodeIndex, metrics2.INSERT, err, size)
+		cacheMeasure(start, key, nodeIndex, metrics2.INSERT, err, size, isHottest)
 	}()
 
 	go c.hottestKeys.Add(ctx, key)

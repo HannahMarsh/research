@@ -10,11 +10,12 @@ import (
 
 // NodeRing stores a map and sorted list of hashes
 type NodeRing struct {
-	Ring         map[int]int // maps hash to node index
-	SortedHashes []int       // sorted list of hashes
-	actualNodes  int         // # of actual nodes
-	virtualNodes int         // # of virtual nodes per actual node
-	failures     map[int]bool
+	Ring                  map[int]int // maps hash to node index
+	SortedHashes          []int       // sorted list of hashes
+	actualNodes           int         // # of actual nodes
+	virtualNodes          int         // # of virtual nodes per actual node
+	failures              map[int]bool
+	enableReconfiguration bool
 }
 
 // generateRandomString creates a random string of a given length.
@@ -28,7 +29,7 @@ func generateRandomString(length int) string {
 }
 
 // NewNodeRing creates a new NodeRing with the specified number of actual and virtual nodes.
-func NewNodeRing(actualNodes int, virtualNodes int) *NodeRing {
+func NewNodeRing(actualNodes int, virtualNodes int, enableReconfiguration bool) *NodeRing {
 	ring := make(map[int]int) // map to store the ring
 	var hashes []int          // slice to store the sorted hashes
 
@@ -48,11 +49,12 @@ func NewNodeRing(actualNodes int, virtualNodes int) *NodeRing {
 		failures[i] = false
 	}
 	return &NodeRing{
-		Ring:         ring,
-		SortedHashes: hashes,
-		actualNodes:  actualNodes,
-		virtualNodes: virtualNodes,
-		failures:     failures,
+		Ring:                  ring,
+		SortedHashes:          hashes,
+		actualNodes:           actualNodes,
+		virtualNodes:          virtualNodes,
+		failures:              failures,
+		enableReconfiguration: enableReconfiguration,
 	}
 }
 
@@ -76,7 +78,7 @@ func (nr *NodeRing) GetNode(key string) (int, bool) {
 		return nr.SortedHashes[i] >= hash
 	}) % len(nr.SortedHashes)
 	if index, exists := nr.Ring[nr.SortedHashes[idx]]; exists {
-		if !nr.failures[index] {
+		if !nr.enableReconfiguration || !nr.failures[index] {
 			return index, false
 		}
 		for nr.failures[index] {
