@@ -159,14 +159,14 @@ func (c *Node) Get(ctx context.Context, key string, fields []string) (map[string
 func (c *Node) IsHottest(ctx context.Context, key string) bool {
 	str := c.redisClient.Get(ctx, key)
 	_, err := str.Result()
-	//size, _ := c.Size(ctx)
-	//usedMemory, err2 := c.GetUsedMemory(ctx)
-	//if err2 != nil {
-	//	fmt.Printf("error: %v\n", err2)
-	//}
-	//if size > 0 {
-	//	fmt.Printf("size: %d, used mempry: %d\n", size, usedMemory)
-	//}
+	size, _ := c.Size(ctx)
+	usedMemory, err2 := c.GetUsedMemory(ctx)
+	if err2 != nil {
+		//fmt.Printf("error: %v\n", err2)
+	}
+	if size > 0 {
+		fmt.Printf("size: %d, used mempry: %d\n", size, usedMemory)
+	}
 	return err == nil
 }
 
@@ -189,8 +189,8 @@ func (c *Node) Set(ctx context.Context, key string, value map[string][]byte) (er
 	return err, size_
 }
 
-func (c *Node) Add(ctx context.Context, key string) {
-	_, err := c.redisClient.Set(ctx, key, make([]byte, 1100), 0).Result()
+func (c *Node) Add(ctx context.Context, key string, value map[string][]byte) {
+	_, err := c.redisClient.Set(ctx, key, value, 0).Result()
 	if err != nil {
 		//panic(err)
 	} // '0' means no expiration

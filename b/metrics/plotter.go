@@ -415,7 +415,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 			showNodeFailures: true,
 		},
 		{
-			title: "Number of \"Hottest Key\" Requests Per Node as a Function of Time",
+			title: "Number of \"Hot\" (Top 1000 Most Popular) Key Requests Per Second as a Function of Time",
 			yAxis: "Num Requests",
 			categories: forEachNode(func(nodeIndex int) category {
 				return category{
