@@ -70,7 +70,7 @@ func hashFunc(key string) int {
 }
 
 // GetNode returns the node index a key maps to.
-func (nr *NodeRing) GetNode(key string) (int, bool) {
+func (nr *NodeRing) GetNode(key string) (int, int, bool) {
 	hash := hashFunc(key) // first, get the hash for the key
 
 	// binary search: find the index of the first hash that is >= to the key's hash
@@ -78,14 +78,15 @@ func (nr *NodeRing) GetNode(key string) (int, bool) {
 		return nr.SortedHashes[i] >= hash
 	}) % len(nr.SortedHashes)
 	if index, exists := nr.Ring[nr.SortedHashes[idx]]; exists {
+		original := index
 		if !nr.enableReconfiguration || !nr.failures[index] {
-			return index, false
+			return original, index, false
 		}
 		for nr.failures[index] {
 			idx = (idx + 1) % len(nr.SortedHashes)
 			index = nr.Ring[nr.SortedHashes[idx]]
 		}
-		return index, true
+		return original, index, true
 	} else {
 		panic("NodeRing: GetNode: node does not exist")
 	}

@@ -61,9 +61,10 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, command string) {
 	fmt.Printf("\r  - Done running benchmark. Took %d seconds.%s\n", int(time.Since(start).Seconds())-globalProps.Measurements.WarmUpTime.Value, "              ")
 	fmt.Println("\n**********************************************")
 
-	time.Sleep(1 * time.Second)
+	end := time.Now()
+	time.Sleep(4 * time.Second)
 
-	metrics.PlotMetrics(start, time.Now())
+	metrics.PlotMetrics(start, end)
 }
 
 func loadClientCommandFunc(cmd *cobra.Command, args []string, command string) {

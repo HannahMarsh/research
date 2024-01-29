@@ -5,7 +5,6 @@ import (
 	bconfig "benchmark/config"
 	metrics2 "benchmark/metrics"
 	"context"
-	"fmt"
 	"time"
 )
 
@@ -55,12 +54,11 @@ func nodeFailureMeasure(t time.Time, nodeIndex int, isStart bool) {
 }
 
 type CacheWrapper struct {
-	nodes       []*cache.Node
-	p           *bconfig.Config
-	nodeRing    *cache.NodeRing
-	timers      []*time.Timer // Timers for scheduling node failures
-	ctx         context.Context
-	hottestKeys *cache.Node
+	nodes    []*cache.Node
+	p        *bconfig.Config
+	nodeRing *cache.NodeRing
+	timers   []*time.Timer // Timers for scheduling node failures
+	ctx      context.Context
 }
 
 func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
@@ -69,18 +67,25 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c.ctx = ctx
 	c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value, p.Cache.EnableReconfiguration.Value)
 
-	backUpSize := bconfig.IntProperty{Value: 100}
-	//backUpSize := bconfig.IntProperty{Value: p.Cache.NumHottestKeysBackup.Value / 1000}
-	c.hottestKeys = cache.NewNode(bconfig.NodeConfig{
-		Address:            p.Cache.BackUpAddress,
-		MaxMemoryMbs:       backUpSize,
-		MaxMemoryPolicy:    p.Cache.Nodes[0].MaxMemoryPolicy,
-		UseDefaultDatabase: p.Cache.Nodes[0].UseDefaultDatabase,
-	}, ctx)
+	//backUpSize := bconfig.IntProperty{Value: 100}
+	////backUpSize := bconfig.IntProperty{Value: p.Cache.NumHottestKeysBackup.Value / 1000}
+	//c.hottestKeys = cache.NewNode(bconfig.NodeConfig{
+	//	Address:            p.Cache.BackUpAddress,
+	//	MaxMemoryMbs:       backUpSize,
+	//	MaxMemoryPolicy:    p.Cache.Nodes[0].MaxMemoryPolicy,
+	//	UseDefaultDatabase: p.Cache.Nodes[0].UseDefaultDatabase,
+	//}, ctx)
 
 	for i := 0; i < len(p.Cache.Nodes); i++ {
 		nodeConfig := p.Cache.Nodes[i]
-		c.addNode(nodeConfig, ctx)
+		c.addNode(nodeConfig, ctx, len(p.Cache.Nodes))
+	}
+	for _, node := range c.nodes {
+		node.SetOtherNodes(c.nodes)
+	}
+	updateInterval := time.Duration((time.Duration(p.Workload.TargetExecutionTime.Value)*time.Second).Milliseconds()/100) * time.Millisecond
+	for _, node := range c.nodes {
+		node.StartTopKeysUpdateTask(ctx, updateInterval)
 	}
 	c.scheduleFailures()
 	return &c
@@ -118,8 +123,8 @@ func (c *CacheWrapper) scheduleFailures() {
 	}
 }
 
-func (c *CacheWrapper) addNode(p bconfig.NodeConfig, ctx context.Context) {
-	node := cache.NewNode(p, ctx)
+func (c *CacheWrapper) addNode(p bconfig.NodeConfig, ctx context.Context, numBackUps int) {
+	node := cache.NewNode(p, ctx, numBackUps)
 	c.nodes = append(c.nodes, node)
 }
 
@@ -130,39 +135,35 @@ func (c *CacheWrapper) NumNodes() int {
 func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (_ map[string][]byte, err error, size int64) {
 
 	start := time.Now()
-	nodeIndex, isBackup := c.nodeRing.GetNode(key)
 
-	go c.hottestKeys.AddGetHottest(ctx, key)
-
-	isHottest := c.hottestKeys.IsHottest(ctx, key)
+	failedNodeIndex, backup, isBackup := c.nodeRing.GetNode(key)
 
 	defer func() {
-		cacheMeasure(start, key, nodeIndex, metrics2.READ, err, size, isHottest)
+		cacheMeasure(start, key, backup, metrics2.READ, err, size, c.nodes[backup].IsTopKey(key))
 	}()
 
 	if isBackup {
-		if !isHottest {
-			return nil, fmt.Errorf("key is hashed to a failed node and redirected to a backup node, but it is not among the hottest keys"), 0
-		} else {
-			return c.hottestKeys.Get(ctx, key, fields)
-		}
+		return c.nodes[backup].GetBackup(ctx, failedNodeIndex, key, fields)
+	} else {
+		return c.nodes[backup].Get(ctx, key, fields)
 	}
-
-	return c.nodes[nodeIndex].Get(ctx, key, fields)
 }
 
 func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]byte) (err error, size int64) {
 
 	start := time.Now()
-	nodeIndex, _ := c.nodeRing.GetNode(key)
 
-	isHottest := c.hottestKeys.IsHottest(ctx, key)
+	_, backup, _ := c.nodeRing.GetNode(key)
 
 	defer func() {
-		cacheMeasure(start, key, nodeIndex, metrics2.INSERT, err, size, isHottest)
+		cacheMeasure(start, key, backup, metrics2.INSERT, err, size, c.nodes[backup].IsTopKey(key))
 	}()
 
-	go c.hottestKeys.Add(ctx, key, value)
+	return c.nodes[backup].Set(ctx, key, value)
 
-	return c.nodes[nodeIndex].Set(ctx, key, value)
+	//if isBackup {
+	//	return c.nodes[backup].SetBackup(ctx, failedNodeIndex, key, value)
+	//} else {
+	//	return c.nodes[backup].Set(ctx, key, value)
+	//}
 }
