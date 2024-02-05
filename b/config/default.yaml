@@ -30,7 +30,7 @@ Database:
         Value: 1
     TimeoutMs:
         Description: The timeout, in milliseconds, for database operations.
-        Value: 400
+        Value: 1000
 Cache:
     VirtualNodes:
         Description: The number of virtual nodes.
@@ -135,7 +135,7 @@ Workload:
         Value: 15
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 11000
+        Value: 7000
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1

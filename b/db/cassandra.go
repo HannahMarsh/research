@@ -6,11 +6,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/gocql/gocql"
 	"log"
 	"strings"
 	"time"
-
-	"github.com/gocql/gocql"
 )
 
 type DB interface {
@@ -41,7 +40,7 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 	cluster := gocql.NewCluster(hosts...)
 
 	cluster.NumConns = p.Database.CassandraConnections.Value
-	cluster.Timeout = time.Duration(p.Database.TimeoutMs.Value) * time.Millisecond
+	cluster.Timeout = 30 * time.Second
 	cluster.Consistency = gocql.Quorum
 
 	if p.Database.PasswordAuthenticator.Value {

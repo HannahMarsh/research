@@ -230,7 +230,7 @@ func loadClientCommandFunc(cmd *cobra.Command, args []string, command string) {
 		globalProps.Workload.Command.Value = command
 		globalProps.Workload.RequestDistribution.Value = "sequential"
 		globalProps.Workload.TargetOperationsPerSec.Value = 500
-		globalProps.Database.TimeoutMs.Value = 100000
+		globalProps.Database.TimeoutMs.Value = 1000
 		globalProps.Workload.TargetExecutionTime.Value = int(1.2 * float64(globalProps.Workload.NumUniqueKeys.Value/globalProps.Workload.TargetOperationsPerSec.Value))
 		globalProps.Measurements.WarmUpTime.Value = 0
 

@@ -6,10 +6,8 @@ import (
 	metrics2 "benchmark/metrics"
 	"benchmark/util"
 	"context"
-	"crypto/sha1"
-	"encoding/binary"
 	"errors"
-	"math/rand"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -68,6 +66,7 @@ type CacheWrapper struct {
 	memNodes     map[string][]int
 	mu           sync.Mutex // Mutex to protect memNodes
 	cacheTimeout time.Duration
+	failedNodes  map[int]bool
 }
 
 func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
@@ -76,11 +75,14 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c.ctx = ctx
 	//c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value, p.Cache.EnableReconfiguration.Value)
 	c.memNodes = make(map[string][]int)
-	c.cacheTimeout = time.Duration(10) * time.Millisecond
+	c.cacheTimeout = time.Duration(1000) * time.Millisecond
+	c.failedNodes = make(map[int]bool)
+	c.nodes = make([]*cache.Node, 0, len(p.Cache.Nodes))
 
 	for i := 0; i < len(p.Cache.Nodes); i++ {
 		nodeConfig := p.Cache.Nodes[i]
 		c.addNode(nodeConfig, ctx, len(p.Cache.Nodes))
+		c.failedNodes[i] = false
 	}
 	for _, node := range c.nodes {
 		node.SetOtherNodes(c.nodes)
@@ -89,7 +91,8 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	for _, node := range c.nodes {
 		node.StartTopKeysUpdateTask(ctx, updateInterval)
 	}
-	c.scheduleFailures()
+	go c.scheduleFailures()
+	go c.scheduleCheckForRecoveries(ctx)
 	return &c
 }
 
@@ -125,6 +128,36 @@ func (c *CacheWrapper) scheduleFailures() {
 	}
 }
 
+func (c *CacheWrapper) scheduleCheckForRecoveries(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			for node := range c.failedNodes {
+				c.mu.Lock()
+				failed := c.failedNodes[node]
+				c.mu.Unlock()
+				if failed {
+					go c.checkNodeRecovered(node, ctx)
+				}
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// checkNodeRecovered checks if a given node has recovered.
+func (c *CacheWrapper) checkNodeRecovered(node int, ctx context.Context) {
+	if _, err, _ := c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, "key", []string{}); err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		c.mu.Lock()
+		c.failedNodes[node] = false
+		c.mu.Unlock()
+	}
+}
+
 func (c *CacheWrapper) addNode(p bconfig.NodeConfig, ctx context.Context, numBackUps int) {
 	node := cache.NewNode(p, ctx, numBackUps)
 	c.nodes = append(c.nodes, node)
@@ -139,14 +172,27 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 	var size int64 = 0
 	var nodeId int = nodes[0]
 
+	if !c.p.Cache.EnableReconfiguration.Value {
+		nodes = []int{nodes[0]}
+	}
+
 	start := time.Now()
 
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
-		result, err, size = c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, key, fields)
-		if err == nil || !errors.Is(err, context.DeadlineExceeded) {
-			nodeId = i
-			break
+		c.mu.Lock()
+		failed := c.failedNodes[node]
+		c.mu.Unlock()
+		if !failed {
+			result, err, size = c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, key, fields)
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				c.mu.Lock()
+				c.failedNodes[node] = true
+				c.mu.Unlock()
+			} else {
+				nodeId = node
+				break
+			}
 		}
 	}
 
@@ -166,10 +212,19 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
-		err, size = c.nodes[node].SetWithTimeout(c.cacheTimeout, ctx, key, value)
-		if err == nil || !errors.Is(err, context.DeadlineExceeded) {
-			nodeId = i
-			break
+		c.mu.Lock()
+		failed := c.failedNodes[node]
+		c.mu.Unlock()
+		if !failed {
+			err, size = c.nodes[node].SetWithTimeout(c.cacheTimeout, ctx, key, value)
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				c.mu.Lock()
+				c.failedNodes[node] = true
+				c.mu.Unlock()
+			} else {
+				nodeId = i
+				break
+			}
 		}
 	}
 
@@ -178,28 +233,31 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 }
 
 func (c *CacheWrapper) GetNodes(key string) []int {
+	numbers := make([]int, 0, len(c.nodes))
+	used := make(map[int]bool)
+	hash := fmt.Sprintf("%d", util.StringHash64(key))
+	hash2 := fmt.Sprintf("%d", util.StringHash64(hash))
+	hash = hash + hash2
 
-	c.mu.Lock() // Lock before accessing shared resource
-	if nodes, exists := c.memNodes[key]; exists {
-		c.mu.Unlock() // Unlock as soon as possible
-		return nodes
+	for i := 0; i < len(hash); i++ {
+		digit := int(hash[i]-'0') % len(c.nodes)
+		if !used[digit] {
+			numbers = append(numbers, digit)
+			used[digit] = true
+		}
+		if len(numbers) == len(c.nodes) {
+			break
+		}
 	}
-	c.mu.Unlock() // unlock before doing CPU-intensive work
 
-	// create a hash, convert it to an int64, and use it as a seed to initialize the PRNG
-	hash := sha1.Sum([]byte(key))
-	seed := int64(binary.BigEndian.Uint64(hash[:8]))
-	r := rand.New(rand.NewSource(seed))
-
-	// create and shuffle the slice
-	numbers := util.CreateArray(len(c.nodes))
-	r.Shuffle(len(numbers), func(i, j int) {
-		numbers[i], numbers[j] = numbers[j], numbers[i]
-	})
-
-	c.mu.Lock()
-	c.memNodes[key] = numbers
-	c.mu.Unlock()
+	// Fill in any missing nodes
+	for i := 0; len(numbers) < len(c.nodes); i++ {
+		index := i % len(c.nodes)
+		if !used[index] {
+			numbers = append(numbers, index)
+			used[index] = true
+		}
+	}
 
 	return numbers
 }
