@@ -749,7 +749,11 @@ func (plt *plotInfo) makeCDFPlot() {
 			}
 
 			yMin = math.Min(yMin, cumulativeCount/totalKeys)
-			pts = append(pts, plotter.XY{X: float64(i), Y: float64(cumulativeCount / totalKeys)})
+			X := float64(i)
+			Y := float64(cumulativeCount / totalKeys)
+			if !math.IsNaN(X) && !math.IsNaN(Y) {
+				pts = append(pts, plotter.XY{X: X, Y: Y})
+			}
 		}
 
 		if cat.plotLabel == "" {

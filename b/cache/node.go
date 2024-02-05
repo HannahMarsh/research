@@ -159,6 +159,35 @@ func (n *Node) Fail() {
 	}
 }
 
+// GetWithTimeout function calls Get and implements a timeout
+func (n *Node) GetWithTimeout(timeout time.Duration, ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
+	// Create a context with a timeout
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	type getResult struct {
+		result map[string][]byte
+		err    error
+		size   int64
+	}
+
+	// Channel to capture the output from Get
+	getChan := make(chan getResult, 1)
+
+	go func() {
+		result, err, size := n.Get(ctxWithTimeout, key, fields)
+		getChan <- getResult{result, err, size}
+	}()
+
+	// handle the result or timeout
+	select {
+	case getRes := <-getChan:
+		return getRes.result, getRes.err, getRes.size
+	case <-ctxWithTimeout.Done():
+		return nil, ctxWithTimeout.Err(), 0
+	}
+}
+
 func (n *Node) Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
 	if err, isFailed := n.checkFailed(); isFailed {
 		return nil, err, 0
@@ -269,6 +298,33 @@ func (n *Node) Set(ctx context.Context, key string, value map[string][]byte) (er
 
 	_, err = n.redisClient.Set(ctx, key, serializedValue, 0).Result() // '0' means no expiration
 	return err, size_
+}
+
+func (n *Node) SetWithTimeout(timeout time.Duration, ctx context.Context, key string, value map[string][]byte) (error, int64) {
+	// Create a context with a timeout
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	type getResult struct {
+		err  error
+		size int64
+	}
+
+	// Channel to capture the output from Get
+	getChan := make(chan getResult, 1)
+
+	go func() {
+		err, size := n.Set(ctxWithTimeout, key, value)
+		getChan <- getResult{err, size}
+	}()
+
+	// handle the result or timeout
+	select {
+	case getRes := <-getChan:
+		return getRes.err, getRes.size
+	case <-ctxWithTimeout.Done():
+		return ctxWithTimeout.Err(), 0
+	}
 }
 
 func (n *Node) ReceiveUpdateFromOtherNode(nodeIndex int, key string, serializedValue []byte, accessCounts int64) {
@@ -414,7 +470,8 @@ func (n *Node) IsFailed() bool {
 
 func (n *Node) checkFailed() (error, bool) {
 	if n.IsFailed() {
-		return errors.New("simulated failure - cache node is not available"), true
+		time.Sleep(1 * time.Second)
+		return context.DeadlineExceeded, true
 	}
 	return nil, false
 }

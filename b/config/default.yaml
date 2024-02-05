@@ -30,7 +30,7 @@ Database:
         Value: 1
     TimeoutMs:
         Description: The timeout, in milliseconds, for database operations.
-        Value: 40
+        Value: 400
 Cache:
     VirtualNodes:
         Description: The number of virtual nodes.

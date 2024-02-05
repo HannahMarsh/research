@@ -22,10 +22,10 @@ type DB interface {
 }
 
 type CassandraDB struct {
-	p          *bconfig.Config
-	session    *gocql.Session
-	verbose    bool
-	maxTimeout time.Duration
+	p       *bconfig.Config
+	session *gocql.Session
+	verbose bool
+	//maxTimeout time.Duration
 
 	bufPool *util.BufPool
 
@@ -41,7 +41,7 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 	cluster := gocql.NewCluster(hosts...)
 
 	cluster.NumConns = p.Database.CassandraConnections.Value
-	cluster.Timeout = 30 * time.Second
+	cluster.Timeout = time.Duration(p.Database.TimeoutMs.Value) * time.Millisecond
 	cluster.Consistency = gocql.Quorum
 
 	if p.Database.PasswordAuthenticator.Value {
@@ -60,7 +60,7 @@ func NewDatabase(p *bconfig.Config) (*CassandraDB, error) {
 
 	d.verbose = p.Logging.Verbose.Value
 	d.session = session
-	d.maxTimeout = 15 * time.Millisecond
+	//d.maxTimeout = 15 * time.Millisecond
 
 	d.bufPool = util.NewBufPool()
 
@@ -164,12 +164,6 @@ func (k *CassandraDB) Read(ctx context.Context, table string, key string, fields
 		fields = k.fieldNames
 	}
 
-	//start := time.Now()
-
-	// Create a new context with the timeout
-	//ctx, cancel := context.WithTimeout(ctx, k.maxTimeout)
-	//defer cancel()
-
 	query = fmt.Sprintf(`SELECT %s FROM %s.%s WHERE key = ?`, strings.Join(fields, ","), k.p.Database.CassandraKeyspace.Value, table)
 
 	if k.verbose {
@@ -184,23 +178,13 @@ func (k *CassandraDB) Read(ctx context.Context, table string, key string, fields
 	}
 
 	err := k.session.Query(query, key).WithContext(ctx).Scan(dest...)
-	if err == gocql.ErrNotFound {
-		return nil, err
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
 	for i, v := range dest {
 		m[fields[i]] = *v.(*[]byte)
 	}
-
-	//v := time.Since(start).Abs().Seconds()
-	//
-	//fmt.Printf("Read latency: %f\n", v)
-	//
-	//if v > k.maxTimeout.Seconds() {
-	//	return nil, fmt.Errorf("timeout")
-	//}
 
 	return m, nil
 }

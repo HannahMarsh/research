@@ -15,6 +15,7 @@ package util
 
 import (
 	"encoding/binary"
+	"github.com/spaolacci/murmur3"
 	"hash/fnv"
 )
 
@@ -31,6 +32,15 @@ func Hash64(n int64) int64 {
 	return result
 }
 
+func StringHash(key string) int {
+	// Using MurmurHash to compute the hash
+	hash := murmur3.New32() // create a new 32-bit MurmurHash3 hash
+	if _, err := hash.Write([]byte(key)); err != nil {
+		panic(err)
+	}
+	return int(hash.Sum32())
+}
+
 // BytesHash64 returns the fnv hash of a bytes
 func BytesHash64(b []byte) int64 {
 	hash := fnv.New64a()
@@ -43,4 +53,13 @@ func StringHash64(s string) int64 {
 	hash := fnv.New64a()
 	hash.Write(Slice(s))
 	return int64(hash.Sum64())
+}
+
+// CreateArray creates an array of n ints from 0 to n-1.
+func CreateArray(n int) []int {
+	arr := make([]int, n)
+	for i := 0; i < n; i++ {
+		arr[i] = i
+	}
+	return arr
 }
