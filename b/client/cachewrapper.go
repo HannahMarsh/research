@@ -66,7 +66,6 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c.p = p
 	c.ctx = ctx
 	c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value, p.Cache.EnableReconfiguration.Value)
-
 	//backUpSize := bconfig.IntProperty{Value: 100}
 	////backUpSize := bconfig.IntProperty{Value: p.Cache.NumHottestKeysBackup.Value / 1000}
 	//c.hottestKeys = cache.NewNode(bconfig.NodeConfig{
