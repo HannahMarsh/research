@@ -3,6 +3,8 @@ package metrics
 import (
 	"encoding/csv"
 	"fmt"
+	"github.com/benoitmasson/plotters/piechart"
+	"github.com/dustin/go-humanize"
 	"github.com/golang/freetype"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -350,6 +352,28 @@ func PlotMetrics(s time.Time, e time.Time) {
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
+
+		{
+			title: "Cache Node Latency as a Function of Time",
+			yAxis: "Latency (ms)",
+			categories: forEachNode(func(nodeIndex int) category {
+				return category{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex) && hasTag(m, LATENCY)
+						},
+					},
+					reduce:    averageValue(func(m Metric) float64 { return 1000 * m.tags[LATENCY].(float64) }),
+					plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+					color:     DARK_COLORS[nodeIndex],
+					showMean:  false,
+				}
+			}),
+			start:            start,
+			end:              end,
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
 		{
 			title: "Reverse CDF of Key Popularity Distribution Per Node",
 			yAxis: "Reverse Cumulative Frequency",
@@ -535,6 +559,16 @@ func getDBErrors() {
 		fmt.Printf("%s: %d\n", err, count)
 	}
 
+	var values []float64
+	var labels []string
+	for err, count := range errs {
+		fmt.Printf("%s: %d\n", err, count)
+		values = append(values, float64(count))
+		labels = append(labels, fmt.Sprintf("\"%s\" (%s)", err, humanize.Comma(count)))
+	}
+
+	makePieChart("data/db_errors.png", "Database Errors", values, labels)
+
 }
 
 func getCacheErrors() {
@@ -552,10 +586,133 @@ func getCacheErrors() {
 			}
 		}
 	}
+
+	var values []float64
+	var labels []string
 	for err, count := range errs {
 		fmt.Printf("%s: %d\n", err, count)
+		values = append(values, float64(count))
+		labels = append(labels, fmt.Sprintf("\"%s\" (%s)", err, humanize.Comma(count)))
 	}
 
+	makePieChart("data/cache_errors.png", "Cache Errors", values, labels)
+
+}
+
+func makePieChart(fileName string, title string, values plotter.Values, labels []string) {
+	if len(values) == 0 {
+		return
+	}
+	colors := []color.Color{
+		color.RGBA{R: 245, G: 131, B: 199, A: 255}, // #f583c7
+		color.RGBA{R: 218, G: 159, B: 214, A: 255}, // #da9fd6
+		color.RGBA{R: 186, G: 186, B: 221, A: 255}, // #babadd
+		color.RGBA{R: 155, G: 210, B: 232, A: 255}, // #9bd2e8
+		color.RGBA{R: 126, G: 238, B: 245, A: 255}, // #7eeef5
+	}
+
+	extraPadding := 10.0 + float64(math.Min(float64(len(colors)), float64(len(values))))*10.0
+	p := plot.New()
+	p.Legend.Top = true                           // Position the legend at the top of the plot
+	p.Legend.Left = true                          // Position the legend to the left side of the plot
+	p.Legend.XOffs = vg.Points(5)                 // Move the legend to the right
+	p.Legend.YOffs = vg.Points(extraPadding - 10) // Move the legend up
+	p.HideAxes()
+
+	p.Title.Text = title
+	p.Title.TextStyle.Font.Size = 15
+	p.Title.Padding = vg.Points(extraPadding) // Increase the padding to create more space
+
+	total := int64(0)
+	for _, v := range values {
+		total += int64(v)
+	}
+
+	sofar := 0
+
+	// Create a struct to hold pairs of values and labels
+	type valueLabelPair struct {
+		Value float64
+		Label string
+	}
+
+	// Create a slice of pairs
+	pairs := make([]valueLabelPair, len(values))
+	for i, value := range values {
+		pairs[i] = valueLabelPair{Value: value, Label: labels[i]}
+	}
+
+	// Sort the pairs slice in descending order of Value
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Value > pairs[j].Value
+	})
+
+	// Extract the sorted values and labels
+	for i, pair := range pairs {
+		values[i] = pair.Value
+		labels[i] = pair.Label
+	}
+
+	for i := 0; i < len(colors)-1; i++ {
+		if i < len(values) {
+			// Create a pie chart
+			pie, err := piechart.NewPieChart(plotter.Values{values[i]})
+			if err != nil {
+				log.Panic(err)
+			}
+			pie.Total = float64(total)
+			pie.Offset.Value = float64(sofar)
+			sofar += int(values[i])
+
+			// Only add label if the slice is larger than our threshold
+			percentage := values[i] / float64(total)
+			if percentage >= 0.03 {
+				pie.Labels.Nominal = []string{fmt.Sprintf("%d%%: %s", int(percentage*100), humanize.Comma(int64(int(values[i]))))}
+				pie.Labels.Values.Show = false
+				pie.Labels.Values.Percentage = false
+				pie.Labels.Position = 0.5
+			} else {
+				pie.Labels.Nominal = []string{""}
+				pie.Labels.Values.Show = false
+				pie.Labels.Values.Percentage = false
+			}
+
+			pie.Color = colors[i]
+			p.Add(pie)
+			p.Legend.Add(labels[i], pie)
+		} else {
+			break
+		}
+	}
+	if (len(colors) - 1) < len(values) {
+		// Create a pie chart
+		pie, err := piechart.NewPieChart(plotter.Values{float64(total) - float64(sofar)})
+		if err != nil {
+			log.Panic(err)
+		}
+		pie.Total = float64(total)
+		pie.Offset.Value = float64(sofar)
+
+		// Only add label if the slice is larger than our threshold
+		percentage := float64(total-int64(sofar)) / float64(total)
+		if percentage >= 0.03 {
+			pie.Labels.Nominal = []string{fmt.Sprintf("%s", humanize.Comma(total-int64(sofar)))}
+			pie.Labels.Values.Show = true
+			pie.Labels.Values.Percentage = true
+			pie.Labels.Position = 0.5
+		} else {
+			pie.Labels.Values.Show = false
+		}
+
+		pie.Color = colors[len(colors)-1]
+		p.Add(pie)
+		p.Legend.Add("Other", pie)
+	}
+
+	// Save the plot to a PNG file
+	if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
+		log.Panic(err)
+	}
 }
 
 func (plt *plotInfo) makePlot() {

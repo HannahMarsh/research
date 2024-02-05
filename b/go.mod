@@ -3,7 +3,7 @@ module benchmark
 go 1.21
 
 require (
-	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
+	github.com/benoitmasson/plotters/piechart v1.2.1
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gocql/gocql v1.6.0
@@ -22,7 +22,6 @@ require (
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
 	github.com/campoy/embedmd v1.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/chzyer/test v1.0.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-fonts/liberation v0.3.1 // indirect
 	github.com/go-latex/latex v0.0.0-20230307184459-12ec69307ad9 // indirect
@@ -36,7 +35,6 @@ require (
 	github.com/stretchr/testify v1.8.1 // indirect
 	golang.org/x/image v0.11.0 // indirect
 	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 )
 

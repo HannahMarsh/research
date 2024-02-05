@@ -161,9 +161,6 @@ func (n *Node) Fail() {
 
 // GetWithTimeout function calls Get and implements a timeout
 func (n *Node) GetWithTimeout(timeout time.Duration, ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
-	// Create a context with a timeout
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 
 	type getResult struct {
 		result map[string][]byte
@@ -173,6 +170,10 @@ func (n *Node) GetWithTimeout(timeout time.Duration, ctx context.Context, key st
 
 	// Channel to capture the output from Get
 	getChan := make(chan getResult, 1)
+
+	// Create a context with a timeout
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	go func() {
 		result, err, size := n.Get(ctxWithTimeout, key, fields)
