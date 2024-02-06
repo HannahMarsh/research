@@ -39,7 +39,7 @@ type Cache interface {
 }
 
 type OtherNode interface {
-	ReceiveUpdateFromOtherNode(nodeIndex int, key string, serializedValue []byte, accessCounts int64)
+	ReceiveUpdateFromOtherNode(key string, serializedValue []byte, accessCounts int64)
 }
 
 func NewNode(p bconfig.NodeConfig, ctx context.Context, numBackUps int) *Node {
@@ -151,15 +151,14 @@ func (n *Node) Fail() {
 	n.failMutex.Unlock()
 	n.topKeysLock.Lock()
 	defer n.topKeysLock.Unlock()
-	numBackUps := len(n.otherNodesTopKeys)
 	n.keyAccessCounts = make(map[string]int64)
 	n.topKeys = make(map[string][]byte)
-	n.otherNodesTopKeys = make(map[int]map[string][]byte)
+	n.otherNodesTopKeys = make(map[string][]byte)
 	n.isTopKey_ = make(map[string]bool)
 	n.isTopKeyChanged = make(map[string]bool)
-	for i := 0; i < numBackUps; i++ {
-		n.otherNodesTopKeys[i] = make(map[string][]byte)
-	}
+	//for i := 0; i < numBackUps; i++ {
+	//	n.otherNodesTopKeys[i] = make(map[string][]byte)
+	//}
 }
 
 // GetWithTimeout function calls Get and implements a timeout
@@ -181,10 +180,12 @@ func (n *Node) GetWithTimeout(timeout time.Duration, ctx context.Context, key st
 	go func() {
 		if !isBackup {
 			result, err, size := n.Get(ctxWithTimeout, key, fields)
+			getChan <- getResult{result, err, size}
 		} else {
-			result, err, size := n.GetBackup(ctxWithTimeout, 0, key, fields)
+			result, err, size := n.GetBackup(ctxWithTimeout, key, fields)
+			getChan <- getResult{result, err, size}
 		}
-		getChan <- getResult{result, err, size}
+
 	}()
 
 	// handle the result or timeout
@@ -237,34 +238,29 @@ func (n *Node) GetBackup(ctx context.Context, key string, fields []string) (map[
 		return nil, err, 0
 	}
 
-	failedNodeID := n.backUpNode[key]
+	if val, ok := n.GetBackupKV(key); ok {
 
-	if n.IsTopKey(key) {
+		size_ := n.Size(ctx)
 
-		if val, ok := n.GetBackupKV(failedNodeID, key); ok {
-			n.updateAccessCount(key)
-			size_ := n.Size(ctx)
-
-			// Deserialize the JSON back into a map
-			var data map[string][]byte
-			if err := json.Unmarshal(val, &data); err != nil {
-				return nil, err, size_ // Handle JSON deserialization error
-			}
-
-			// If no specific fields are requested, return the full data
-			if len(fields) == 0 {
-				return data, nil, size_
-			}
-
-			// Extract only the requested fields
-			result := make(map[string][]byte)
-			for _, field := range fields {
-				if value, exists := data[field]; exists {
-					result[field] = value
-				}
-			}
-			return result, nil, size_
+		// Deserialize the JSON back into a map
+		var data map[string][]byte
+		if err := json.Unmarshal(val, &data); err != nil {
+			return nil, err, size_ // Handle JSON deserialization error
 		}
+
+		// If no specific fields are requested, return the full data
+		if len(fields) == 0 {
+			return data, nil, size_
+		}
+
+		// Extract only the requested fields
+		result := make(map[string][]byte)
+		for _, field := range fields {
+			if value, exists := data[field]; exists {
+				result[field] = value
+			}
+		}
+		return result, nil, size_
 	}
 	// Key is not in the top 1% of the failed node
 	return n.Get(ctx, key, fields)
@@ -334,10 +330,10 @@ func (n *Node) SetWithTimeout(timeout time.Duration, ctx context.Context, key st
 	}
 }
 
-func (n *Node) ReceiveUpdateFromOtherNode(nodeIndex int, key string, serializedValue []byte, accessCounts int64) {
+func (n *Node) ReceiveUpdateFromOtherNode(key string, serializedValue []byte, accessCounts int64) {
 	n.topKeysLock.Lock()
 	defer n.topKeysLock.Unlock()
-	n.otherNodesTopKeys[nodeIndex][key] = serializedValue
+	n.otherNodesTopKeys[key] = serializedValue
 	n.keyAccessCounts[key] = int64(math.Max(float64(n.keyAccessCounts[key]), float64(accessCounts)))
 }
 
@@ -366,7 +362,7 @@ func (n *Node) SendUpdateToBackUpNode(key string, serializedValue []byte, access
 	//	}
 	//}
 	if nodeIndex, exists := n.backUpNode[key]; exists {
-		n.otherNodes[nodeIndex].ReceiveUpdateFromOtherNode(n.id-1, key, serializedValue, accessCounts)
+		n.otherNodes[nodeIndex].ReceiveUpdateFromOtherNode(key, serializedValue, accessCounts)
 	}
 }
 
@@ -503,10 +499,15 @@ func (n *Node) checkFailed() (error, bool) {
 	return nil, false
 }
 
-func (n *Node) GetBackupKV(nodeId int, key string) ([]byte, bool) {
+func (n *Node) GetBackupKV(key string) ([]byte, bool) {
 	n.topKeysLock.Lock()
 	defer n.topKeysLock.Unlock()
-	if val, ok := n.otherNodesTopKeys[nodeId][key]; ok {
+	if _, ok := n.keyAccessCounts[key]; !ok {
+		n.keyAccessCounts[key] = 0
+	}
+	n.keyAccessCounts[key]++
+	n.isTopKeyChanged[key] = true
+	if val, ok := n.otherNodesTopKeys[key]; ok {
 		return val, true
 	}
 	return nil, false

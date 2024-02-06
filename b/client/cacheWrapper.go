@@ -247,7 +247,7 @@ func (c *CacheWrapper) scheduleCheckForRecoveries(ctx context.Context) {
 
 // checkNodeRecovered checks if a given node has recovered.
 func (c *CacheWrapper) checkNodeRecovered(node int, ctx context.Context) {
-	if _, err, _ := c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, "key", []string{}); err == nil || !errors.Is(err, context.DeadlineExceeded) {
+	if _, err, _ := c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, "key", []string{}, false); err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		go markRecoveryDetection(time.Now(), node)
 		c.mu.Lock()
 		c.failedNodes[node] = false
@@ -279,7 +279,7 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
 		if !c.isNodeFailed(node) {
-			result, err, size = c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, key, fields)
+			result, err, size = c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, key, fields, i == 0)
 			if err != nil && errors.Is(err, context.DeadlineExceeded) {
 				go cacheMeasure(start, key, nodeId, metrics2.READ, err, size, false)
 				go func() {
