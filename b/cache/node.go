@@ -21,12 +21,14 @@ type Node struct {
 	failMutex         sync.Mutex
 	redisClient       *redis.Client
 	id                int
-	keyAccessCounts   map[string]int64          // Track access counts for keys
-	topKeys           map[string][]byte         // Store this node's top hottest keys
-	otherNodesTopKeys map[int]map[string][]byte // Store other nodes' top hottest keys and their cached values
-	topKeysLock       sync.Mutex                // Protects topKeys and otherNodesTopKeys
-	isTopKey_         map[string]bool
-	isTopKeyChanged   map[string]bool
+	keyAccessCounts   map[string]int64  // Track access counts for keys
+	topKeys           map[string][]byte // Store this node's top hottest keys
+	otherNodesTopKeys map[string][]byte // Store other nodes' top hottest keys and their cached values
+	//otherNodesTopKeys map[int]map[string][]byte // Store other nodes' top hottest keys and their cached values
+	topKeysLock     sync.Mutex // Protects topKeys and otherNodesTopKeys
+	isTopKey_       map[string]bool
+	isTopKeyChanged map[string]bool
+	backUpNode      map[string]int
 
 	otherNodes []OtherNode
 }
@@ -49,12 +51,13 @@ func NewNode(p bconfig.NodeConfig, ctx context.Context, numBackUps int) *Node {
 	c.id = p.NodeId.Value
 	c.keyAccessCounts = make(map[string]int64)
 	c.topKeys = make(map[string][]byte)
-	c.otherNodesTopKeys = make(map[int]map[string][]byte)
+	c.otherNodesTopKeys = make(map[string][]byte)
 	c.isTopKey_ = make(map[string]bool)
 	c.isTopKeyChanged = make(map[string]bool)
-	for i := 0; i < numBackUps; i++ {
-		c.otherNodesTopKeys[i] = make(map[string][]byte)
-	}
+	c.backUpNode = make(map[string]int)
+	//for i := 0; i < numBackUps; i++ {
+	//	c.otherNodesTopKeys[i] = make(map[string][]byte)
+	//}
 
 	opts := &redis.Options{
 		Addr:     address,
@@ -160,7 +163,7 @@ func (n *Node) Fail() {
 }
 
 // GetWithTimeout function calls Get and implements a timeout
-func (n *Node) GetWithTimeout(timeout time.Duration, ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
+func (n *Node) GetWithTimeout(timeout time.Duration, ctx context.Context, key string, fields []string, isBackup bool) (map[string][]byte, error, int64) {
 
 	type getResult struct {
 		result map[string][]byte
@@ -176,7 +179,11 @@ func (n *Node) GetWithTimeout(timeout time.Duration, ctx context.Context, key st
 	defer cancel()
 
 	go func() {
-		result, err, size := n.Get(ctxWithTimeout, key, fields)
+		if !isBackup {
+			result, err, size := n.Get(ctxWithTimeout, key, fields)
+		} else {
+			result, err, size := n.GetBackup(ctxWithTimeout, 0, key, fields)
+		}
 		getChan <- getResult{result, err, size}
 	}()
 
@@ -225,10 +232,12 @@ func (n *Node) Get(ctx context.Context, key string, fields []string) (map[string
 	return result, nil, size_
 }
 
-func (n *Node) GetBackup(ctx context.Context, failedNodeID int, key string, fields []string) (map[string][]byte, error, int64) {
+func (n *Node) GetBackup(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
 	if err, isFailed := n.checkFailed(); isFailed {
 		return nil, err, 0
 	}
+
+	failedNodeID := n.backUpNode[key]
 
 	if n.IsTopKey(key) {
 
@@ -280,7 +289,7 @@ func (n *Node) GetBackup(ctx context.Context, failedNodeID int, key string, fiel
 //	}
 //}
 
-func (n *Node) Set(ctx context.Context, key string, value map[string][]byte) (error, int64) {
+func (n *Node) Set(ctx context.Context, key string, value map[string][]byte, backupNode int) (error, int64) {
 	if err, isFailed := n.checkFailed(); isFailed {
 		return err, 0
 	}
@@ -292,16 +301,13 @@ func (n *Node) Set(ctx context.Context, key string, value map[string][]byte) (er
 		return err, size_ // Handle JSON serialization error
 	}
 
-	n.updateAccessCount(key)
-	if n.IsTopKey(key) {
-		n.updateTopKeyValue(key, serializedValue)
-	}
+	go n.updateAccessCountAndSetBackup(key, backupNode, serializedValue)
 
 	_, err = n.redisClient.Set(ctx, key, serializedValue, 0).Result() // '0' means no expiration
 	return err, size_
 }
 
-func (n *Node) SetWithTimeout(timeout time.Duration, ctx context.Context, key string, value map[string][]byte) (error, int64) {
+func (n *Node) SetWithTimeout(timeout time.Duration, ctx context.Context, key string, value map[string][]byte, backUpNode int) (error, int64) {
 	// Create a context with a timeout
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -315,7 +321,7 @@ func (n *Node) SetWithTimeout(timeout time.Duration, ctx context.Context, key st
 	getChan := make(chan getResult, 1)
 
 	go func() {
-		err, size := n.Set(ctxWithTimeout, key, value)
+		err, size := n.Set(ctxWithTimeout, key, value, backUpNode)
 		getChan <- getResult{err, size}
 	}()
 
@@ -353,11 +359,14 @@ func (n *Node) StartTopKeysUpdateTask(ctx context.Context, updateInterval time.D
 	}()
 }
 
-func (n *Node) SendUpdateToOtherNodes(key string, serializedValue []byte, accessCounts int64) {
-	for i, node := range n.otherNodes {
-		if i != n.id {
-			node.ReceiveUpdateFromOtherNode(n.id-1, key, serializedValue, accessCounts)
-		}
+func (n *Node) SendUpdateToBackUpNode(key string, serializedValue []byte, accessCounts int64) {
+	//for i, node := range n.otherNodes {
+	//	if i != n.id {
+	//		node.ReceiveUpdateFromOtherNode(n.id-1, key, serializedValue, accessCounts)
+	//	}
+	//}
+	if nodeIndex, exists := n.backUpNode[key]; exists {
+		n.otherNodes[nodeIndex].ReceiveUpdateFromOtherNode(n.id-1, key, serializedValue, accessCounts)
 	}
 }
 
@@ -407,6 +416,23 @@ func (n *Node) updateAccessCount(key string) {
 	n.isTopKeyChanged[key] = true
 }
 
+func (n *Node) updateAccessCountAndSetBackup(key string, backupNode int, serializedValue []byte) {
+	n.topKeysLock.Lock()
+	defer n.topKeysLock.Unlock()
+	if _, ok := n.keyAccessCounts[key]; !ok {
+		n.keyAccessCounts[key] = 0
+	}
+	n.keyAccessCounts[key]++
+	n.isTopKeyChanged[key] = true
+	n.backUpNode[key] = backupNode
+
+	if _, ok := n.isTopKey_[key]; ok {
+		if n.isTopKey_[key] {
+			n.topKeys[key] = serializedValue
+		}
+	}
+}
+
 func (n *Node) recalculateTopKeys() {
 	n.topKeysLock.Lock()
 	defer n.topKeysLock.Unlock()
@@ -418,7 +444,7 @@ func (n *Node) recalculateTopKeys() {
 
 				if value, exists := n.topKeys[key]; exists {
 					if value != nil {
-						go n.SendUpdateToOtherNodes(key, value, keyAccessCount)
+						go n.SendUpdateToBackUpNode(key, value, keyAccessCount)
 					}
 				}
 
