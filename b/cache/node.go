@@ -144,8 +144,8 @@ func (n *Node) Recover(ctx context.Context) {
 
 func (n *Node) Fail() {
 	n.failMutex.Lock()
-	defer n.failMutex.Unlock()
 	n.isFailed = true
+	n.failMutex.Unlock()
 	n.topKeysLock.Lock()
 	defer n.topKeysLock.Unlock()
 	numBackUps := len(n.otherNodesTopKeys)
@@ -471,7 +471,7 @@ func (n *Node) IsFailed() bool {
 
 func (n *Node) checkFailed() (error, bool) {
 	if n.IsFailed() {
-		time.Sleep(1 * time.Second)
+		// time.Sleep(10 * time.Second)
 		return context.DeadlineExceeded, true
 	}
 	return nil, false

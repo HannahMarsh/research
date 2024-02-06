@@ -7,7 +7,6 @@ import (
 	"benchmark/util"
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -60,6 +59,26 @@ func cacheMeasure(start time.Time, key string, nodeIndex int, operationType stri
 	}
 }
 
+func markFailureDetection(start time.Time, key string, nodeIndex int, operationType string) {
+	latency := time.Now().Sub(start)
+	metrics2.AddMeasurement(metrics2.CLIENT_FAILURE_DETECTION, start,
+		map[string]interface{}{
+			metrics2.OPERATION:  operationType,
+			metrics2.LATENCY:    latency.Seconds(),
+			metrics2.NODE_INDEX: nodeIndex,
+			metrics2.KEY:        key,
+		})
+}
+
+func markRecoveryDetection(start time.Time, nodeIndex int) {
+	latency := time.Now().Sub(start)
+	metrics2.AddMeasurement(metrics2.CLIENT_RECOVERY_DETECTION, start,
+		map[string]interface{}{
+			metrics2.LATENCY:    latency.Seconds(),
+			metrics2.NODE_INDEX: nodeIndex,
+		})
+}
+
 func nodeFailureMeasure(t time.Time, nodeIndex int, isStart bool) {
 	if isStart {
 		metrics2.AddMeasurement(metrics2.NODE_FAILURE, t,
@@ -88,6 +107,32 @@ type CacheWrapper struct {
 	failedNodes       map[int]bool
 	numFailDetections map[int]int
 	threshhold        int
+	nodeOrders        [][]int
+}
+
+func permute(nums []int) [][]int {
+	var helper func([]int, int)
+	var res [][]int
+
+	helper = func(nums []int, n int) {
+		if n == 1 {
+			tmp := make([]int, len(nums))
+			copy(tmp, nums)
+			res = append(res, tmp)
+		} else {
+			for i := 0; i < n; i++ {
+				helper(nums, n-1)
+				if n%2 == 1 {
+					nums[i], nums[n-1] = nums[n-1], nums[i]
+				} else {
+					nums[0], nums[n-1] = nums[n-1], nums[0]
+				}
+			}
+		}
+	}
+
+	helper(nums, len(nums))
+	return res
 }
 
 func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
@@ -96,10 +141,11 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c.ctx = ctx
 	//c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value, p.Cache.EnableReconfiguration.Value)
 	//c.memNodes = make(map[string][]int)
-	c.cacheTimeout = time.Duration(1000) * time.Millisecond
+	c.cacheTimeout = time.Duration(3000) * time.Millisecond
 	c.failedNodes = make(map[int]bool)
 	c.numFailDetections = make(map[int]int)
-	c.threshhold = 10
+	c.threshhold = 1000
+	c.nodeOrders = permute(util.CreateArray(len(p.Cache.Nodes)))
 	c.nodes = make([]*cache.Node, 0, len(p.Cache.Nodes))
 
 	for i := 0; i < len(p.Cache.Nodes); i++ {
@@ -152,7 +198,7 @@ func (c *CacheWrapper) scheduleFailures() {
 }
 
 func (c *CacheWrapper) scheduleCheckForRecoveries(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
@@ -175,6 +221,7 @@ func (c *CacheWrapper) scheduleCheckForRecoveries(ctx context.Context) {
 // checkNodeRecovered checks if a given node has recovered.
 func (c *CacheWrapper) checkNodeRecovered(node int, ctx context.Context) {
 	if _, err, _ := c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, "key", []string{}); err == nil || !errors.Is(err, context.DeadlineExceeded) {
+		go markRecoveryDetection(time.Now(), node)
 		c.mu.Lock()
 		c.failedNodes[node] = false
 		c.numFailDetections[node] = 0
@@ -204,19 +251,14 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
-		c.mu.Lock()
-		failed := c.failedNodes[node]
-		c.mu.Unlock()
-		if !failed {
+		if !c.isNodeFailed(node) {
 			result, err, size = c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, key, fields)
 			if err != nil && errors.Is(err, context.DeadlineExceeded) {
-				c.mu.Lock()
-				c.numFailDetections[node]++
-				if c.numFailDetections[node] > c.threshhold {
-					c.failedNodes[node] = true
-					c.numFailDetections[node] = 0
-				}
-				c.mu.Unlock()
+				go func() {
+					if c.markFailureDetection(node) {
+						markFailureDetection(start, key, node, metrics2.READ)
+					}
+				}()
 			} else {
 				nodeId = node
 				break
@@ -240,17 +282,16 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
-		c.mu.Lock()
-		failed := c.failedNodes[node]
-		c.mu.Unlock()
-		if !failed {
+		if !c.isNodeFailed(node) {
 			err, size = c.nodes[node].SetWithTimeout(c.cacheTimeout, ctx, key, value)
 			if err != nil && errors.Is(err, context.DeadlineExceeded) {
-				c.mu.Lock()
-				c.failedNodes[node] = true
-				c.mu.Unlock()
+				go func() {
+					if c.markFailureDetection(node) {
+						markFailureDetection(start, key, node, metrics2.INSERT)
+					}
+				}()
 			} else {
-				nodeId = i
+				nodeId = node
 				break
 			}
 		}
@@ -260,32 +301,56 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 	return err, size
 }
 
+func (c *CacheWrapper) markFailureDetection(node int) bool {
+	isOverThreshhold := false
+	c.mu.Lock()
+	if c.failedNodes[node] {
+		c.mu.Unlock()
+		return false
+	}
+	c.numFailDetections[node]++
+	if c.numFailDetections[node] > c.threshhold {
+		c.failedNodes[node] = true
+		c.numFailDetections[node] = 0
+		isOverThreshhold = true
+	}
+	c.mu.Unlock()
+	return isOverThreshhold
+}
+
+func (c *CacheWrapper) isNodeFailed(node int) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.failedNodes[node]
+}
+
 func (c *CacheWrapper) GetNodes(key string) []int {
-	numbers := make([]int, 0, len(c.nodes))
-	used := make(map[int]bool)
-	hash := fmt.Sprintf("%d", util.StringHash64(key))
-	hash2 := fmt.Sprintf("%d", util.StringHash64(hash))
-	hash = hash + hash2
-
-	for i := 0; i < len(hash); i++ {
-		digit := int(hash[i]-'0') % len(c.nodes)
-		if !used[digit] {
-			numbers = append(numbers, digit)
-			used[digit] = true
-		}
-		if len(numbers) == len(c.nodes) {
-			break
-		}
-	}
-
-	// Fill in any missing nodes
-	for i := 0; len(numbers) < len(c.nodes); i++ {
-		index := i % len(c.nodes)
-		if !used[index] {
-			numbers = append(numbers, index)
-			used[index] = true
-		}
-	}
-
-	return numbers
+	return c.nodeOrders[util.StringHash(key)%len(c.nodeOrders)]
+	//numbers := make([]int, 0, len(c.nodes))
+	//used := make(map[int]bool)
+	//hash := fmt.Sprintf("%d", util.StringHash64(key))
+	//hash2 := fmt.Sprintf("%d", util.StringHash64(hash))
+	//hash = hash + hash2
+	//
+	//for i := 0; i < len(hash); i++ {
+	//	digit := int(hash[i]-'0') % len(c.nodes)
+	//	if !used[digit] {
+	//		numbers = append(numbers, digit)
+	//		used[digit] = true
+	//	}
+	//	if len(numbers) == len(c.nodes) {
+	//		break
+	//	}
+	//}
+	//
+	//// Fill in any missing nodes
+	//for i := 0; len(numbers) < len(c.nodes); i++ {
+	//	index := i % len(c.nodes)
+	//	if !used[index] {
+	//		numbers = append(numbers, index)
+	//		used[index] = true
+	//	}
+	//}
+	//
+	//return numbers
 }

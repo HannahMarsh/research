@@ -439,6 +439,48 @@ func PlotMetrics(s time.Time, e time.Time) {
 			showNodeFailures: true,
 		},
 		{
+			title: "Cache Node Failure Detections as a Function of Time",
+			yAxis: "Number of Failure Detections (Commutative)",
+			categories: forEachNode(func(nodeIndex int) category {
+				return category{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CLIENT_FAILURE_DETECTION && has(m, NODE_INDEX, nodeIndex)
+						},
+					},
+					reduce:    totalCount,
+					plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+					color:     DARK_COLORS[nodeIndex],
+					showMean:  false,
+				}
+			}),
+			start:            start,
+			end:              end,
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
+			title: "Cache Node Recovery Detections as a Function of Time",
+			yAxis: "Number of Recovery Detections (Commutative)",
+			categories: forEachNode(func(nodeIndex int) category {
+				return category{
+					filters: []func(m Metric) bool{
+						func(m Metric) bool {
+							return m.metricType == CLIENT_RECOVERY_DETECTION && has(m, NODE_INDEX, nodeIndex)
+						},
+					},
+					reduce:    totalCount,
+					plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+					color:     DARK_COLORS[nodeIndex],
+					showMean:  false,
+				}
+			}),
+			start:            start,
+			end:              end,
+			numBuckets:       numBuckets,
+			showNodeFailures: true,
+		},
+		{
 			title: "Number of \"Hot\" (Top 1000 Most Popular) Key Requests Per Second as a Function of Time",
 			yAxis: "Num Requests",
 			categories: forEachNode(func(nodeIndex int) category {
@@ -664,7 +706,12 @@ func makePieChart(fileName string, title string, values plotter.Values, labels [
 		labels[i] = pair.Label
 	}
 
-	for i := 0; i < len(colors)-1; i++ {
+	m := len(colors) - 1
+	if len(values) == len(colors) {
+		m = len(colors)
+	}
+
+	for i := 0; i < m; i++ {
 		if i < len(values) {
 			// Create a pie chart
 			pie, err := piechart.NewPieChart(plotter.Values{values[i]})
@@ -695,7 +742,7 @@ func makePieChart(fileName string, title string, values plotter.Values, labels [
 			break
 		}
 	}
-	if (len(colors) - 1) < len(values) {
+	if (len(colors)) < len(values)+2 {
 		// Create a pie chart
 		pie, err := piechart.NewPieChart(plotter.Values{float64(total) - float64(sofar)})
 		if err != nil {
@@ -707,17 +754,19 @@ func makePieChart(fileName string, title string, values plotter.Values, labels [
 		// Only add label if the slice is larger than our threshold
 		percentage := float64(total-int64(sofar)) / float64(total)
 		if percentage >= 0.03 {
-			pie.Labels.Nominal = []string{fmt.Sprintf("%s", humanize.Comma(total-int64(sofar)))}
+			pie.Labels.Nominal = []string{fmt.Sprintf("%d%%: %s", int(percentage*100), humanize.Comma(total-int64(sofar)))}
 			pie.Labels.Values.Show = true
 			pie.Labels.Values.Percentage = true
 			pie.Labels.Position = 0.5
 		} else {
+			pie.Labels.Nominal = []string{""}
 			pie.Labels.Values.Show = false
+			pie.Labels.Values.Percentage = false
 		}
 
 		pie.Color = colors[len(colors)-1]
 		p.Add(pie)
-		p.Legend.Add("Other", pie)
+		p.Legend.Add(fmt.Sprintf(" Other (%s)", humanize.Comma(total-int64(sofar))), pie)
 	}
 
 	// Save the plot to a PNG file
