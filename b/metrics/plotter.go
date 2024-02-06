@@ -485,7 +485,7 @@ func PlotMetrics(s time.Time, e time.Time) {
 		},
 	}
 	cols := 3
-	rows := int(math.Ceil(float64(len(pi)+1) / float64(cols)))
+	rows := int(math.Ceil(float64(len(pi)+3) / float64(cols)))
 	var piPath [][]string
 	curIndex := 0
 
@@ -496,6 +496,14 @@ func PlotMetrics(s time.Time, e time.Time) {
 				configPath := pngPath + "00-Config_Summary.png"
 				plotConfig(start, end, configPath)
 				row = append(row, configPath)
+			} else if r == rows-1 && c == cols-1 {
+				errorsPath := pngPath + fmt.Sprintf("%d-Cache_Errors.png", curIndex+1)
+				getCacheErrors(errorsPath)
+				row = append(row, errorsPath)
+			} else if r == rows-1 && c == cols-2 {
+				errorsPath := pngPath + fmt.Sprintf("%d-Database_Errors.png", curIndex)
+				plotDBErrors(errorsPath)
+				row = append(row, errorsPath)
 			} else {
 				if curIndex < len(pi) {
 					fmt.Printf("\t(%d/%d): %s\n", curIndex+1, len(pi), pi[curIndex].title)
@@ -525,8 +533,6 @@ func PlotMetrics(s time.Time, e time.Time) {
 	tilePlots(summaryPath, piPath)
 
 	fmt.Printf("Summary plot saved to %s\n", summaryPath)
-	getDBErrors()
-	getCacheErrors()
 
 }
 
@@ -540,7 +546,7 @@ func toTitleCase(str string) string {
 	return caser.String(str)
 }
 
-func getDBErrors() {
+func plotDBErrors(filepath string) {
 	fmt.Printf("Database Errors:\n")
 	errs := make(map[string]int64)
 	if mtrcs := Filter(func(m Metric) bool {
@@ -567,11 +573,11 @@ func getDBErrors() {
 		labels = append(labels, fmt.Sprintf("\"%s\" (%s)", err, humanize.Comma(count)))
 	}
 
-	makePieChart("data/db_errors.png", "Database Errors", values, labels)
+	makePieChart(filepath, "Database Errors", values, labels)
 
 }
 
-func getCacheErrors() {
+func getCacheErrors(filepath string) {
 	fmt.Printf("\nCache Errors:\n")
 	errs := make(map[string]int64)
 	if mtrcs := Filter(func(m Metric) bool {
@@ -595,14 +601,17 @@ func getCacheErrors() {
 		labels = append(labels, fmt.Sprintf("\"%s\" (%s)", err, humanize.Comma(count)))
 	}
 
-	makePieChart("data/cache_errors.png", "Cache Errors", values, labels)
+	makePieChart(filepath, "Cache Errors", values, labels)
 
 }
 
 func makePieChart(fileName string, title string, values plotter.Values, labels []string) {
-	if len(values) == 0 {
-		return
+
+	total := int64(0)
+	for _, v := range values {
+		total += int64(v)
 	}
+
 	colors := []color.Color{
 		color.RGBA{R: 245, G: 131, B: 199, A: 255}, // #f583c7
 		color.RGBA{R: 218, G: 159, B: 214, A: 255}, // #da9fd6
@@ -619,13 +628,15 @@ func makePieChart(fileName string, title string, values plotter.Values, labels [
 	p.Legend.YOffs = vg.Points(extraPadding - 10) // Move the legend up
 	p.HideAxes()
 
-	p.Title.Text = title
+	p.Title.Text = fmt.Sprintf("%s (total = %s)", title, humanize.Comma(total))
 	p.Title.TextStyle.Font.Size = 15
 	p.Title.Padding = vg.Points(extraPadding) // Increase the padding to create more space
 
-	total := int64(0)
-	for _, v := range values {
-		total += int64(v)
+	if total == 0 {
+		if err := p.Save(8*vg.Inch, 4*vg.Inch, fileName); err != nil {
+			log.Panic(err)
+		}
+		return
 	}
 
 	sofar := 0
@@ -729,6 +740,8 @@ func (plt *plotInfo) makePlot() {
 	p.X.Min = 0.0
 	p.X.Max = duration.Seconds()
 	p.Y.Min = 0.0
+
+	p.BackgroundColor = color.RGBA{R: 240, G: 240, B: 240, A: 255}
 
 	// Adjust legend position
 	p.Legend.Top = true                           // Position the legend at the top of the plot

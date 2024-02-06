@@ -12,6 +12,25 @@ import (
 	"time"
 )
 
+// Upon a cache request, the CacheWrapper first determines the set of nodes responsible for the given key using
+// consistent hashing:
+//	   - It hashes each key to an ordered list of cache nodes. This list dictates the priority in which nodes will be
+//	     accessed for all cache operations with that key. For example, an ordering of [3,0,1,2] means that for this
+//	     specific key, the client will first attempt operations on node 3. If node 3 has been detected as a failed node,
+//	     then it will try node 0, and if node 0 has failed, it will try nodes 1 and 2, until the request is fulfilled or
+//	     all nodes are failed.
+//
+// When performing a cache operation on a node, if the node does not respond  within a specified timeout period
+// (cacheTimeout), it is considered a failure detection. Consecutive failure detections for each node are counted, and
+// if a node accumulates a number of detections above a predefined threshold, the node is marked with a failure status,
+// which prevents the CacheWrapper from sending further requests to the node until it is detected as recovered.
+//
+// Recovery checks are scheduled to run periodically, every second. During one of these checks, the CacheWrapper
+// attempts a GetWithTimeout operation for each node marked as failed. If the operation succeeds, or fails with an error
+// other than context.DeadlineExceeded, the node is considered recovered and the failure status is removed from that
+// node (and its failure detection count is reset to 0).
+//
+
 func cacheMeasure(start time.Time, key string, nodeIndex int, operationType string, err error, cacheSize int64, isHottest bool) {
 	latency := time.Now().Sub(start)
 	if err != nil {
@@ -61,12 +80,14 @@ type CacheWrapper struct {
 	nodes []*cache.Node
 	p     *bconfig.Config
 	//nodeRing     *cache.NodeRing
-	timers       []*time.Timer // Timers for scheduling node failures
-	ctx          context.Context
-	memNodes     map[string][]int
-	mu           sync.Mutex // Mutex to protect memNodes
-	cacheTimeout time.Duration
-	failedNodes  map[int]bool
+	timers []*time.Timer // Timers for scheduling node failures
+	ctx    context.Context
+	//memNodes          map[string][]int
+	mu                sync.Mutex // Mutex to protect memNodes
+	cacheTimeout      time.Duration
+	failedNodes       map[int]bool
+	numFailDetections map[int]int
+	threshhold        int
 }
 
 func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
@@ -74,9 +95,11 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c.p = p
 	c.ctx = ctx
 	//c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value, p.Cache.EnableReconfiguration.Value)
-	c.memNodes = make(map[string][]int)
+	//c.memNodes = make(map[string][]int)
 	c.cacheTimeout = time.Duration(1000) * time.Millisecond
 	c.failedNodes = make(map[int]bool)
+	c.numFailDetections = make(map[int]int)
+	c.threshhold = 10
 	c.nodes = make([]*cache.Node, 0, len(p.Cache.Nodes))
 
 	for i := 0; i < len(p.Cache.Nodes); i++ {
@@ -154,6 +177,7 @@ func (c *CacheWrapper) checkNodeRecovered(node int, ctx context.Context) {
 	if _, err, _ := c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, "key", []string{}); err == nil || !errors.Is(err, context.DeadlineExceeded) {
 		c.mu.Lock()
 		c.failedNodes[node] = false
+		c.numFailDetections[node] = 0
 		c.mu.Unlock()
 	}
 }
@@ -187,7 +211,11 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 			result, err, size = c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, key, fields)
 			if err != nil && errors.Is(err, context.DeadlineExceeded) {
 				c.mu.Lock()
-				c.failedNodes[node] = true
+				c.numFailDetections[node]++
+				if c.numFailDetections[node] > c.threshhold {
+					c.failedNodes[node] = true
+					c.numFailDetections[node] = 0
+				}
 				c.mu.Unlock()
 			} else {
 				nodeId = node
