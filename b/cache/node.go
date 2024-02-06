@@ -63,6 +63,12 @@ func NewNode(p bconfig.NodeConfig, ctx context.Context, numBackUps int) *Node {
 		Addr:     address,
 		Password: "", // no password set
 		DB:       0,  // use default DB
+		//PoolSize: 200, // set the pool size to 100
+		//MinIdleConns: 30,                     // maintain at least 10 idle connections
+		//IdleTimeout:  10 * time.Second, // timeout for idle connections
+		//DialTimeout:  10 * time.Second, // timeout for connecting
+		//ReadTimeout:  1 * time.Second,  // timeout for reads
+		//WriteTimeout: 1 * time.Second,  // timeout for writes
 	}
 
 	// Initialize Redis client
@@ -201,7 +207,7 @@ func (n *Node) Get(ctx context.Context, key string, fields []string) (map[string
 	if err, isFailed := n.checkFailed(); isFailed {
 		return nil, err, 0
 	}
-	n.updateAccessCount(key)
+	go n.updateAccessCount(key)
 	size_ := n.Size(ctx)
 
 	str := n.redisClient.Get(ctx, key)
@@ -266,25 +272,6 @@ func (n *Node) GetBackup(ctx context.Context, key string, fields []string) (map[
 	return n.Get(ctx, key, fields)
 }
 
-//func (n *Node) SetBackup(ctx context.Context, otherNodeId int, key string, value map[string][]byte) (error, int64) {
-//	if n.IsTopKey(key) {
-//		if err, isFailed := n.checkFailed(); isFailed {
-//			return err, 0
-//		}
-//		n.updateAccessCount(key)
-//		size_ := n.Size(ctx)
-//
-//		serializedValue, err := json.Marshal(value)
-//		if err != nil {
-//			return err, size_ // Handle JSON serialization error
-//		}
-//		n.updateTopKeyValue(key, serializedValue)
-//		return nil, size_
-//	} else {
-//		return n.Set(ctx, key, value)
-//	}
-//}
-
 func (n *Node) Set(ctx context.Context, key string, value map[string][]byte, backupNode int) (error, int64) {
 	if err, isFailed := n.checkFailed(); isFailed {
 		return err, 0
@@ -297,7 +284,7 @@ func (n *Node) Set(ctx context.Context, key string, value map[string][]byte, bac
 		return err, size_ // Handle JSON serialization error
 	}
 
-	go n.updateAccessCountAndSetBackup(key, backupNode, serializedValue)
+	n.updateAccessCountAndSetBackup(key, backupNode, serializedValue)
 
 	_, err = n.redisClient.Set(ctx, key, serializedValue, 0).Result() // '0' means no expiration
 	return err, size_
@@ -420,7 +407,9 @@ func (n *Node) updateAccessCountAndSetBackup(key string, backupNode int, seriali
 	}
 	n.keyAccessCounts[key]++
 	n.isTopKeyChanged[key] = true
-	n.backUpNode[key] = backupNode
+	if backupNode != -1 {
+		n.backUpNode[key] = backupNode
+	}
 
 	if _, ok := n.isTopKey_[key]; ok {
 		if n.isTopKey_[key] {

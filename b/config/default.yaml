@@ -4,7 +4,7 @@ Database:
         Value: 127.0.0.1:9042
     CassandraConnections:
         Description: The number of concurrent connections to establish with the Cassandra cluster.
-        Value: 2
+        Value: 100
     CassandraKeyspace:
         Description: Keyspace to use within the Cassandra database.
         Value: test
@@ -30,7 +30,7 @@ Database:
         Value: 1
     TimeoutMs:
         Description: The timeout, in milliseconds, for database operations.
-        Value: 1000
+        Value: 200
 Cache:
     VirtualNodes:
         Description: The number of virtual nodes.
@@ -132,10 +132,10 @@ Workload:
         Value: 3
     TargetExecutionTime:
         Description: The target duration to run the benchmark for after the warmup time.
-        Value: 15
+        Value: 10
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 7000
+        Value: 12000
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1

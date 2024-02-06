@@ -168,10 +168,10 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c.ctx = ctx
 	//c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value, p.Cache.EnableReconfiguration.Value)
 	//c.memNodes = make(map[string][]int)
-	c.cacheTimeout = time.Duration(2000) * time.Millisecond
+	c.cacheTimeout = time.Duration(3000) * time.Millisecond
 	c.failedNodes = make(map[int]bool)
 	c.numFailDetections = make(map[int]int)
-	c.threshhold = 1000
+	c.threshhold = 1200
 	c.nodeOrders = permute(util.CreateArray(len(p.Cache.Nodes)))
 	c.nodes = make([]*cache.Node, 0, len(p.Cache.Nodes))
 
@@ -263,30 +263,40 @@ func (c *CacheWrapper) addNode(p bconfig.NodeConfig, ctx context.Context, numBac
 
 func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
 
-	nodes := c.GetNodes(key)
-
 	var result map[string][]byte = nil
 	var err error = nil
 	var size int64 = 0
-	var nodeId int = nodes[0]
-
-	if !c.p.Cache.EnableReconfiguration.Value {
-		nodes = []int{nodes[0]}
-	}
 
 	start := time.Now()
+
+	if !c.p.Cache.EnableReconfiguration.Value {
+		nodeId := c.GetNode(key)
+		result, err, size = c.nodes[nodeId].GetWithTimeout(c.cacheTimeout, ctx, key, fields, false)
+		if err != nil && errors.Is(err, context.DeadlineExceeded) {
+			//go func() {
+			if c.markFailureDetection(nodeId) {
+				markFailureDetection(start, key, nodeId, metrics2.INSERT)
+			}
+			//}()
+		}
+		go cacheMeasure(start, key, nodeId, metrics2.READ, err, size, false)
+		return result, err, size
+	}
+
+	nodes := c.GetNodes(key)
+	var nodeId = nodes[0]
 
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
 		if !c.isNodeFailed(node) {
-			result, err, size = c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, key, fields, i == 0)
+			result, err, size = c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, key, fields, i > 0)
 			if err != nil && errors.Is(err, context.DeadlineExceeded) {
-				go cacheMeasure(start, key, nodeId, metrics2.READ, err, size, false)
-				go func() {
-					if c.markFailureDetection(node) {
-						markFailureDetection(start, key, node, metrics2.READ)
-					}
-				}()
+				// go cacheMeasure(start, key, nodeId, metrics2.READ, err, size, false)
+				//go func() {
+				if c.markFailureDetection(node) {
+					markFailureDetection(start, key, node, metrics2.READ)
+				}
+				//}()
 			} else {
 				nodeId = node
 				break
@@ -294,19 +304,33 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 		}
 	}
 
-	go cacheMeasure(start, key, nodeId, metrics2.READ, err, size, c.nodes[nodeId].IsTopKey(key))
+	go cacheMeasure(start, key, nodeId, metrics2.READ, err, size, false)
 	return result, err, size
 }
 
 func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]byte) (error, int64) {
 
-	nodes := c.GetNodes(key)
-
 	var err error = nil
 	var size int64 = 0
-	var nodeId int = nodes[0]
 
 	start := time.Now()
+
+	if !c.p.Cache.EnableReconfiguration.Value {
+		nodeId := c.GetNode(key)
+		err, size = c.nodes[nodeId].SetWithTimeout(c.cacheTimeout, ctx, key, value, -1)
+		if err != nil && errors.Is(err, context.DeadlineExceeded) {
+			//go func() {
+			if c.markFailureDetection(nodeId) {
+				markFailureDetection(start, key, nodeId, metrics2.INSERT)
+			}
+			//}()
+		}
+		go cacheMeasure(start, key, nodeId, metrics2.INSERT, err, size, false)
+		return err, size
+	}
+
+	nodes := c.GetNodes(key)
+	var nodeId int = nodes[0]
 
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
@@ -325,7 +349,7 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 		}
 	}
 
-	go cacheMeasure(start, key, nodeId, metrics2.INSERT, err, size, c.nodes[nodeId].IsTopKey(key))
+	go cacheMeasure(start, key, nodeId, metrics2.INSERT, err, size, false)
 	return err, size
 }
 
@@ -350,6 +374,10 @@ func (c *CacheWrapper) isNodeFailed(node int) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.failedNodes[node]
+}
+
+func (c *CacheWrapper) GetNode(key string) int {
+	return util.StringHash(key) % len(c.nodes)
 }
 
 func (c *CacheWrapper) GetNodes(key string) []int {
