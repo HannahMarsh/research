@@ -304,7 +304,7 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 		}
 	}
 
-	go cacheMeasure(start, key, nodeId, metrics2.READ, err, size, false)
+	go func() { cacheMeasure(start, key, nodeId, metrics2.READ, err, size, c.nodes[nodeId].IsTopKey(key)) }()
 	return result, err, size
 }
 
