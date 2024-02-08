@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+// TODO move node logic to a different docker container.
+
 type Node struct {
 	isFailed          bool
 	failMutex         sync.Mutex

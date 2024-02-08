@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"math"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -113,13 +114,16 @@ func initialGlobal(onProperties func()) {
 		onProperties()
 	}
 
-	//addr := globalProps.Logging.DebugPprof.Value
-	//go func() {
-	//	err := http.ListenAndServe(addr, nil)
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//}()
+	addr := globalProps.Logging.DebugPprof.Value
+
+	// http.HandleFunc("/debug/pprof/profile", Profile)
+
+	go func() {
+		err := http.ListenAndServe(addr, nil)
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	metrics.Init(globalProps)
 
@@ -147,13 +151,13 @@ func initialLoadGlobal(onProperties func()) {
 		onProperties()
 	}
 
-	//addr := globalProps.Logging.DebugPprof.Value
-	//go func() {
-	//	err := http.ListenAndServe(addr, nil)
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//}()
+	addr := globalProps.Logging.DebugPprof.Value
+	go func() {
+		err := http.ListenAndServe(addr, nil)
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	metrics.Init(globalProps)
 
