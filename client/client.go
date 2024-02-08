@@ -1,10 +1,10 @@
 package client
 
 import (
-	bconfig "benchmark/config"
-	"benchmark/db"
-	"benchmark/workload"
 	"context"
+	bconfig "research/config"
+	"research/db"
+	"research/workload"
 	"sync"
 	"time"
 )

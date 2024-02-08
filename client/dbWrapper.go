@@ -14,10 +14,10 @@
 package client
 
 import (
-	bconfig "benchmark/config"
-	"benchmark/db"
-	metrics2 "benchmark/metrics"
 	"context"
+	bconfig "research/config"
+	"research/db"
+	metrics2 "research/metrics"
 	"time"
 )
 

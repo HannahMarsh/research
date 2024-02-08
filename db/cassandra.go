@@ -1,13 +1,13 @@
 package db
 
 import (
-	bconfig "benchmark/config"
-	"benchmark/util"
 	"bytes"
 	"context"
 	"fmt"
 	"github.com/gocql/gocql"
 	"log"
+	bconfig "research/config"
+	"research/util"
 	"strings"
 	"time"
 )

@@ -1,8 +1,8 @@
 package metrics
 
 import (
-	bconfig "benchmark/config"
 	"fmt"
+	bconfig "research/config"
 	"sync"
 	"time"
 )

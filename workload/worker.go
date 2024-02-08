@@ -1,11 +1,11 @@
 package workload
 
 import (
-	"benchmark/cache"
-	bconfig "benchmark/config"
-	"benchmark/db"
 	"context"
 	"math/rand"
+	"research/cache"
+	bconfig "research/config"
+	"research/db"
 	"time"
 )
 

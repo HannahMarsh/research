@@ -14,8 +14,8 @@
 package util
 
 import (
-	bconfig "benchmark/config"
 	"fmt"
+	bconfig "research/config"
 	"sort"
 )
 

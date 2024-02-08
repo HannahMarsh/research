@@ -31,8 +31,8 @@
 package generator
 
 import (
-	"benchmark/util"
 	"math/rand"
+	"research/util"
 	"sync/atomic"
 )
 

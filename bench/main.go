@@ -14,12 +14,6 @@
 package main
 
 import (
-	"benchmark/client"
-	bconfig "benchmark/config"
-	"benchmark/db"
-	"benchmark/metrics"
-	"benchmark/util"
-	"benchmark/workload"
 	"context"
 	"fmt"
 	"github.com/dustin/go-humanize"
@@ -28,6 +22,12 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"research/client"
+	bconfig "research/config"
+	"research/db"
+	"research/metrics"
+	"research/util"
+	"research/workload"
 	"syscall"
 	"time"
 

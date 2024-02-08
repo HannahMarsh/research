@@ -1,9 +1,9 @@
 package workload
 
 import (
-	"benchmark/cache"
-	bconfig "benchmark/config"
 	"context"
+	"research/cache"
+	bconfig "research/config"
 	"testing"
 	"time"
 )

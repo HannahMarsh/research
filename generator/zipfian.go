@@ -31,10 +31,10 @@
 package generator
 
 import (
-	"benchmark/util"
 	"fmt"
 	"math"
 	"math/rand"
+	"research/util"
 	"time"
 )
 

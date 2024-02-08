@@ -1,12 +1,12 @@
 package client
 
 import (
-	"benchmark/cache"
-	bconfig "benchmark/config"
-	metrics2 "benchmark/metrics"
-	"benchmark/util"
 	"context"
 	"errors"
+	"research/cache"
+	bconfig "research/config"
+	metrics2 "research/metrics"
+	"research/util"
 	"sync"
 	"time"
 )

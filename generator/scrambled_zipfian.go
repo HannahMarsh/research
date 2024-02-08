@@ -31,8 +31,8 @@
 package generator
 
 import (
-	"benchmark/util"
 	"math/rand"
+	"research/util"
 )
 
 // ScrambledZipfian produces a sequence of items, such that some items are more popular than
