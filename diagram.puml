@@ -31,7 +31,8 @@ namespace cache {
     }
 }
 
-"cache.Cache" <|-- "cache.Node"
+"cache.Cache" <|-- "implements""cache.Node"
+
 
 namespace client {
     class CacheWrapper << (S,Aquamarine) >> {
@@ -73,116 +74,12 @@ namespace client {
     }
 }
 
-"cache.Cache" <|-- "client.CacheWrapper"
-"db.AnalyzeDB" <|-- "client.DbWrapper"
-"db.DB" <|-- "client.DbWrapper"
+"cache.Cache" <|-- "implements""client.CacheWrapper"
+"db.AnalyzeDB" <|-- "implements""client.DbWrapper"
+"db.DB" <|-- "implements""client.DbWrapper"
 
-namespace config {
-    class ArrayProperty << (S,Aquamarine) >> {
-        + Description string
-        + Value int
-
-    }
-    class BoolProperty << (S,Aquamarine) >> {
-        + Description string
-        + Value bool
-
-    }
-    class CacheConfig << (S,Aquamarine) >> {
-        + VirtualNodes IntProperty
-        + Nodes []NodeConfig
-
-    }
-    class Config << (S,Aquamarine) >> {
-        + Database DatabaseConfig
-        + Cache CacheConfig
-        + Workload WorkloadConfig
-        + Measurements MeasurementsConfig
-        + Logging LoggingConfig
-
-        + ToString() string
-
-    }
-    class DatabaseConfig << (S,Aquamarine) >> {
-        + CassandraCluster StringProperty
-        + CassandraConnections IntProperty
-        + CassandraKeyspace StringProperty
-        + CassandraTableName StringProperty
-        + CassandraPassword StringProperty
-        + CassandraUsername StringProperty
-        + PasswordAuthenticator BoolProperty
-        + ReplicationStrategy StringProperty
-        + ReplicationFactor IntProperty
-
-    }
-    class FailureInterval << (S,Aquamarine) >> {
-        + Start float64
-        + End float64
-
-    }
-    class FloatProperty << (S,Aquamarine) >> {
-        + Description string
-        + Value float64
-
-    }
-    class IntProperty << (S,Aquamarine) >> {
-        + Description string
-        + Value int
-
-    }
-    class LoggingConfig << (S,Aquamarine) >> {
-        + DebugPprof StringProperty
-        + Label StringProperty
-        + LogInterval IntProperty
-        + Silence BoolProperty
-        + Status StringProperty
-        + Verbose BoolProperty
-
-    }
-    class MeasurementsConfig << (S,Aquamarine) >> {
-        + MetricsOutputDir StringProperty
-        + WarmUpTime IntProperty
-        + ZeroPadding IntProperty
-
-    }
-    class NodeConfig << (S,Aquamarine) >> {
-        + NodeId IntProperty
-        + Address StringProperty
-        + FailureIntervals []FailureInterval
-        + MaxSize IntProperty
-        + UseDefaultDatabase BoolProperty
-
-    }
-    class StringProperty << (S,Aquamarine) >> {
-        + Description string
-        + Value string
-
-    }
-    class WorkloadConfig << (S,Aquamarine) >> {
-        + PerformDataIntegrityChecks BoolProperty
-        + EnableDroppingDataOnStart BoolProperty
-        + MaxFields IntProperty
-        + AvFieldSizeBytes IntProperty
-        + FieldSizeDistribution StringProperty
-        + NumUniqueKeys IntProperty
-        + DbOperationRetryLimit IntProperty
-        + TargetExecutionTime IntProperty
-        + TargetOperationsPerSec IntProperty
-        + WorkloadIdentifier StringProperty
-        + Command StringProperty
-        + ExponentialFrac FloatProperty
-        + ExponentialPercentile FloatProperty
-        + HotspotDataFraction FloatProperty
-        + HotspotOpnFraction FloatProperty
-        + HashInsertOrder BoolProperty
-        + InsertProportion FloatProperty
-        + KeyPrefix StringProperty
-        + ReadAllFields BoolProperty
-        + RequestDistribution StringProperty
-
-    }
-}
-
+"client.DbWrapper""uses" o-- "config.Config"
+"client.DbWrapper""uses" o-- "db.DB"
 
 namespace db {
     interface AnalyzeDB  {
@@ -220,7 +117,8 @@ namespace db {
     }
 }
 
-"db.DB" <|-- "db.CassandraDB"
+"db.DB" <|-- "implements""db.CassandraDB"
+
 
 namespace generator {
     class AcknowledgedCounter << (S,Aquamarine) >> {
@@ -356,145 +254,19 @@ namespace generator {
 
     }
 }
-"generator.Number" *-- "generator.Discrete"
-"generator.Number" *-- "generator.Exponential"
-"generator.Number" *-- "generator.Histogram"
-"generator.Number" *-- "generator.Hotspot"
-"generator.Number" *-- "generator.ScrambledZipfian"
-"generator.Number" *-- "generator.SkewedLatest"
-"generator.Number" *-- "generator.Uniform"
-"generator.Number" *-- "generator.Zipfian"
+"generator.Number" *-- "extends""generator.Discrete"
+"generator.Number" *-- "extends""generator.Exponential"
+"generator.Number" *-- "extends""generator.Histogram"
+"generator.Number" *-- "extends""generator.Hotspot"
+"generator.Number" *-- "extends""generator.ScrambledZipfian"
+"generator.Number" *-- "extends""generator.SkewedLatest"
+"generator.Number" *-- "extends""generator.Uniform"
+"generator.Number" *-- "extends""generator.Zipfian"
 
-"generator.Generator" <|-- "generator.AcknowledgedCounter"
-"generator.Generator" <|-- "generator.Constant"
-"generator.Generator" <|-- "generator.Counter"
-"generator.Generator" <|-- "generator.Sequential"
-
-namespace metrics {
-    class Metric << (S,Aquamarine) >> {
-        - metricType string
-        - timestamp time.Time
-        - tags <font color=blue>map</font>[string]<font color=blue>interface</font>{}
-
-        + TestTimestamp(test <font color=blue>func</font>(time.Time) bool) bool
-        + IsType(type_ string) bool
-
-    }
-    class MetricSlice << (S,Aquamarine) >> {
-        + Filter(tests ...<font color=blue>func</font>(Metric) bool) MetricSlice
-        + FilterByTimestamp(test <font color=blue>func</font>(time.Time) bool) MetricSlice
-        + CountFrom(start time.Time, end time.Time) int
-
-    }
-    class category << (S,Aquamarine) >> {
-        - filters []<font color=blue>func</font>(Metric) bool
-        - reduce <font color=blue>func</font>([][]Metric, time.Duration) float64
-        - plotLabel string
-        - color color.RGBA
-        - showMean bool
-
-    }
-    class metrics.MetricSlice << (T, #FF7700) >>  {
-    }
-    class plotInfo << (S,Aquamarine) >> {
-        - categories []category
-        - numBuckets int
-        - title string
-        - yAxis string
-        - path string
-        - csvPath string
-        - start time.Time
-        - end time.Time
-        - showNodeFailures bool
-
-        - makePlot() 
-        - plotNodeFailures(p *plot.Plot) 
-
-    }
-}
-
-
-namespace util {
-    class BufPool << (S,Aquamarine) >> {
-        - p *sync.Pool
-
-        + Get() []byte
-        + Put(buf []byte) 
-
-    }
-    class ConcurrentMap << (S,Aquamarine) >> {
-        - shards []*ConcurrentMapShared
-        - shardCount int
-
-        - fnv32(key int) uint32
-
-        + GetShard(key int) *ConcurrentMapShared
-        + MSet(data <font color=blue>map</font>[int]int64) 
-        + Set(key int, value int64) 
-        + Upsert(key int, value int64, cb UpsertCb) int64
-        + SetIfAbsent(key int, value int64) bool
-        + Get(key int) (int64, bool)
-        + Count() int
-        + Has(key int) bool
-        + Remove(key int) 
-        + RemoveCb(key int, cb RemoveCb) bool
-        + Pop(key int) (int64, bool)
-        + IsEmpty() bool
-        + Iter() <font color=blue>chan</font> Tuple
-        + IterBuffered() <font color=blue>chan</font> Tuple
-        + Items() <font color=blue>map</font>[int]int64
-        + IterCb(fn IterCb) 
-        + Keys() []int
-        + MarshalJSON() ([]byte, error)
-
-    }
-    class ConcurrentMapShared << (S,Aquamarine) >> {
-        - items <font color=blue>map</font>[int]int64
-
-    }
-    class FieldPair << (S,Aquamarine) >> {
-        + Field string
-        + Value []byte
-
-    }
-    class FieldPairs << (S,Aquamarine) >> {
-        + Len() int
-        + Swap(i int, j int) 
-        + Less(i int, j int) bool
-
-    }
-    class RowCodec << (S,Aquamarine) >> {
-        - fieldIndices <font color=blue>map</font>[string]int64
-        - fields []string
-
-        + Decode(row []byte, fields []string) (<font color=blue>map</font>[string][]byte, error)
-        + Encode(buf []byte, values <font color=blue>map</font>[string][]byte) ([]byte, error)
-
-    }
-    class SpinLock << (S,Aquamarine) >> {
-        - f uint32
-
-        + Lock() 
-        + Unlock() 
-        + TryLock() bool
-        + String() string
-
-    }
-    class Tuple << (S,Aquamarine) >> {
-        + Key int
-        + Val int64
-
-    }
-    class util.FieldPairs << (T, #FF7700) >>  {
-    }
-    class util.IterCb << (T, #FF7700) >>  {
-    }
-    class util.RemoveCb << (T, #FF7700) >>  {
-    }
-    class util.UpsertCb << (T, #FF7700) >>  {
-    }
-}
-"sync.RWMutex" *-- "util.ConcurrentMapShared"
+"generator.Generator" <|-- "implements""generator.AcknowledgedCounter"
+"generator.Generator" <|-- "implements""generator.Constant"
+"generator.Generator" <|-- "implements""generator.Counter"
+"generator.Generator" <|-- "implements""generator.Sequential"
 
 
 namespace workload {
@@ -556,11 +328,7 @@ namespace workload {
 }
 
 
-"__builtin__.int64" #.. "workload.operationType"
-"__builtin__.string" #.. "workload.contextKey"
-"metrics.[]Metric" #.. "metrics.MetricSlice"
-"util.<font color=blue>func</font>(bool, int64, int64) int64" #.. "util.UpsertCb"
-"util.<font color=blue>func</font>(int, int64) " #.. "util.IterCb"
-"util.<font color=blue>func</font>(int, int64, bool) bool" #.. "util.RemoveCb"
-"util.[]FieldPair" #.. "util.FieldPairs"
+
+"__builtin__.int64" #.. "alias of""workload.operationType"
+"__builtin__.string" #.. "alias of""workload.contextKey"
 @enduml
