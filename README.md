@@ -1,22 +1,25 @@
 # A Study of Cache-Database Interactions
 
-## Description
+## Introduction and Background
 
-This project simulates a client-driven request distribution with multiple cache nodes that sit in front of a central database. Each data key is hashed on the client side to one of the cache nodes, and upon a cache miss, the request is redirected to the database. The presence of the distributed caching system reduces the load on the database and allows the system to handle many more requests per second than possible with the the database alone, as a large portion of read requests are fulfilled by the cache.
-
-We aim to investigate how cache node failures impact system stability. Our proposed solution introduces a dual-layered hashing mechanism that assigns each key to both a primary and a secondary (backup) node, with a selective replication strategy among the cache nodes that prioritizes the synchronization of the top 1% of the "hottest" keys between each pair of primary and secondary nodes. By implementing this strategy, we aim to increase system robustness upon node failure by redirecting a significant portion of traffic from failed primary nodes to backup nodes enough to prevent failure of the database until the failed node recovers.
-
-![](img/cache_database.drawio.png)
+In read-heavy systems that are backed by a central database, it is common strategy to use a distributed caching system as a buffer to significantly reduce the load on the database. This allows for handling a workload much greater than the capacity of the underlying database, as the cache fulfills a large percentage of the requests. 
 
 ## Problem Statement
 
-In distributed caching systems designed to handle a workload greater than the capacity of the underlying database, the failure of a cache node can cause a surge of requests to the database, creating a bottleneck effect for the other nodes who are prevented from acquiring fresh data upon a cache-miss. 
-
-Given that these cache nodes depend on a small but continuous flow of data from the database, any interruption to this flow can diminish the cache system's overall hit rate. This exacerbates the situation by directing even more requests to the already overburdened database. This underscores a vulnerability in simple distributed caching systems, where the failure of an individual component can compromise the reliability of the entire system.
+However, when the system operates at or close to its maximum capacity, even a temporary failure of one or more cache nodes could overwhelm the database, creating a bottleneck effect for the other nodes who are prevented from acquiring fresh data upon a cache-miss. As the overall hit rate diminishes, this leads to a cascade of failures throughout the system as more requests go unmet. Thus the stability of the entire system depends on the reliability of each individual node; should even one fail, it could trigger a feedback loop that jeopardizes the system's overall functionality.
 
 ## Proposed Solution
 
-We propose a mechanism where each key is hashed not only to a primary node but also to a backup node. Primary nodes are tasked with periodically updating backup nodes with the cached data of the top 1% of the most frequently accessed ("hottest") keys. This selective replication strategy is designed to ensure that in the event of a node failure, the system can redirect a significant proportion of requests to the corresponding backup node, at least enough to prevent the database from being overhwlmed until the failed node can recover. 
+Our project aims to address this critical vulnerability. We propose a solution that introduces a dual-layered hashing mechanism to assign each key to both a primary and a secondary (backup) node. Each node keeps track of it's hottest keys along with which backup node each key is hashed to. Nodes are tasked with periodically synchronizing their hottest keys with their corresponding backup nodes. This selective replication focuses on maintaining the most critical data readily available in the backup node's cache, thus providing a rapid failover solution if the primary node becomes unresponsive. The client keeps track of the status of each node and when one is detected in a failed state, This approach aims to maintain overall operational integrity and prevent the cascade of failures that compromise system stability.
+
+![](img/cache_database.drawio.png)
+
+## Project Description
+
+This project models a scenario where client requests are managed through multiple cache nodes placed ahead of a central database. Client-side hashing directs each request to a cache node; if data is not found (a cache miss), the request then goes to the database. 
+
+
+
 
 ## System Configuration
 - 5 servers - one for the database and four for cache instances.
