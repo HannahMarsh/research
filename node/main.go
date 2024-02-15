@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"log"
 	"net/http"
 	"strconv"
 	"sync"
@@ -184,15 +185,51 @@ func CreateNewNode(idStr string, address string, maxMemMbsStr string, maxMemoryP
 }
 
 func main() {
+
+	go serveClients()
+	go serveOtherNodes()
+}
+
+func serveClients() {
 	// Create a new ServeMux
 	mux := http.NewServeMux()
 
 	// Register handler functions for different paths
 	mux.HandleFunc("/newNode", newNodeHandler)
 	mux.HandleFunc("/get", handleGet)
+	mux.HandleFunc("/set", handleSet)
+	mux.HandleFunc("/fail", handleFail)
+	mux.HandleFunc("/recover", handleRecover)
 
 	// Start the server with the mux as the handler
-	http.ListenAndServe(":8080", mux)
+	err := http.ListenAndServe(":8080", mux)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func serveOtherNodes() {
+	// Create a new ServeMux
+	mux := http.NewServeMux()
+
+	// Register handler functions for different paths
+	mux.HandleFunc("/newNode", newNodeHandler)
+
+	// Start the server with the mux as the handler
+	err := http.ListenAndServe(":8081", mux)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func handleFail(w http.ResponseWriter, r *http.Request) {
+	globalNode.Fail()
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleRecover(w http.ResponseWriter, r *http.Request) {
+	globalNode.Recover(globalNode.ctx)
+	w.WriteHeader(http.StatusOK)
 }
 
 // ServeHTTP serves the cache node over HTTP
@@ -365,4 +402,23 @@ func (c *Node) Size(ctx context.Context) int64 {
 		return 0
 	}
 	return size
+}
+
+func (c *Node) Recover(ctx context.Context) {
+	c.failMutex.Lock()
+	defer c.failMutex.Unlock()
+	c.isFailed = false
+
+	// clear the cache to simulate an empty state
+	err := c.redisClient.FlushDB(ctx).Err()
+	if err != nil {
+		log.Printf("Failed to clear cache: %v", err)
+	}
+}
+
+func (c *Node) Fail() {
+	c.failMutex.Lock()
+	c.isFailed = true
+	c.failMutex.Unlock()
+	c.topKeys = sync.Map{}
 }
