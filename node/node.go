@@ -13,14 +13,23 @@ import (
 	"time"
 )
 
+type OtherNode struct {
+	address    string
+	data       map[string]map[string][]byte
+	dataMutex  sync.Map
+	backUpData sync.Map
+}
+
 type Node struct {
 	ctx         context.Context
 	isFailed    bool
 	failMutex   sync.Mutex
 	redisClient *redis.Client
-	otherNodes  []string
+	otherNodes  []OtherNode
 	id          int
 	topKeys     sync.Map // Store this node's top hottest keys
+
+	data []sync.Map
 }
 
 func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, otherNodes []string) *Node {
@@ -28,7 +37,13 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 	c := new(Node)
 	c.id = int(id)
 	c.ctx = ctx
-	c.otherNodes = otherNodes
+	c.otherNodes = make([]OtherNode, len(otherNodes))
+
+	for node, addr := range otherNodes {
+		c.otherNodes[node] = OtherNode{
+			address: addr,
+		}
+	}
 
 	opts := &redis.Options{
 		Addr:     address,
@@ -97,6 +112,27 @@ func (c *Node) Done() {
 		log.Printf("Failed to close Redis client: %v", err)
 	}
 	c.ctx.Done()
+}
+
+func (o *OtherNode) Set(key string, vvv map[string][]byte) {
+	v, _ := o.dataMutex.LoadOrStore(key, new(sync.Mutex))
+	if vv, ok2 := v.(*sync.Mutex); ok2 {
+		vv.Lock()
+		defer vv.Unlock()
+		o.data[key] = vvv
+	} else {
+		panic("failed to load or store")
+	}
+}
+
+func (o *OtherNode) Get(key string) map[string][]byte {
+	v, _ := o.data.LoadOrStore(key, new(value))
+	if vv, ok2 := v.(*value); ok2 {
+		vvv, _ := vv.GetAndIncrement()
+		return vvv
+	} else {
+		panic("failed to load or store")
+	}
 }
 
 func (c *Node) UpdateKey(key string, vvv map[string][]byte, node int, accessCount int) {
