@@ -126,13 +126,14 @@ func (o *OtherNode) Set(key string, vvv map[string][]byte) {
 }
 
 func (o *OtherNode) Get(key string) map[string][]byte {
-	v, _ := o.data.LoadOrStore(key, new(value))
-	if vv, ok2 := v.(*value); ok2 {
-		vvv, _ := vv.GetAndIncrement()
-		return vvv
-	} else {
-		panic("failed to load or store")
-	}
+	//v, _ := o.data.LoadOrStore(key, new(value))
+	//if vv, ok2 := v.(*value); ok2 {
+	//	vvv, _ := vv.GetAndIncrement()
+	//	return vvv
+	//} else {
+	//	panic("failed to load or store")
+	//}
+	return o.data[key]
 }
 
 func (c *Node) UpdateKey(key string, vvv map[string][]byte, node int, accessCount int) {
@@ -181,7 +182,7 @@ func (c *Node) SendUpdateToBackUpNodes() {
 				}
 
 				// Create a new POST request with JSON body
-				req, err := http.NewRequest("POST", c.otherNodes[node], bytes.NewBuffer(jsonData))
+				req, err := http.NewRequest("POST", c.otherNodes[node].address, bytes.NewBuffer(jsonData))
 				if err != nil {
 					fmt.Println("Error creating request:", err)
 					return false

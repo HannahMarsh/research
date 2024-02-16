@@ -1,7 +1,7 @@
 package node
 
 import (
-	"container/heap"
+	"node/util"
 	"sync"
 )
 
@@ -11,19 +11,11 @@ const (
 	prime64  uint64 = 1099511628211
 )
 
-type Data struct {
-	key   string
-	value interface{}
-	freq  int
-	index int // Index in the heap
-	hash  int
-}
-
 type LFUCache struct {
 	capacity int
-	items    []map[string]Data
+	items    []map[string]util.Data
 	locks    []sync.RWMutex
-	heap     itemHeap
+	heap     *util.ConcurrentQueue
 	curSize  int
 	curLock  sync.RWMutex
 }
@@ -31,8 +23,8 @@ type LFUCache struct {
 func NewLFUCache(capacity int) *LFUCache {
 	return &LFUCache{
 		capacity: capacity,
-		items:    make([]map[string]Data, capacity),
-		heap:     make(itemHeap, 0, capacity),
+		items:    make([]map[string]util.Data, capacity),
+		heap:     util.NewConcurrentQueue(capacity),
 		locks:    make([]sync.RWMutex, capacity),
 		curSize:  0,
 	}
@@ -46,9 +38,8 @@ func (c *LFUCache) Get(key string) (value interface{}, ok bool) {
 
 	if section := c.items[index]; section != nil {
 		if item, exists := section[key]; exists {
-			item.freq++
-			heap.Fix(&c.heap, item.index)
-			return item.value, true
+			item.Freq++
+			return item.Value, true
 		}
 	}
 	return nil, false
@@ -61,7 +52,7 @@ func (c *LFUCache) Set(key string, value interface{}) {
 	defer c.locks[index].Unlock()
 
 	if c.items[index] == nil {
-		c.items[index] = make(map[string]Data)
+		c.items[index] = make(map[string]util.Data)
 	}
 
 	item, exists := c.items[index][key]
@@ -87,19 +78,19 @@ func (c *LFUCache) Set(key string, value interface{}) {
 		}
 
 		if evict { // Evict least frequently accessed item
-			evicted := heap.Pop(&c.heap).(*Data)
-			delete(c.items[evicted.hash], evicted.key)
+			// evicted := &(heap.Dequeue())
+			// delete(c.items[evicted.hash], evicted.Key)
 		}
 
-		c.items[index][key] = Data{key: key, value: value, hash: index, index: index, freq: 1}
+		c.items[index][key] = util.Data{Key: key, Value: value, Hash: index, Index: index, Freq: 1}
 	} else {
-		item.value = value
-		item.hash = index
-		item.index = index
-		item.freq++
-		heap.Fix(&c.heap, item.index)
+		item.Value = value
+		item.Hash = index
+		item.Index = index
+		item.Freq++
+		// heap.Fix(&c.heap, item.index)
 	}
-	heap.Push(&c.heap, c.items[index][key])
+	// heap.Push(&c.heap, c.items[index][key])
 }
 
 func (c *LFUCache) hash(key string) int {
