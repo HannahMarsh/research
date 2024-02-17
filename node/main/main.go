@@ -1,4 +1,4 @@
-package node
+package main
 
 import (
 	"encoding/json"
@@ -27,12 +27,12 @@ func (s *stringSlice) Set(value string) error {
 }
 
 func main() {
-	flag.StringVar(&clientPort, "clientPort", "8080", "Port for client communication")
-	flag.StringVar(&otherNodePort, "otherNodePort", "8081", "Port for other node communication")
-	flag.StringVar(&redisAddress, "redisAddress", "127.0.0.1:9042", "address of redis server")
+	flag.StringVar(&clientPort, "p", "8080", "Port for client communication")
+	flag.StringVar(&otherNodePort, "n", "8081", "Port for other node communication")
+	flag.StringVar(&redisAddress, "ra", "127.0.0.1:9042", "address of redis server")
 
 	var otherValues stringSlice
-	flag.Var(&otherValues, "other", "comma-separated list of other node urls")
+	flag.Var(&otherValues, "nodes", "comma-separated list of other node urls")
 
 	otherNodes = otherValues
 

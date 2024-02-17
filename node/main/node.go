@@ -1,4 +1,4 @@
-package node
+package main
 
 import (
 	"bytes"
@@ -26,7 +26,7 @@ type Node struct {
 	redisClient *redis.Client
 	otherNodes  []OtherNode
 	id          int
-	topKeys     *LFUCache
+	topKeys     *main.LFUCache
 }
 
 func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, otherNodes []string) *Node {
