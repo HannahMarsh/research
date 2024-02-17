@@ -13,63 +13,167 @@ func mockData(key string) Data {
 	return Data{Key: key}
 }
 
-func TestConcurrentQueueEnqueueDequeue(t *testing.T) {
+type op struct {
+	key                 string
+	doEnqueue           bool
+	doDequeue           bool
+	expectEviction      bool
+	expectedEvictedKey  string
+	expectNilDequeue    bool
+	expectedDequeuedKey string
+	testEviction        bool
+	testDequeue         bool
+	print               bool
+	sizeAfter           int
+	testSize            bool
+}
 
-	fmt.Printf("\n\n")
-
-	cq := NewConcurrentQueue(2) // Small size to test eviction
-
-	// Test Enqueue
-	keyEvicted, _ := cq.Enqueue(mockData("key1"))
-	fmt.Printf("enqueue(key1): \n%s\n", cq.ToString())
-	if keyEvicted != "" {
-		t.Errorf("Expected no eviction, but got %s", keyEvicted)
+func (o *op) apply(nonDefault op) *op {
+	default_ := op{}
+	if o.key == default_.key && nonDefault.key != default_.key {
+		o.key = nonDefault.key
 	}
-
-	cq.Enqueue(mockData("key2"))
-	fmt.Printf("enqueue(key2): \n%s\n", cq.ToString())
-
-	keyEvicted, _ = cq.Enqueue(mockData("key3"))
-	fmt.Printf("enqueue(key3): \n%s\n", cq.ToString())
-	if keyEvicted != "key1" {
-		t.Errorf("Expected key1 to be evicted, but got %s", keyEvicted)
+	if o.doEnqueue == default_.doEnqueue && nonDefault.doEnqueue != default_.doEnqueue {
+		o.doEnqueue = nonDefault.doEnqueue
 	}
-
-	// Test Dequeue
-	data := cq.Dequeue()
-	fmt.Printf("dequeue: \n%s\n", cq.ToString())
-	if data.Key != "key2" {
-		t.Errorf("Expected key2 to dequeue, got %s", data.Key)
+	if o.doDequeue == default_.doDequeue && nonDefault.doDequeue != default_.doDequeue {
+		o.doDequeue = nonDefault.doDequeue
 	}
-
-	data = cq.Dequeue()
-	fmt.Printf("dequeue: \n%s\n", cq.ToString())
-	if data.Key != "key3" {
-		t.Errorf("Expected key3 to dequeue, got %s", data.Key)
+	if o.expectEviction == default_.expectEviction && nonDefault.expectEviction != default_.expectEviction {
+		o.expectEviction = nonDefault.expectEviction
 	}
+	if o.expectedEvictedKey == default_.expectedEvictedKey && nonDefault.expectedEvictedKey != default_.expectedEvictedKey {
+		o.expectedEvictedKey = nonDefault.expectedEvictedKey
+	}
+	if o.expectNilDequeue == default_.expectNilDequeue && nonDefault.expectNilDequeue != default_.expectNilDequeue {
+		o.expectNilDequeue = nonDefault.expectNilDequeue
+	}
+	if o.expectedDequeuedKey == default_.expectedDequeuedKey && nonDefault.expectedDequeuedKey != default_.expectedDequeuedKey {
+		o.expectedDequeuedKey = nonDefault.expectedDequeuedKey
+	}
+	if o.testEviction == default_.testEviction && nonDefault.testEviction != default_.testEviction {
+		o.testEviction = nonDefault.testEviction
+	}
+	if o.testDequeue == default_.testDequeue && nonDefault.testDequeue != default_.testDequeue {
+		o.testDequeue = nonDefault.testDequeue
+	}
+	if o.print == default_.print && nonDefault.print != default_.print {
+		o.print = nonDefault.print
+	}
+	if o.sizeAfter == default_.sizeAfter && nonDefault.sizeAfter != default_.sizeAfter {
+		o.sizeAfter = nonDefault.sizeAfter
+	}
+	if o.testSize == default_.testSize && nonDefault.testSize != default_.testSize {
+		o.testSize = nonDefault.testSize
+	}
+	return o
+}
 
-	data = cq.Dequeue()
-	fmt.Printf("dequeue: \n%s\n", cq.ToString())
-	if data.Key != "" {
-		t.Errorf("Expected empty dequeue, got %s", data.Key)
+func (o *op) test(t *testing.T, cq *ConcurrentQueue) {
+	if o.doEnqueue {
+		nodeEvicted, _, _ := cq.enqueue(mockData(o.key))
+		if o.print {
+			fmt.Printf("enqueue(%s): \n%s\n", o.key, cq.toString())
+		}
+		if o.testEviction {
+			if nodeEvicted == nil {
+				if o.expectEviction {
+					t.Errorf("Expected eviction of %s, but got none", o.expectedEvictedKey)
+				}
+			} else {
+				if !o.expectEviction {
+					t.Errorf("Expected no eviction, but got %s", nodeEvicted.data.Key)
+				} else if nodeEvicted.data.Key != o.expectedEvictedKey {
+					t.Errorf("Expected %s to be evicted, but got %s", o.expectedEvictedKey, nodeEvicted.data.Key)
+				}
+			}
+		}
+	} else if o.doDequeue {
+		nodeDq := cq.dequeue()
+		if o.print {
+			fmt.Printf("dequeue(): \n%s\n", cq.toString())
+		}
+		if o.testDequeue {
+			if nodeDq == nil {
+				if !o.expectNilDequeue {
+					t.Errorf("Expected non-empty dequeue, but got none")
+				}
+			} else {
+				if o.expectNilDequeue {
+					t.Errorf("Expected empty dequeue, but got %s", nodeDq.data.Key)
+				} else if nodeDq.data.Key != o.expectedDequeuedKey {
+					t.Errorf("Expected %s to dequeue, but got %s", o.expectedDequeuedKey, nodeDq.data.Key)
+				}
+			}
+		}
 	}
 }
 
-func TestConcurrentQueueConcurrency(t *testing.T) {
-	cq := NewConcurrentQueue(100) // Larger queue for concurrency test
+func testSequentialOps(t *testing.T, cq *ConcurrentQueue, ops []op, globalOp op) {
+	fmt.Printf("\n\n")
+	for _, o := range ops {
+		o.apply(globalOp).test(t, cq)
+	}
+}
+
+func testConcurrentOps(t *testing.T, cq *ConcurrentQueue, ops []op, globalOp op) {
+	fmt.Printf("\n\n")
+
 	var wg sync.WaitGroup
-	numGoroutines := 100
+	numGoroutines := len(ops)
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			key := fmt.Sprintf("key%d", id)
-			cq.Enqueue(mockData(key))
+			ops[id].apply(globalOp).test(t, cq)
 		}(i)
 	}
 
 	wg.Wait()
+}
+
+func TestSequentialEviction(t *testing.T) {
+	testSequentialOps(t, NewConcurrentQueue(2), []op{
+		{
+			key:       "key1",
+			doEnqueue: true,
+		}, {
+			key:       "key2",
+			doEnqueue: true,
+		}, {
+			key:                "key3",
+			doEnqueue:          true,
+			expectEviction:     true,
+			expectedEvictedKey: "key1",
+		}, {
+			doEnqueue:           true,
+			expectedDequeuedKey: "key2",
+		}, {
+			doEnqueue:           true,
+			expectedDequeuedKey: "key3",
+		}, {
+			doDequeue:        true,
+			expectNilDequeue: true,
+		},
+	}, op{
+		testEviction: true,
+		testDequeue:  true,
+		print:        true,
+	})
+}
+
+func TestConcurrentQueueConcurrency(t *testing.T) {
+	numGoroutines := 100
+	ops := make([]op, numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		ops[i] = op{
+			key:       fmt.Sprintf("key%d", i),
+			doEnqueue: true,
+		}
+	}
+
+	testConcurrentOps(t, NewConcurrentQueue(100), ops, op{})
 
 	// Assuming there's a way to check the size of the queue.
 	// This part is pseudo-code since the implementation of size checking is not provided.

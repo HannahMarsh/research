@@ -2,57 +2,122 @@ package cq
 
 import (
 	"fmt"
-	"node/main/util"
+	"strings"
+	"sync"
 )
 
-type Data struct {
+type Data2 struct {
 	Key         string
-	Value       map[string][]byte
+	Value       interface{}
 	Index       int
 	PrimaryNode int
 	BackUpNode  int
 }
 
-type qNode struct {
-	next  *qNode
-	prev  *qNode
-	data  Data
+type ConcurrentQueue2 struct {
+	q        *queue_2
+	lock     sync.Mutex
+	size     int
+	sizeLock sync.RWMutex
+	maxSize  int
+}
+
+func NewConcurrentQueue2(maxSize int) *ConcurrentQueue2 {
+	return &ConcurrentQueue2{
+		q:       newQueue2(maxSize),
+		maxSize: maxSize,
+	}
+}
+
+func (cq *ConcurrentQueue2) Size() int {
+	cq.sizeLock.RLock()
+	defer cq.sizeLock.RUnlock()
+	return cq.size
+}
+
+func (cq *ConcurrentQueue2) Get(key string) (Data2, bool) {
+	cq.lock.Lock()
+	defer cq.lock.Unlock()
+	if d, present := cq.q.get(key); present {
+		cq.q.enqueue(d)
+		return d, true
+	}
+	return Data2{}, false
+}
+
+func (cq *ConcurrentQueue2) Set(key string, d Data2) {
+	d.Key = key
+	cq.Enqueue(d)
+}
+
+func (cq *ConcurrentQueue2) GetTop(n int) map[int]map[string]interface{} {
+	cq.lock.Lock()
+	defer cq.lock.Unlock()
+	return cq.q.getTop(n)
+}
+
+func (cq *ConcurrentQueue2) Enqueue(data Data2) (string, bool) {
+	cq.lock.Lock()
+	defer cq.lock.Unlock()
+	bottom, isAlreadyTop, increaseSize := cq.q.enqueue(data)
+	if increaseSize {
+		cq.sizeLock.Lock()
+		cq.size++
+		cq.sizeLock.Unlock()
+	} else {
+		// fmt.Printf("\nAfter enqueue: \n%s\n", cq.q.toString())
+	}
+	if bottom != nil {
+		return bottom.data.Key, isAlreadyTop
+	}
+	return "", isAlreadyTop
+}
+
+func (cq *ConcurrentQueue2) Dequeue() Data2 {
+	cq.lock.Lock()
+	defer cq.lock.Unlock()
+	dq := cq.q.dequeue()
+	if dq != nil {
+		cq.sizeLock.Lock()
+		cq.size--
+		cq.sizeLock.Unlock()
+		return dq.data
+	}
+	return Data2{}
+}
+
+func (cq *ConcurrentQueue2) ToString() string {
+	return cq.q.toString()
+}
+
+// internal struct (not thread safe):
+
+type qNode2 struct {
+	next  *qNode2
+	prev  *qNode2
+	data  Data2
 	index int
 }
 
-func (qn *qNode) toString() string {
-	next := ""
-	prev := ""
-	if qn.next != nil {
-		next = fmt.Sprintf("next=%s", qn.next.data.Key)
-	}
-	if qn.prev != nil {
-		prev = fmt.Sprintf("prev=%s", qn.prev.data.Key)
-	}
-	if next != "" && prev != "" {
-		next += ", "
-	}
-	return fmt.Sprintf("%s: [%d],  %s%s", qn.data.Key, qn.index, next, prev)
-}
-
-type ConcurrentQueue struct {
-	top     *qNode
-	bottom  *qNode
-	nodes   []*qNode
+type queue_2 struct {
+	top     *qNode2
+	bottom  *qNode2
+	nodes   []*qNode2
 	maxSize int
 	hash    map[string]int
 	isFull_ bool
 }
 
-func NewConcurrentQueue(maxSize int) *ConcurrentQueue {
-	return &ConcurrentQueue{
-		nodes:   make([]*qNode, maxSize),
+func newQueue2(maxSize int) *queue_2 {
+	return &queue_2{
+		nodes:   make([]*qNode2, maxSize),
 		hash:    make(map[string]int),
 		maxSize: maxSize,
 	}
 }
 
-func (q *ConcurrentQueue) remove(qn *qNode, removeFromArray bool) {
+// TODO fix all these cases for when qn == bottom or top
+func (q *queue_2) remove(qn *qNode2, removeFromArray bool) {
 	if qn == nil {
 		panic("remove called on nil")
 	}
@@ -87,7 +152,7 @@ func (q *ConcurrentQueue) remove(qn *qNode, removeFromArray bool) {
 	}
 }
 
-func (q *ConcurrentQueue) moveNodeToTop(qn *qNode) {
+func (q *queue_2) moveNodeToTop(qn *qNode2) {
 	if qn == nil {
 		panic("moveNodeToFront called on nil")
 	}
@@ -110,7 +175,7 @@ func (q *ConcurrentQueue) moveNodeToTop(qn *qNode) {
 	}
 }
 
-func (q *ConcurrentQueue) moveNodeToBottom(qn *qNode) {
+func (q *queue_2) moveNodeToBottom(qn *qNode2) {
 	if qn == nil {
 		panic("moveNodeToBottom called on nil")
 	}
@@ -136,7 +201,7 @@ func (q *ConcurrentQueue) moveNodeToBottom(qn *qNode) {
 	q.bottom = qn
 }
 
-func (q *ConcurrentQueue) swap(qn1 *qNode, qn2 *qNode) {
+func (q *queue_2) swap(qn1 *qNode2, qn2 *qNode2) {
 	if qn1 == nil || qn2 == nil {
 		panic("swap called on nil")
 	}
@@ -181,10 +246,10 @@ func (q *ConcurrentQueue) swap(qn1 *qNode, qn2 *qNode) {
 	q.bottom.prev = nil
 }
 
-func (q *ConcurrentQueue) enqueue(data Data) (*qNode, bool, bool) {
+func (q *queue_2) enqueue(data Data2) (*qNode2, bool, bool) {
 
 	if q.top == nil {
-		n := &qNode{data: data, index: q.findFirstNilIndex()}
+		n := &qNode2{data: data, index: q.findFirstNilIndex()}
 		if n.index >= 0 {
 			q.hash[data.Key] = n.index
 			q.nodes[n.index] = n
@@ -203,7 +268,7 @@ func (q *ConcurrentQueue) enqueue(data Data) (*qNode, bool, bool) {
 
 	if q.bottom == nil {
 		firstNil := q.findFirstNilIndex()
-		q.bottom = &qNode{data: data, index: firstNil}
+		q.bottom = &qNode2{data: data, index: firstNil}
 		if q.bottom.index >= 0 {
 			q.hash[data.Key] = q.bottom.index
 			q.nodes[q.bottom.index] = q.bottom
@@ -218,7 +283,7 @@ func (q *ConcurrentQueue) enqueue(data Data) (*qNode, bool, bool) {
 		return nil, true, true
 	}
 
-	var n *qNode
+	var n *qNode2
 	if index, exists := q.contains(data.Key); exists {
 		n = q.nodes[index]
 		n.data = data
@@ -226,7 +291,7 @@ func (q *ConcurrentQueue) enqueue(data Data) (*qNode, bool, bool) {
 		//fmt.Printf("\nAfter moving to top: \n%s\n", q.toString())
 		return nil, true, false
 	} else {
-		n = &qNode{data: data, index: q.findFirstNilIndex()}
+		n = &qNode2{data: data, index: q.findFirstNilIndex()}
 		if n.index >= 0 {
 			q.hash[data.Key] = n.index
 			q.nodes[n.index] = n
@@ -249,7 +314,7 @@ func (q *ConcurrentQueue) enqueue(data Data) (*qNode, bool, bool) {
 	}
 }
 
-func (q *ConcurrentQueue) dequeue() *qNode {
+func (q *queue_2) dequeue() *qNode2 {
 	bottom := q.popBottom()
 	if bottom == nil {
 		return nil
@@ -258,7 +323,22 @@ func (q *ConcurrentQueue) dequeue() *qNode {
 	return bottom
 }
 
-func (q *ConcurrentQueue) popBottom() *qNode {
+func (qn *qNode2) toString() string {
+	next := ""
+	prev := ""
+	if qn.next != nil {
+		next = fmt.Sprintf("next=%s", qn.next.data.Key)
+	}
+	if qn.prev != nil {
+		prev = fmt.Sprintf("prev=%s", qn.prev.data.Key)
+	}
+	if next != "" && prev != "" {
+		next += ", "
+	}
+	return fmt.Sprintf("%s: [%d],  %s%s", qn.data.Key, qn.index, next, prev)
+}
+
+func (q *queue_2) popBottom() *qNode2 {
 	if q.bottom == nil {
 		if q.top == nil {
 			return nil
@@ -272,7 +352,7 @@ func (q *ConcurrentQueue) popBottom() *qNode {
 	return bottom
 }
 
-func (q *ConcurrentQueue) popTop() *qNode {
+func (q *queue_2) popTop() *qNode2 {
 	if q.top == nil {
 		return nil
 	}
@@ -281,7 +361,7 @@ func (q *ConcurrentQueue) popTop() *qNode {
 	return top
 }
 
-func (q *ConcurrentQueue) contains(key string) (int, bool) {
+func (q *queue_2) contains(key string) (int, bool) {
 	if index, exists := q.hash[key]; exists {
 		if q.nodes[index] != nil {
 			if q.nodes[index].data.Key == key {
@@ -292,7 +372,7 @@ func (q *ConcurrentQueue) contains(key string) (int, bool) {
 	return -1, false
 }
 
-func (q *ConcurrentQueue) hashNewKey(str string) int {
+func (q *queue_2) hashNewKey(str string) int {
 	if h, exists := q.hash[str]; exists {
 		return h
 	} else {
@@ -300,11 +380,11 @@ func (q *ConcurrentQueue) hashNewKey(str string) int {
 	}
 }
 
-func (q *ConcurrentQueue) isFull() bool {
+func (q *queue_2) isFull() bool {
 	return q.findFirstNilIndex() == -1
 }
 
-func (q *ConcurrentQueue) findFirstNilIndex() int {
+func (q *queue_2) findFirstNilIndex() int {
 	if q.isFull_ {
 		return -1
 	}
@@ -317,21 +397,35 @@ func (q *ConcurrentQueue) findFirstNilIndex() int {
 	return -1
 }
 
-func (q *ConcurrentQueue) Get(key string) (map[string][]byte, bool) {
-	if index, exists := q.contains(key); exists && index < q.maxSize {
-		if node := q.nodes[index]; node != nil {
-			q.moveNodeToTop(node)
-			return node.data.Value, true
-		}
+func (q *queue_2) get(key string) (Data2, bool) {
+	if index, exists := q.contains(key); exists {
+		return q.nodes[index].data, true
 	}
-	return nil, false
+	return Data2{}, false
 }
 
-func (q *ConcurrentQueue) Set(key string, value map[string][]byte, backupNode int) {
-	q.enqueue(Data{Key: key, Value: value, BackUpNode: backupNode})
+func (q *queue_2) set(key string, d Data2) {
+	if index, exists := q.contains(key); exists {
+		q.nodes[index].data = d
+	}
 }
 
-func (q *ConcurrentQueue) getTop(n int) map[int]map[string]interface{} {
+//func (q *queue_2) getTop(n int, filter func(Data2)bool) map[string]interface{} {
+//	m := make(map[string]interface{})
+//	count := 0
+//	for cur := q.top; count < n && cur != nil; cur = cur.prev {
+//		if filter(cur.data) {
+//			m[cur.data.Key] = cur.data.Value
+//			count++
+//			if count == n {
+//				break
+//			}
+//		}
+//	}
+//	return m
+//}
+
+func (q *queue_2) getTop(n int) map[int]map[string]interface{} {
 	m := make(map[int]map[string]interface{})
 	count := make(map[int]int)
 	for cur := q.top; cur != nil; cur = cur.prev {
@@ -349,7 +443,7 @@ func (q *ConcurrentQueue) getTop(n int) map[int]map[string]interface{} {
 	return m
 }
 
-func (q *ConcurrentQueue) toString() string {
+func (q *queue_2) toString() string {
 	str := "\t_______________________________________\n"
 	str += "\tqueue = "
 	cur := q.top
@@ -362,7 +456,7 @@ func (q *ConcurrentQueue) toString() string {
 		str += fmt.Sprintf("%s, ", cur.data.Key)
 		cur = cur.prev
 	}
-	str += fmt.Sprintf("\b\b]\n\thash  = {%s}\n", util.MapToString(q.hash))
+	str += fmt.Sprintf("\b\b]\n\thash  = {%s}\n", mapToString(q.hash))
 	str += "\t- - - - - - - - - - - - - - - - - - - -\n"
 	if q.top == nil {
 		str += fmt.Sprintf("\ttop    -> nil\n")
@@ -383,4 +477,16 @@ func (q *ConcurrentQueue) toString() string {
 	}
 	str += "\t_______________________________________\n"
 	return str
+}
+
+func mapToString2(m map[string]int) string {
+	var b strings.Builder
+	for key, value := range m {
+		b.WriteString(fmt.Sprintf("%s: %d, ", key, value))
+	}
+	// Remove the last comma and space if the map is not empty
+	if b.Len() > 0 {
+		return b.String()[:b.Len()-2]
+	}
+	return b.String()
 }
