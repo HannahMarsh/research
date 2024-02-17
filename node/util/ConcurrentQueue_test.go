@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -117,6 +118,8 @@ func TestConcurrentQueueConcurrencyExtended(t *testing.T) {
 
 	wg.Wait()
 
+	fmt.Printf("%s", cq.ToString())
+
 	// Verify that the size of the queue is as expected
 	actualSize := cq.Size()
 	if actualSize < numOps-numOps/2 {
@@ -139,34 +142,80 @@ func TestConcurrentQueueConcurrencyExtended(t *testing.T) {
 }
 
 func TestQueuePopularityDequeue(t *testing.T) {
-	// Initialize your priority queue
-	pq := NewConcurrentQueue(100) // Adjust size as needed
 
-	keys := []string{
-		"key3", "key3", "key1", "key2", "key3", "key2", "key3",
+	type data struct {
+		keys            []string
+		expectedDequeue []string
 	}
 
-	expectedDequeue := []string{
-		"key1", "key2", "key3",
+	d := []data{
+		{
+			keys:            []string{"key3", "key3", "key1", "key2", "key3", "key2", "key3"},
+			expectedDequeue: []string{"key1", "key2", "key3"},
+		}, {
+			keys:            []string{"key2", "key3", "key1", "key3", "key2", "key3"},
+			expectedDequeue: []string{"key1", "key2", "key3"},
+		}, {
+			keys:            []string{"key3", "key3", "key3", "key2", "key1", "key2", "key1", "key2"},
+			expectedDequeue: []string{"key3", "key1", "key2"},
+		}, {
+			keys:            []string{"key1", "key1", "key1", "key1", "key2", "key3", "key2", "key3", "key3"},
+			expectedDequeue: []string{"key1", "key2", "key3"},
+		},
+		{
+			keys:            []string{"key4", "key5", "key5", "key4", "key4", "key5", "key4", "key5", "key4"},
+			expectedDequeue: []string{"key5", "key4"},
+		},
+		{
+			keys:            []string{"key6", "key6", "key7", "key6", "key6", "key7", "key7", "key7", "key6"},
+			expectedDequeue: []string{"key7", "key6"},
+		},
+		// Test with some random ordering
+		{
+			keys:            []string{"key8", "key9", "key8", "key10", "key8", "key9", "key10", "key10"},
+			expectedDequeue: []string{"key8", "key9", "key10"},
+		},
 	}
 
-	// Enqueue the keys
-	for _, key := range keys {
-		pq.Enqueue(Data{Key: key, Value: nil})
-		fmt.Printf("enqueue(%s): \n%s\n", key, pq.ToString())
-	}
+	for testNum, v := range d {
 
-	// Dequeue the keys and collect the order
-	var dequeuedKeys []string
-	for i := 0; i < len(expectedDequeue); i++ {
-		data := pq.Dequeue()
-		dequeuedKeys = append(dequeuedKeys, data.Key)
-	}
+		keys := v.keys
+		expectedDequeue := v.expectedDequeue
 
-	// Verify the dequeue order matches the expected popularity order
-	for i, key := range expectedDequeue {
-		if dequeuedKeys[i] != key {
-			t.Errorf("Expected %s at position %d, got %s", key, i, dequeuedKeys[i])
+		// Initialize your priority queue
+		pq := NewConcurrentQueue(100) // Adjust size as needed
+
+		// Enqueue the keys
+		for _, key := range keys {
+			pq.Enqueue(Data{Key: key, Value: nil})
+			//fmt.Printf("enqueue(%s): \n%s\n", key, pq.ToString())
+		}
+
+		// Dequeue the keys and collect the order
+		var dequeuedKeys []string
+		for i := 0; i < len(expectedDequeue); i++ {
+			data_ := pq.Dequeue()
+			dequeuedKeys = append(dequeuedKeys, data_.Key)
+		}
+
+		// Verify the dequeue order matches the expected popularity order
+		for i, key := range expectedDequeue {
+			if dequeuedKeys[i] != key {
+				t.Errorf("Test%d: Expected %s at position %d, got %s\n\t\t\t\t\t\t\t\t\texpected: %s\n\t\t\t\t\t\t\t\t\tgot:      %s", testNum, key, i, dequeuedKeys[i], stringArrayToString(expectedDequeue), stringArrayToString(dequeuedKeys))
+				return
+			}
 		}
 	}
+}
+
+func stringArrayToString(strArr []string) string {
+	var b strings.Builder
+	for _, str := range strArr {
+		b.WriteString(fmt.Sprintf("%s, ", str))
+	}
+	// Remove the last comma and space if the map is not empty
+	if b.Len() > 0 {
+		return b.String()[:b.Len()-2]
+	}
+	return b.String()
 }
