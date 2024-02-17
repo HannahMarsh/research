@@ -137,10 +137,8 @@ func handleUpdateKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var params struct {
-		Key         string `json:"key"`
-		Value       []byte `json:"value"`
-		NodeId      int    `json:"nodeId"`
-		AccessCount int    `json:"accessCount"`
+		Data   []byte `json:"value"`
+		NodeId int    `json:"nodeId"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
@@ -148,12 +146,12 @@ func handleUpdateKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var data map[string][]byte
-	if err := json.Unmarshal(params.Value, &data); err != nil {
+	var data map[string]map[string][]byte
+	if err := json.Unmarshal(params.Data, &data); err != nil {
 		panic(err)
 	}
 
-	globalNode.UpdateKey(params.Key, data, params.NodeId, params.AccessCount)
+	globalNode.ReceiveUpdate(data, params.NodeId)
 
 	w.WriteHeader(http.StatusOK)
 }

@@ -177,6 +177,12 @@ func (c *Node) SendUpdateToBackUpNodes() {
 	}
 }
 
+func (c *Node) ReceiveUpdate(data map[string]map[string][]byte, node int) {
+	c.otherNodes[node].dataMutex.Lock()
+	c.otherNodes[node].data = data
+	c.otherNodes[node].dataMutex.Unlock()
+}
+
 func (c *Node) Set(key string, value map[string][]byte, backupNode int) (error, int64) {
 	if err, isFailed := c.checkFailed(); isFailed {
 		return err, 0
