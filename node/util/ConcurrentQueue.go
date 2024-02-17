@@ -9,9 +9,7 @@ import (
 type Data struct {
 	Key   string
 	Value interface{}
-	Freq  int
-	Index int // Index in the heap
-	Hash  int
+	Index int
 }
 
 type ConcurrentQueue struct {
@@ -33,6 +31,27 @@ func (cq *ConcurrentQueue) Size() int {
 	cq.sizeLock.RLock()
 	defer cq.sizeLock.RUnlock()
 	return cq.size
+}
+
+func (cq *ConcurrentQueue) Get(key string) (Data, bool) {
+	cq.lock.Lock()
+	defer cq.lock.Unlock()
+	if d, present := cq.q.get(key); present {
+		cq.q.enqueue(d)
+		return d, true
+	}
+	return Data{}, false
+}
+
+func (cq *ConcurrentQueue) Set(key string, d Data) {
+	d.Key = key
+	cq.Enqueue(d)
+}
+
+func (cq *ConcurrentQueue) GetTop(n int) map[string]interface{} {
+	cq.lock.Lock()
+	defer cq.lock.Unlock()
+	return cq.q.getTop(n)
 }
 
 func (cq *ConcurrentQueue) Enqueue(data Data) (string, bool) {
@@ -192,7 +211,6 @@ func (q *queue_) swap(qn1 *qNode, qn2 *qNode) {
 	prev2 := qn2.prev
 	next2 := qn2.next
 
-	// TODO store these values ahead of time before swpapping becuase qn1 could be infron or behind q2 directly
 	if prev1 != nil {
 		prev1.next = qn2
 	}
@@ -375,6 +393,32 @@ func (q *queue_) findFirstNilIndex() int {
 	}
 	q.isFull_ = true
 	return -1
+}
+
+func (q *queue_) get(key string) (Data, bool) {
+	if index, exists := q.contains(key); exists {
+		return q.nodes[index].data, true
+	}
+	return Data{}, false
+}
+
+func (q *queue_) set(key string, d Data) {
+	if index, exists := q.contains(key); exists {
+		q.nodes[index].data = d
+	}
+}
+
+func (q *queue_) getTop(n int) map[string]interface{} {
+	top := q.top
+	m := make(map[string]interface{})
+	for i := 0; i < n; i++ {
+		if top == nil {
+			break
+		}
+		m[top.data.Key] = top.data.Value
+		top = top.prev
+	}
+	return m
 }
 
 func (q *queue_) toString() string {

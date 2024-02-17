@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Mock Data implementation assuming node.Data is a struct with a Key field.
@@ -93,7 +94,7 @@ func TestConcurrentQueueConcurrencyExtended(t *testing.T) {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			//time.Sleep(time.Duration(time.Now().UnixNano()%10) * time.Microsecond)
+			time.Sleep(time.Duration(time.Now().UnixNano()%10) * time.Microsecond)
 			key := fmt.Sprintf("key%d", id)
 			cq.Enqueue(Data{Key: key, Value: id})
 			enqueuedItemsLock.Lock()
