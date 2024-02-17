@@ -2,15 +2,41 @@ package node
 
 import (
 	"encoding/json"
+	"flag"
 	"net/http"
+	"strings"
 )
 
-const clientPort = "8080"
-const otherNodePort = "8081"
+var redisAddress string = "127.0.0.1"
+var clientPort string = "8080"
+var otherNodePort string = "8081"
+var otherNodes []string = []string{"127.0.0.1:8081"}
 
 var globalNode *Node
 
+// stringSlice is a custom type that satisfies the flag.Value interface.
+type stringSlice []string
+
+func (s *stringSlice) String() string {
+	return strings.Join(*s, ", ")
+}
+
+func (s *stringSlice) Set(value string) error {
+	*s = strings.Split(value, ",")
+	return nil
+}
+
 func main() {
+	flag.StringVar(&clientPort, "clientPort", "8080", "Port for client communication")
+	flag.StringVar(&otherNodePort, "otherNodePort", "8081", "Port for other node communication")
+	flag.StringVar(&redisAddress, "redisAddress", "127.0.0.1:9042", "address of redis server")
+
+	var otherValues stringSlice
+	flag.Var(&otherValues, "other", "comma-separated list of other node urls")
+
+	otherNodes = otherValues
+
+	flag.Parse()
 	go serveClients()
 	go serveOtherNodes()
 }
@@ -194,18 +220,16 @@ func handleRecover(w http.ResponseWriter, r *http.Request) {
 // ServeHTTP serves the cache node over HTTP
 func newNodeHandler(w http.ResponseWriter, r *http.Request) {
 	var params struct {
-		Id              int      `json:"id"`
-		Address         string   `json:"address"`
-		MaxMemMbs       int      `json:"maxMemMbs"`
-		MaxMemoryPolicy string   `json:"maxMemoryPolicy"`
-		OtherNodes      []string `json:"otherNodes"`
+		Id              int    `json:"id"`
+		MaxMemMbs       int    `json:"maxMemMbs"`
+		MaxMemoryPolicy string `json:"maxMemoryPolicy"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	globalNode = CreateNewNode(params.Id, params.Address, params.MaxMemMbs, params.MaxMemoryPolicy, params.OtherNodes)
+	globalNode = CreateNewNode(params.Id, redisAddress, params.MaxMemMbs, params.MaxMemoryPolicy, otherNodes)
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte("Node created successfully"))
 	if err != nil {

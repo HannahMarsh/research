@@ -62,7 +62,7 @@ package node
 //	ReceiveUpdateFromOtherNode(key string, serializedValue []byte, accessCounts int64)
 //}
 //
-//func NewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, ctx context.Context, numBackUps int) *Node {
+//func NewNode(id int, redisAddress string, maxMemMbs int, maxMemoryPolicy string, ctx context.Context, numBackUps int) *Node {
 //
 //	c := new(Node)
 //	c.id = id
@@ -74,7 +74,7 @@ package node
 //	c.backUpNode = make(map[string]int)
 //
 //	opts := &redis.Options{
-//		Addr:     address,
+//		Addr:     redisAddress,
 //		Password: "", // no password set
 //		DB:       0,  // use default DB
 //		//PoolSize: 200, // set the pool size to 100
