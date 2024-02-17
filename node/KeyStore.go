@@ -23,12 +23,12 @@ func (c *LFUCache) Get(key string) (value interface{}, ok bool) {
 	return nil, false
 }
 
-func (c *LFUCache) Set(key string, value interface{}) {
-	data := util.Data{Key: key, Value: value}
+func (c *LFUCache) Set(key string, value interface{}, primaryNode int, backUpNode int) {
+	data := util.Data{Key: key, Value: value, PrimaryNode: primaryNode, BackUpNode: backUpNode}
 	c.cq.Set(key, data)
 }
 
-func (c *LFUCache) GetTop(n int) map[string]interface{} {
+func (c *LFUCache) GetTop(n int) map[int]map[string]interface{} {
 	return c.cq.GetTop(n)
 }
 

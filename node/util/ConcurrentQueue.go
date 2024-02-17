@@ -7,9 +7,11 @@ import (
 )
 
 type Data struct {
-	Key   string
-	Value interface{}
-	Index int
+	Key         string
+	Value       interface{}
+	Index       int
+	PrimaryNode int
+	BackUpNode  int
 }
 
 type ConcurrentQueue struct {
@@ -48,7 +50,7 @@ func (cq *ConcurrentQueue) Set(key string, d Data) {
 	cq.Enqueue(d)
 }
 
-func (cq *ConcurrentQueue) GetTop(n int) map[string]interface{} {
+func (cq *ConcurrentQueue) GetTop(n int) map[int]map[string]interface{} {
 	cq.lock.Lock()
 	defer cq.lock.Unlock()
 	return cq.q.getTop(n)
@@ -408,15 +410,35 @@ func (q *queue_) set(key string, d Data) {
 	}
 }
 
-func (q *queue_) getTop(n int) map[string]interface{} {
-	top := q.top
-	m := make(map[string]interface{})
-	for i := 0; i < n; i++ {
-		if top == nil {
-			break
+//func (q *queue_) getTop(n int, filter func(Data)bool) map[string]interface{} {
+//	m := make(map[string]interface{})
+//	count := 0
+//	for cur := q.top; count < n && cur != nil; cur = cur.prev {
+//		if filter(cur.data) {
+//			m[cur.data.Key] = cur.data.Value
+//			count++
+//			if count == n {
+//				break
+//			}
+//		}
+//	}
+//	return m
+//}
+
+func (q *queue_) getTop(n int) map[int]map[string]interface{} {
+	m := make(map[int]map[string]interface{})
+	count := make(map[int]int)
+	for cur := q.top; cur != nil; cur = cur.prev {
+		if _, exists := count[cur.data.BackUpNode]; !exists {
+			count[cur.data.BackUpNode] = 0
+			m[cur.data.BackUpNode] = make(map[string]interface{})
 		}
-		m[top.data.Key] = top.data.Value
-		top = top.prev
+		if count[cur.data.BackUpNode] >= n {
+			continue
+		}
+		count[cur.data.BackUpNode]++
+
+		m[cur.data.BackUpNode][cur.data.Key] = cur.data.Value
 	}
 	return m
 }

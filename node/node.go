@@ -14,10 +14,9 @@ import (
 )
 
 type OtherNode struct {
-	address    string
-	data       map[string]map[string][]byte
-	dataMutex  sync.Map
-	backUpData sync.Map
+	address   string
+	data      map[string]map[string][]byte
+	dataMutex sync.RWMutex
 }
 
 type Node struct {
@@ -27,9 +26,7 @@ type Node struct {
 	redisClient *redis.Client
 	otherNodes  []OtherNode
 	id          int
-	topKeys     sync.Map // Store this node's top hottest keys
-
-	data []sync.Map
+	topKeys     *LFUCache
 }
 
 func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, otherNodes []string) *Node {
@@ -38,6 +35,7 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 	c.id = int(id)
 	c.ctx = ctx
 	c.otherNodes = make([]OtherNode, len(otherNodes))
+	c.topKeys = NewLFUCache(20_000)
 
 	for node, addr := range otherNodes {
 		c.otherNodes[node] = OtherNode{
@@ -114,42 +112,6 @@ func (c *Node) Done() {
 	c.ctx.Done()
 }
 
-func (o *OtherNode) Set(key string, vvv map[string][]byte) {
-	v, _ := o.dataMutex.LoadOrStore(key, new(sync.Mutex))
-	if vv, ok2 := v.(*sync.Mutex); ok2 {
-		vv.Lock()
-		defer vv.Unlock()
-		o.data[key] = vvv
-	} else {
-		panic("failed to load or store")
-	}
-}
-
-func (o *OtherNode) Get(key string) map[string][]byte {
-	//v, _ := o.data.LoadOrStore(key, new(value))
-	//if vv, ok2 := v.(*value); ok2 {
-	//	vvv, _ := vv.GetAndIncrement()
-	//	return vvv
-	//} else {
-	//	panic("failed to load or store")
-	//}
-	return o.data[key]
-}
-
-func (c *Node) UpdateKey(key string, vvv map[string][]byte, node int, accessCount int) {
-	k, _ := c.topKeys.LoadOrStore(node, new(sync.Map))
-	if keys, ok := k.(*sync.Map); ok {
-		v, _ := keys.LoadOrStore(key, new(value))
-		if vv, ok2 := v.(*value); ok2 {
-			vv.SetValueAndAccessCount(vvv, int64(accessCount))
-		} else {
-			panic("failed to load or store")
-		}
-	} else {
-		panic("failed to load or store")
-	}
-}
-
 func (c *Node) StartTopKeysUpdateTask(updateInterval time.Duration) {
 	ticker := time.NewTicker(updateInterval)
 	go func() {
@@ -167,107 +129,51 @@ func (c *Node) StartTopKeysUpdateTask(updateInterval time.Duration) {
 	}()
 }
 
+const (
+	numToSend int = 1000
+)
+
 func (c *Node) SendUpdateToBackUpNodes() {
+	m := c.topKeys.GetTop(numToSend)
 
-	k, _ := c.topKeys.LoadOrStore(c.id, new(sync.Map))
-	if keys, ok := k.(*sync.Map); ok {
-		keys.Range(func(key, v interface{}) bool {
-			if vv, ok2 := v.(*value); ok2 {
-				// Marshal data into JSON
-				data, node := vv.Get()
-				jsonData, err := json.Marshal(data)
-				if err != nil {
-					fmt.Println("Error marshaling JSON:", err)
-					return false
-				}
+	for node, data := range m {
 
-				// Create a new POST request with JSON body
-				req, err := http.NewRequest("POST", c.otherNodes[node].address, bytes.NewBuffer(jsonData))
-				if err != nil {
-					fmt.Println("Error creating request:", err)
-					return false
-				}
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			fmt.Println("Error marshaling JSON:", err)
+			return
+		}
 
-				// Set Content-Type header
-				req.Header.Set("Content-Type", "application/json")
+		// Create a new POST request with JSON body
+		req, err := http.NewRequest("POST", c.otherNodes[node].address, bytes.NewBuffer(jsonData))
+		if err != nil {
+			fmt.Println("Error creating request:", err)
+			return
+		}
 
-				// Create an HTTP client and send the request
-				client := &http.Client{}
-				resp, err := client.Do(req)
-				if err != nil {
-					fmt.Println("Error sending request:", err)
-					return false
-				}
-				defer func(Body io.ReadCloser) {
-					err := Body.Close()
-					if err != nil {
-						panic(err)
-					}
-				}(resp.Body)
+		// Set Content-Type header
+		req.Header.Set("Content-Type", "application/json")
 
-				// Read and print the response body
-				_, err = io.ReadAll(resp.Body)
-				if err != nil {
-					fmt.Println("Error reading response body:", err)
-					return false
-				}
-			} else {
-				panic("failed to iterate")
+		// Create an HTTP client and send the request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("Error sending request:", err)
+			return
+		}
+		defer func(Body io.ReadCloser) {
+			err := Body.Close()
+			if err != nil {
+				panic(err)
 			}
+		}(resp.Body)
 
-			return true // Continue iteration
-		})
-
-	} else {
-		panic("failed to load or store")
-	}
-
-}
-
-func (c *Node) SetTopKey(node int, key string, vvv map[string][]byte, backupNode int) {
-	k, _ := c.topKeys.LoadOrStore(node, new(sync.Map))
-	if keys, ok := k.(*sync.Map); ok {
-		v, _ := keys.LoadOrStore(key, new(value))
-		if vv, ok2 := v.(*value); ok2 {
-			vv.SetAndIncrement(vvv, backupNode)
-		} else {
-			panic("failed to load or store")
+		// Read and print the response body
+		_, err = io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Error reading response body:", err)
+			return
 		}
-	} else {
-		panic("failed to load or store")
-	}
-}
-
-func (c *Node) IncrementAccessCount(node int, key string) {
-	k, _ := c.topKeys.LoadOrStore(node, new(sync.Map))
-	if keys, ok := k.(*sync.Map); ok {
-		v, _ := keys.LoadOrStore(key, new(value))
-		if vv, ok2 := v.(*value); ok2 {
-			vv.increment()
-		} else {
-			panic("failed to load or store")
-		}
-	} else {
-		panic("failed to load or store")
-	}
-}
-
-func (c *Node) GetTopKey(node int, key string) (map[string][]byte, int, bool) {
-	k, _ := c.topKeys.LoadOrStore(node, new(sync.Map))
-	if keys, ok := k.(*sync.Map); ok {
-		v, loaded := keys.LoadOrStore(key, new(value))
-		if loaded {
-			if vv, ok2 := v.(*value); ok2 {
-				vvvv, backup := vv.GetAndIncrement()
-				return vvvv, backup, true
-			} else {
-				panic("failed to load or store")
-			}
-		} else {
-			return nil, -1, false
-		}
-	} else {
-		panic("failed to load or store")
 	}
 }
 
@@ -283,7 +189,7 @@ func (c *Node) Set(key string, value map[string][]byte, backupNode int) (error, 
 		return err, size_ // Handle JSON serialization error
 	}
 
-	c.SetTopKey(c.id, key, value, backupNode)
+	c.topKeys.Set(key, value, c.id, backupNode)
 
 	_, err = c.redisClient.Set(c.ctx, key, serializedValue, 0).Result() // '0' means no expiration
 	return err, size_
@@ -293,7 +199,6 @@ func (c *Node) Get(key string, fields []string) (map[string][]byte, error, int64
 	if err, isFailed := c.checkFailed(); isFailed {
 		return nil, err, 0
 	}
-	go c.IncrementAccessCount(c.id, key)
 	size_ := c.Size(c.ctx)
 
 	str := c.redisClient.Get(c.ctx, key)
@@ -308,6 +213,8 @@ func (c *Node) Get(key string, fields []string) (map[string][]byte, error, int64
 	if err != nil {
 		return nil, err, size_ // Handle JSON deserialization error
 	}
+
+	c.topKeys.Get(key)
 
 	// If no specific fields are requested, return the full data
 	if len(fields) == 0 {
@@ -329,8 +236,9 @@ func (c *Node) GetBackUp(key string, fields []string, node int) (map[string][]by
 		return nil, err, 0
 	}
 	size_ := c.Size(c.ctx)
-	if data, _, present := c.GetTopKey(node, key); present {
-
+	c.otherNodes[node].dataMutex.RLock()
+	if data, present := c.otherNodes[node].data[key]; present {
+		c.otherNodes[node].dataMutex.RUnlock()
 		// If no specific fields are requested, return the full data
 		if len(fields) == 0 {
 			return data, nil, size_
@@ -345,6 +253,7 @@ func (c *Node) GetBackUp(key string, fields []string, node int) (map[string][]by
 		}
 		return result, nil, size_
 	} else {
+		c.otherNodes[node].dataMutex.RUnlock()
 		return nil, redis.Nil, size_
 	}
 }
@@ -355,8 +264,9 @@ func (c *Node) SetBackup(key string, value map[string][]byte, node int) (error, 
 	}
 	size_ := c.Size(c.ctx)
 
-	c.SetTopKey(node, key, value, -1)
-
+	c.otherNodes[node].dataMutex.Lock()
+	c.otherNodes[node].data[key] = value
+	c.otherNodes[node].dataMutex.Unlock()
 	return nil, size_
 }
 
@@ -402,5 +312,5 @@ func (c *Node) Fail() {
 	c.failMutex.Lock()
 	c.isFailed = true
 	c.failMutex.Unlock()
-	c.topKeys = sync.Map{}
+	// TODO clear c.topKeys
 }
