@@ -19,7 +19,7 @@ func TestConcurrentQueueEnqueueDequeue(t *testing.T) {
 	cq := NewConcurrentQueue(2) // Small size to test eviction
 
 	// Test Enqueue
-	keyEvicted := cq.Enqueue(mockData("key1"))
+	keyEvicted, _ := cq.Enqueue(mockData("key1"))
 	fmt.Printf("enqueue(key1): \n%s\n", cq.ToString())
 	if keyEvicted != "" {
 		t.Errorf("Expected no eviction, but got %s", keyEvicted)
@@ -28,7 +28,7 @@ func TestConcurrentQueueEnqueueDequeue(t *testing.T) {
 	cq.Enqueue(mockData("key2"))
 	fmt.Printf("enqueue(key2): \n%s\n", cq.ToString())
 
-	keyEvicted = cq.Enqueue(mockData("key3"))
+	keyEvicted, _ = cq.Enqueue(mockData("key3"))
 	fmt.Printf("enqueue(key3): \n%s\n", cq.ToString())
 	if keyEvicted != "key1" {
 		t.Errorf("Expected key1 to be evicted, but got %s", keyEvicted)
@@ -79,29 +79,47 @@ func TestConcurrentQueueConcurrency(t *testing.T) {
 }
 
 func TestConcurrentQueueConcurrencyExtended(t *testing.T) {
-	cq := NewConcurrentQueue(100) // Adjust as needed for your test scenario
+	cq := NewConcurrentQueue(500) // Adjust as needed for your test scenario
 	var wg sync.WaitGroup
 	numOps := 200 // Adjust based on how aggressive you want the test to be
 
 	enqueuedItems := make(map[string]bool)
 	var enqueuedItemsLock sync.Mutex
 
+	numEnqueued := 0
+
 	// Concurrently enqueue items
 	for i := 0; i < numOps; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
+			//time.Sleep(time.Duration(time.Now().UnixNano()%10) * time.Microsecond)
 			key := fmt.Sprintf("key%d", id)
 			cq.Enqueue(Data{Key: key, Value: id})
 			enqueuedItemsLock.Lock()
+			numEnqueued++
 			enqueuedItems[key] = true
 			enqueuedItemsLock.Unlock()
+
+			//if _, wasAlreadyTop := cq.Enqueue(Data{Key: key, Value: id}); !wasAlreadyTop {
+			//	enqueuedItemsLock.Lock()
+			//	numEnqueued++
+			//	enqueuedItems[key] = true
+			//	enqueuedItemsLock.Unlock()
+			//} else {
+			//	enqueuedItemsLock.Lock()
+			//	enqueuedItems[key] = true
+			//	enqueuedItemsLock.Unlock()
+			//}
 		}(i)
+
 	}
 
 	// Concurrently dequeue items
 	dequeuedItems := make(map[string]bool)
 	var dequeuedItemsLock sync.Mutex
+
+	numDequeued := 0
 
 	for i := 0; i < numOps/2; i++ {
 		wg.Add(1)
@@ -111,6 +129,7 @@ func TestConcurrentQueueConcurrencyExtended(t *testing.T) {
 			if data.Key != "" { // Assuming an empty Data{} signifies no item was dequeued
 				dequeuedItemsLock.Lock()
 				dequeuedItems[data.Key] = true
+				numDequeued++
 				dequeuedItemsLock.Unlock()
 			}
 		}()

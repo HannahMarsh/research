@@ -35,18 +35,21 @@ func (cq *ConcurrentQueue) Size() int {
 	return cq.size
 }
 
-func (cq *ConcurrentQueue) Enqueue(data Data) string {
+func (cq *ConcurrentQueue) Enqueue(data Data) (string, bool) {
 	cq.lock.Lock()
 	defer cq.lock.Unlock()
-	bottom := cq.q.enqueue(data)
-	if bottom != nil {
-		return bottom.data.Key
-	} else {
+	bottom, isAlreadyTop, increaseSize := cq.q.enqueue(data)
+	if increaseSize {
 		cq.sizeLock.Lock()
 		cq.size++
 		cq.sizeLock.Unlock()
+	} else {
+		// fmt.Printf("\nAfter enqueue: \n%s\n", cq.q.toString())
 	}
-	return ""
+	if bottom != nil {
+		return bottom.data.Key, isAlreadyTop
+	}
+	return "", isAlreadyTop
 }
 
 func (cq *ConcurrentQueue) Dequeue() Data {
@@ -223,7 +226,7 @@ func (q *queue_) swap(qn1 *qNode, qn2 *qNode) {
 	q.bottom.prev = nil
 }
 
-func (q *queue_) enqueue(data Data) *qNode {
+func (q *queue_) enqueue(data Data) (*qNode, bool, bool) {
 
 	if q.top == nil {
 		n := &qNode{data: data, index: q.findFirstNilIndex()}
@@ -233,17 +236,19 @@ func (q *queue_) enqueue(data Data) *qNode {
 			q.top = n
 			q.bottom = nil
 		} else {
-			return n
+			panic("top is nil")
 		}
-		return nil
+		return nil, true, true
+	}
+
+	if q.top.data.Key == data.Key {
+		q.top.data = data
+		return nil, false, false
 	}
 
 	if q.bottom == nil {
-		if q.top.data.Key == data.Key {
-			q.top.data = data
-			return nil
-		}
-		q.bottom = &qNode{data: data, index: q.findFirstNilIndex()}
+		firstNil := q.findFirstNilIndex()
+		q.bottom = &qNode{data: data, index: firstNil}
 		if q.bottom.index >= 0 {
 			q.hash[data.Key] = q.bottom.index
 			q.nodes[q.bottom.index] = q.bottom
@@ -255,6 +260,7 @@ func (q *queue_) enqueue(data Data) *qNode {
 		} else {
 			panic("bottom is nil")
 		}
+		return nil, true, true
 	}
 
 	var n *qNode
@@ -263,7 +269,7 @@ func (q *queue_) enqueue(data Data) *qNode {
 		n.data = data
 		q.moveNodeToTop(n)
 		//fmt.Printf("\nAfter moving to top: \n%s\n", q.toString())
-		return nil
+		return nil, true, false
 	} else {
 		n = &qNode{data: data, index: q.findFirstNilIndex()}
 		if n.index >= 0 {
@@ -271,18 +277,19 @@ func (q *queue_) enqueue(data Data) *qNode {
 			q.nodes[n.index] = n
 			q.moveNodeToTop(n)
 			//fmt.Printf("\nAfter moving to top: \n%s\n", q.toString())
-			return nil
+			return nil, true, true
 		} else {
 			bottom := q.bottom
 			q.swap(n, bottom)
 			//fmt.Printf("\nAfter swapping bottom: \n%s\n", q.toString())
 			q.nodes[bottom.index] = n
+			delete(q.hash, bottom.data.Key)
 			n.index = bottom.index
 			q.hash[data.Key] = n.index
 			//fmt.Printf("\nAfter replacing index: \n%s\n", q.toString())
 			q.moveNodeToTop(n)
 			//fmt.Printf("\nAfter moving to top: \n%s\n", q.toString())
-			return bottom
+			return bottom, true, false
 		}
 	}
 }
@@ -292,6 +299,7 @@ func (q *queue_) dequeue() *qNode {
 	if bottom == nil {
 		return nil
 	}
+	q.isFull_ = false
 	return bottom
 }
 
