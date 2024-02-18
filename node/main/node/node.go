@@ -27,7 +27,7 @@ type Node struct {
 	redisClient *redis.Client
 	otherNodes  []OtherNode
 	id          int
-	cq          *cq.ConcurrentQueue
+	cq          *cq.CQ
 }
 
 func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, otherNodes []string) *Node {

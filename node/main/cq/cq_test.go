@@ -2,6 +2,7 @@ package cq
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -26,6 +27,47 @@ type op struct {
 	print               bool
 	sizeAfter           int
 	testSize            bool
+}
+
+type enqResult struct {
+	nodeEvicted *qNode
+	alreadyTop  bool
+	insertedNew bool
+}
+
+type dqResult struct {
+	dequeuedNode *qNode
+	wasEmpty     bool
+}
+
+type result struct {
+	o   op
+	enq *enqResult
+	dq  *dqResult
+}
+
+type results []result
+
+func (rs *results) total(filter func(r result) bool) int {
+	total := 0
+	for _, r := range *rs {
+		if filter(r) {
+			total++
+		}
+	}
+	return total
+}
+
+func (rs *results) totalEnq(filter func(er enqResult) bool) int {
+	return rs.total(func(r result) bool {
+		return r.enq != nil && filter(*(r.enq))
+	})
+}
+
+func (rs *results) totalDq(filter func(dr dqResult) bool) int {
+	return rs.total(func(r result) bool {
+		return r.dq != nil && filter(*(r.dq))
+	})
 }
 
 func (o *op) apply(nonDefault op) *op {
@@ -69,9 +111,13 @@ func (o *op) apply(nonDefault op) *op {
 	return o
 }
 
-func (o *op) test(t *testing.T, cq *ConcurrentQueue) {
+func (o *op) test(t *testing.T, cq *CQ) result {
+	var er *enqResult
+	var dr *dqResult
+
 	if o.doEnqueue {
-		nodeEvicted, _, _ := cq.enqueue(mockData(o.key))
+		nodeEvicted, alreadyTop, insertedNew := cq.enqueue(mockData(o.key))
+		er = &enqResult{nodeEvicted: nodeEvicted, alreadyTop: alreadyTop, insertedNew: insertedNew}
 		if o.print {
 			fmt.Printf("enqueue(%s): \n%s\n", o.key, cq.toString())
 		}
@@ -89,7 +135,8 @@ func (o *op) test(t *testing.T, cq *ConcurrentQueue) {
 			}
 		}
 	} else if o.doDequeue {
-		nodeDq := cq.dequeue()
+		nodeDq, wasEmpty := cq.dequeue()
+		dr = &dqResult{dequeuedNode: nodeDq, wasEmpty: wasEmpty}
 		if o.print {
 			fmt.Printf("dequeue(): \n%s\n", cq.toString())
 		}
@@ -107,30 +154,118 @@ func (o *op) test(t *testing.T, cq *ConcurrentQueue) {
 			}
 		}
 	}
-}
-
-func testSequentialOps(t *testing.T, cq *ConcurrentQueue, ops []op, globalOp op) {
-	fmt.Printf("\n\n")
-	for _, o := range ops {
-		o.apply(globalOp).test(t, cq)
+	if o.testSize {
+		if size := cq.Size(); size != o.sizeAfter {
+			t.Errorf("Expected size %d, got %d", o.sizeAfter, size)
+		}
 	}
+	return result{enq: er, dq: dr, o: *o}
 }
 
-func testConcurrentOps(t *testing.T, cq *ConcurrentQueue, ops []op, globalOp op) {
+func createNOps(n int, o op) []op {
+	ops := make([]op, n)
+	for i := 0; i < n; i++ {
+		ops[i] = o
+	}
+	return ops
+}
+
+func createNOpsWithUniqueKeys(n int, o op) []op {
+	return createNOpsWithMUniqueKeys(n, n, o)
+}
+
+func createNOpsWithMUniqueKeys(n int, m int, o op) []op {
+	ops := createNOps(n, o)
+	for i := 0; i < n; i++ {
+		ops[i].key = fmt.Sprintf("key%d", i%m)
+	}
+	return shuffle(ops)
+}
+
+func shuffle(ops []op) []op {
+	r := rand.New(rand.NewSource(956_248_571))
+	r.Shuffle(len(ops), func(i, j int) {
+		ops[i], ops[j] = ops[j], ops[i]
+	})
+	return ops
+}
+
+func testSequentialOps(t *testing.T, cq *CQ, ops []op, globalOp op) results {
 	fmt.Printf("\n\n")
+	rs := make([]result, len(ops))
+	for i, o := range ops {
+		rs[i] = o.apply(globalOp).test(t, cq)
+	}
+	return rs
+}
+
+func testSequentialOpsWithConditional(t *testing.T, cq *CQ, ops []op, globalOp op, cond func() bool) results {
+	fmt.Printf("\n\n")
+	var rs []result
+	for _, o := range ops {
+		if cond() {
+			rs = append(rs, o.apply(globalOp).test(t, cq))
+		}
+	}
+	return rs
+}
+
+func testConcurrentOps(t *testing.T, cq *CQ, ops []op, globalOp op) results {
+	fmt.Printf("\n\n")
+
+	rs := make([]result, len(ops))
+	rLock := sync.Mutex{}
 
 	var wg sync.WaitGroup
 	numGoroutines := len(ops)
 
 	for i := 0; i < numGoroutines; i++ {
+		time.Sleep(time.Duration(time.Now().UnixNano()%10) * time.Microsecond)
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			ops[id].apply(globalOp).test(t, cq)
+			r := ops[id].apply(globalOp).test(t, cq)
+			rLock.Lock()
+			defer rLock.Unlock()
+			rs[id] = r
 		}(i)
 	}
 
 	wg.Wait()
+	return rs
+}
+
+func testConcurrentOpsWithConditional(t *testing.T, cq *CQ, ops []op, globalOp op, cond func() bool) results {
+	fmt.Printf("\n\n")
+
+	var rs []result
+	var rLock sync.Mutex
+
+	var condLock sync.Mutex
+
+	var wg sync.WaitGroup
+	numGoroutines := len(ops)
+
+	for i := 0; i < numGoroutines; i++ {
+		time.Sleep(time.Duration(time.Now().UnixNano()%10) * time.Microsecond)
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			condLock.Lock()
+			if cond() {
+				condLock.Unlock()
+				r := ops[id].apply(globalOp).test(t, cq)
+				rLock.Lock()
+				defer rLock.Unlock()
+				rs = append(rs, r)
+			} else {
+				condLock.Unlock()
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	return rs
 }
 
 func TestSequentialEviction(t *testing.T) {
@@ -147,10 +282,10 @@ func TestSequentialEviction(t *testing.T) {
 			expectEviction:     true,
 			expectedEvictedKey: "key1",
 		}, {
-			doEnqueue:           true,
+			doDequeue:           true,
 			expectedDequeuedKey: "key2",
 		}, {
-			doEnqueue:           true,
+			doDequeue:           true,
 			expectedDequeuedKey: "key3",
 		}, {
 			doDequeue:        true,
@@ -163,20 +298,92 @@ func TestSequentialEviction(t *testing.T) {
 	})
 }
 
-func TestConcurrentQueueConcurrency(t *testing.T) {
-	numGoroutines := 100
-	ops := make([]op, numGoroutines)
-	for i := 0; i < numGoroutines; i++ {
-		ops[i] = op{
-			key:       fmt.Sprintf("key%d", i),
-			doEnqueue: true,
-		}
+func TestSequentialEvictionExtended(t *testing.T) {
+	printingEnabled := false
+	qSize := 113
+	n := 2137 // numOperations
+	m := 591  // numUniqueKeys
+	cq := NewConcurrentQueue(qSize)
+
+	ops := createNOpsWithMUniqueKeys(n, m, op{doEnqueue: true})
+
+	// enqueue 200 items
+	rs := testSequentialOps(t, cq, ops, op{print: printingEnabled})
+
+	totalInsertedNew := rs.totalEnq(func(er enqResult) bool {
+		return er.insertedNew
+	})
+
+	totalEvicted := rs.totalEnq(func(er enqResult) bool {
+		return er.nodeEvicted != nil
+	})
+
+	//totalFromTop := rs.totalEnq(func(er enqResult) bool {
+	//	return er.alreadyTop
+	//})
+
+	totalIncr := rs.totalEnq(func(er enqResult) bool {
+		return er.insertedNew && er.nodeEvicted == nil
+	})
+
+	if totalIncr != qSize {
+		t.Errorf("Expected to increment %d, but instead got %d", qSize, totalIncr)
+		return
 	}
 
-	testConcurrentOps(t, NewConcurrentQueue(100), ops, op{})
+	if x := rs.totalEnq(func(er enqResult) bool {
+		return er.alreadyTop && er.insertedNew
+	}); x > 0 {
+		t.Errorf("Expected no alreadyTop and insertedNew, but instead got %d", x)
+	}
 
-	// Assuming there's a way to check the size of the queue.
-	// This part is pseudo-code since the implementation of size checking is not provided.
+	if x := rs.totalEnq(func(er enqResult) bool {
+		return er.alreadyTop && er.nodeEvicted != nil
+	}); x > 0 {
+		t.Errorf("Expected no alreadyTop and nodeEvicted, but instead got %d", x)
+	}
+
+	//fmt.Printf("totalInsertedNew: %d\n", totalFromTop)
+
+	actualSize := cq.Size()
+
+	if qSize != actualSize {
+		t.Errorf("Expected full queue at max size %d, but instead got %d", qSize, actualSize)
+		return
+	}
+
+	if totalInsertedNew < qSize {
+		t.Errorf("Expected to insert up to and past a full queue (%d), but instead got %d", qSize, totalInsertedNew)
+		return
+	}
+
+	if totalInsertedNew-totalEvicted != qSize {
+		t.Errorf("Expected to evict %d, but instead got %d", totalInsertedNew-qSize, totalEvicted)
+		return
+	}
+
+	rs2 := testSequentialOpsWithConditional(t, cq, createNOps(qSize, op{doDequeue: true}), op{print: printingEnabled}, func() bool {
+		return cq.Size() > qSize/2
+	})
+
+	totalDequeued := rs2.totalDq(func(dr dqResult) bool {
+		return dr.dequeuedNode != nil
+	})
+
+	remaining := qSize - totalDequeued
+
+	if remaining != cq.Size() {
+		t.Errorf("Expected remaining %d, but instead got %d", remaining, cq.Size())
+		return
+	}
+}
+
+func TestConcurrentSizeAfterEnqueues(t *testing.T) {
+	numGoroutines := 100
+	ops := createNOpsWithUniqueKeys(numGoroutines, op{doEnqueue: true})
+	cq := NewConcurrentQueue(numGoroutines)
+	testConcurrentOps(t, cq, ops, op{})
+
 	size := cq.Size()
 	if size != numGoroutines {
 		t.Errorf("Expected size %d, got %d", numGoroutines, size)
@@ -184,84 +391,82 @@ func TestConcurrentQueueConcurrency(t *testing.T) {
 }
 
 func TestConcurrentQueueConcurrencyExtended(t *testing.T) {
-	cq := NewConcurrentQueue(500) // Adjust as needed for your test scenario
-	var wg sync.WaitGroup
-	numOps := 200 // Adjust based on how aggressive you want the test to be
+	printingEnabled := false
+	qSize := 113
+	n := 2137 // numOperations
+	m := 591  // numUniqueKeys
+	cq := NewConcurrentQueue(qSize)
 
-	enqueuedItems := make(map[string]bool)
-	var enqueuedItemsLock sync.Mutex
+	ops := createNOpsWithMUniqueKeys(n, m, op{doEnqueue: true})
 
-	numEnqueued := 0
+	// enqueue 200 items
+	rs := testConcurrentOps(t, cq, ops, op{print: printingEnabled})
 
-	// Concurrently enqueue items
-	for i := 0; i < numOps; i++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-			time.Sleep(time.Duration(time.Now().UnixNano()%10) * time.Microsecond)
-			key := fmt.Sprintf("key%d", id)
-			cq.Enqueue(Data{Key: key, Value: id})
-			enqueuedItemsLock.Lock()
-			numEnqueued++
-			enqueuedItems[key] = true
-			enqueuedItemsLock.Unlock()
+	totalInsertedNew := rs.totalEnq(func(er enqResult) bool {
+		return er.insertedNew
+	})
 
-			//if _, wasAlreadyTop := cq.Enqueue(Data{Key: key, Value: id}); !wasAlreadyTop {
-			//	enqueuedItemsLock.Lock()
-			//	numEnqueued++
-			//	enqueuedItems[key] = true
-			//	enqueuedItemsLock.Unlock()
-			//} else {
-			//	enqueuedItemsLock.Lock()
-			//	enqueuedItems[key] = true
-			//	enqueuedItemsLock.Unlock()
-			//}
-		}(i)
+	totalEvicted := rs.totalEnq(func(er enqResult) bool {
+		return er.nodeEvicted != nil
+	})
 
+	//totalFromTop := rs.totalEnq(func(er enqResult) bool {
+	//	return er.alreadyTop
+	//})
+
+	totalIncr := rs.totalEnq(func(er enqResult) bool {
+		return er.insertedNew && er.nodeEvicted == nil
+	})
+
+	if totalIncr != qSize {
+		t.Errorf("Expected to increment %d, but instead got %d", qSize, totalIncr)
+		return
 	}
 
-	// Concurrently dequeue items
-	dequeuedItems := make(map[string]bool)
-	var dequeuedItemsLock sync.Mutex
-
-	numDequeued := 0
-
-	for i := 0; i < numOps/2; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			data := cq.Dequeue()
-			if data.Key != "" { // Assuming an empty Data{} signifies no item was dequeued
-				dequeuedItemsLock.Lock()
-				dequeuedItems[data.Key] = true
-				numDequeued++
-				dequeuedItemsLock.Unlock()
-			}
-		}()
+	if x := rs.totalEnq(func(er enqResult) bool {
+		return er.alreadyTop && er.insertedNew
+	}); x > 0 {
+		t.Errorf("Expected no alreadyTop and insertedNew, but instead got %d", x)
 	}
 
-	wg.Wait()
+	if x := rs.totalEnq(func(er enqResult) bool {
+		return er.alreadyTop && er.nodeEvicted != nil
+	}); x > 0 {
+		t.Errorf("Expected no alreadyTop and nodeEvicted, but instead got %d", x)
+	}
 
-	fmt.Printf("%s", cq.ToString())
+	//fmt.Printf("totalInsertedNew: %d\n", totalFromTop)
 
-	// Verify that the size of the queue is as expected
 	actualSize := cq.Size()
-	if actualSize < numOps-numOps/2 {
-		t.Errorf("Queue size after concurrent operations is less than expected; got %d, want at least %d", actualSize, numOps-numOps/2)
+
+	if qSize != actualSize {
+		t.Errorf("Expected full queue at max size %d, but instead got %d", qSize, actualSize)
+		return
 	}
 
-	// After wg.Wait(), verifying the integrity of enqueued and dequeued items.
-	for key := range dequeuedItems {
-		if !enqueuedItems[key] {
-			t.Errorf("Item dequeued that was never enqueued: %s", key)
-		}
+	if totalInsertedNew < qSize {
+		t.Errorf("Expected to insert up to and past a full queue (%d), but instead got %d", qSize, totalInsertedNew)
+		return
 	}
 
-	// Optional: Verify specific behavior or order if applicable
-	// For a simple size check:
-	expectedRemaining := len(enqueuedItems) - len(dequeuedItems)
-	if expectedRemaining != actualSize {
-		t.Errorf("Mismatch in expected and actual remaining items; expected %d, got %d", expectedRemaining, actualSize)
+	if totalInsertedNew-totalEvicted != qSize {
+		t.Errorf("Expected to evict %d, but instead got %d", totalInsertedNew-qSize, totalEvicted)
+		return
+	}
+
+	rs2 := testConcurrentOpsWithConditional(t, cq, createNOps(qSize, op{doDequeue: true}), op{print: printingEnabled}, func() bool {
+		return cq.Size() > qSize/2
+	})
+
+	totalDequeued := rs2.totalDq(func(dr dqResult) bool {
+		return dr.dequeuedNode != nil
+	})
+
+	remaining := qSize - totalDequeued
+
+	if remaining != cq.Size() {
+		t.Errorf("Expected remaining %d, but instead got %d", remaining, cq.Size())
+		return
 	}
 }
 
@@ -311,15 +516,18 @@ func TestQueuePopularityDequeue(t *testing.T) {
 
 		// Enqueue the keys
 		for _, key := range keys {
-			pq.Enqueue(Data{Key: key, Value: nil})
+			pq.enqueue(mockData(key))
 			//fmt.Printf("enqueue(%s): \n%s\n", key, pq.ToString())
 		}
 
 		// Dequeue the keys and collect the order
 		var dequeuedKeys []string
 		for i := 0; i < len(expectedDequeue); i++ {
-			data_ := pq.Dequeue()
-			dequeuedKeys = append(dequeuedKeys, data_.Key)
+			if dqNode, _ := pq.dequeue(); dqNode != nil {
+				dequeuedKeys = append(dequeuedKeys, dqNode.data.Key)
+			} else {
+				t.Errorf("Test%d: Expected non-empty dequeue, but got none", testNum)
+			}
 		}
 
 		// Verify the dequeue order matches the expected popularity order
