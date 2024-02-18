@@ -39,18 +39,18 @@ func (qn *qNode) toString() string {
 type CQ struct {
 	top      *qNode
 	bottom   *qNode
-	nodes    []*qNode
+	nodes    sync.Map
+	keyLocks sync.Map
 	maxSize  int
-	hash     map[string]int
 	isFull_  bool
 	size     int
 	sizeLock sync.RWMutex
+	topMu    sync.RWMutex
+	bottomMu sync.RWMutex
 }
 
 func NewConcurrentQueue(maxSize int) *CQ {
 	return &CQ{
-		nodes:   make([]*qNode, maxSize),
-		hash:    make(map[string]int),
 		maxSize: maxSize,
 	}
 }
@@ -101,13 +101,11 @@ func (cq *CQ) remove(qn *qNode, removeFromArray bool) {
 		}
 	}
 	if removeFromArray {
-		cq.nodes[qn.index] = nil
-		if _, exists := cq.hash[qn.data.Key]; exists {
-			delete(cq.hash, qn.data.Key)
-		}
+		cq.nodes.Delete(qn.data.Key)
 	}
 }
 
+// TODO make this thread safe
 func (cq *CQ) moveNodeToTop(qn *qNode) {
 	if qn == nil {
 		panic("moveNodeToFront called on nil")
@@ -202,25 +200,169 @@ func (cq *CQ) swap(qn1 *qNode, qn2 *qNode) {
 	cq.bottom.prev = nil
 }
 
-func (cq *CQ) enqueue(data Data) (evictedNode *qNode, wasAlreadyTop bool, insertedNew bool) {
-
-	defer func() {
-		// inserted a new one and didn't evict (otherwise size stays the same)
-		if insertedNew && evictedNode == nil {
-			cq.incrSize()
+func (cq *CQ) getLock(key string) *sync.RWMutex {
+	if stored, ok := cq.keyLocks.Load(key); ok {
+		if st, ok2 := stored.(*sync.RWMutex); ok2 {
+			return st
+		} else {
+			panic("stored is not *sync.RWMutex")
 		}
-	}()
+	}
+	v := new(sync.RWMutex)
+	*v = sync.RWMutex{}
+	stored, _ := cq.keyLocks.LoadOrStore(key, v)
+	if st, ok := stored.(*sync.RWMutex); ok {
+		return st
+	} else {
+		panic("stored is not *sync.RWMutex")
+	}
+}
+
+func (cq *CQ) getOrNewNode(key string) (n *qNode, created bool) {
+	if stored, ok := cq.nodes.Load(key); ok {
+		if st, ok2 := stored.(*qNode); ok2 {
+			return st, false
+		} else {
+			panic("stored is not *qNode")
+		}
+	}
+	v := new(qNode)
+	*v = qNode{data: Data{Key: key}}
+	stored, loaded := cq.keyLocks.LoadOrStore(key, v)
+	if st, ok := stored.(*qNode); ok {
+		return st, !loaded
+	} else {
+		panic("stored is not *qNode")
+	}
+}
+
+func (cq *CQ) lock(key string) {
+	cq.getLock(key).Lock()
+}
+
+func (cq *CQ) lockBoth(key1, key2 string) {
+	if key1 == key2 {
+		cq.getLock(key1).Lock()
+	} else if key1 < key2 {
+		cq.getLock(key1).Lock()
+		cq.getLock(key2).Lock()
+	} else {
+		cq.getLock(key2).Lock()
+		cq.getLock(key1).Lock()
+	}
+}
+
+func (cq *CQ) unlockBoth(key1, key2 string) {
+	if key1 == key2 {
+		cq.getLock(key1).Unlock()
+	} else if key1 < key2 {
+		cq.getLock(key1).Unlock()
+		cq.getLock(key2).Unlock()
+	} else {
+		cq.getLock(key2).Unlock()
+		cq.getLock(key1).Unlock()
+	}
+}
+
+func (cq *CQ) unlock(key string) {
+	cq.getLock(key).Unlock()
+}
+
+func (cq *CQ) rLock(key string) {
+	cq.getLock(key).RLock()
+}
+
+func (cq *CQ) rUnlock(key string) {
+	cq.getLock(key).RUnlock()
+}
+
+func (cq *CQ) incrementSize() bool {
+	cq.sizeLock.RLock()
+	if cq.size < cq.maxSize {
+		cq.sizeLock.RUnlock()
+		cq.sizeLock.Lock()
+		if cq.size < cq.maxSize {
+			cq.size++
+			return true
+		} else {
+			cq.sizeLock.Unlock()
+		}
+	} else {
+		cq.sizeLock.RUnlock()
+	}
+	return false
+}
+
+// assume that n is not part of list
+func (cq *CQ) insertAtTop(n *qNode) {
+	if n == nil {
+		panic("insertAtTop called on nil")
+	}
+	if n.next != nil || n.prev != nil {
+		panic("insertAtTop called on node that is part of list")
+	}
+
+	cq.topMu.Lock()
+	cq.bottomMu.Lock()
+	defer cq.topMu.Unlock()
+	defer cq.bottomMu.Unlock()
 
 	if cq.top == nil {
-		n := &qNode{data: data, index: cq.findFirstNilIndex()}
-		if n.index >= 0 {
-			cq.hash[data.Key] = n.index
-			cq.nodes[n.index] = n
-			cq.top = n
-			cq.bottom = nil
-		} else {
-			panic("top is nil")
+		cq.top = n
+		cq.topMu.Unlock()
+		return
+	} else {
+		k1, k2 := n.data.Key, cq.top.data.Key
+		cq.lockBoth(k1, k2)
+		cq.top.next = n
+		n.prev = cq.top
+		if cq.bottom == nil {
+			cq.bottom = cq.top
 		}
+		cq.top = n
+		cq.unlockBoth(k1, k2)
+	}
+}
+
+func (cq *CQ) enqueue(data Data) (evictedNode *qNode, wasAlreadyTop bool, insertedNew bool) {
+
+	//cq.lock(data.Key)
+	//
+	//defer func() {
+	//	// inserted a new one and didn't evict (otherwise size stays the same)
+	//	if insertedNew {
+	//		//cq.nodes.Store(data.Key, data)
+	//		if evictedNode == nil {
+	//			cq.incrSize()
+	//		}
+	//	}
+	//	//cq.unlock(data.Key)
+	//}()
+	cq.lock(data.Key)
+
+	n, insertedNewNode := cq.getOrNewNode(data.Key)
+
+	if insertedNewNode {
+		cq.unlock(data.Key)
+		cq.insertAtTop(n)
+
+		if !cq.incrementSize() {
+			// need to evict bottom
+			return cq.popBottom(), false, true
+		}
+		return nil, false, true
+	} else {
+		// move to top
+		cq.unlock(data.Key)
+		cq.moveNodeToTop(n)
+		return nil, false, false
+	}
+
+	if cq.top == nil {
+		n := &qNode{data: data}
+		cq.top = n
+		cq.bottom = nil
+		cq.nodes.Store(data.Key, n)
 		return nil, false, true
 	}
 
@@ -230,19 +372,13 @@ func (cq *CQ) enqueue(data Data) (evictedNode *qNode, wasAlreadyTop bool, insert
 	}
 
 	if cq.bottom == nil {
-		firstNil := cq.findFirstNilIndex()
-		cq.bottom = &qNode{data: data, index: firstNil}
-		if cq.bottom.index >= 0 {
-			cq.hash[data.Key] = cq.bottom.index
-			cq.nodes[cq.bottom.index] = cq.bottom
-			cq.bottom.next = cq.top
-			cq.bottom.prev = nil
-			cq.top.prev = cq.bottom
-			cq.top.next = nil
-			cq.swap(cq.top, cq.bottom)
-		} else {
-			panic("bottom is nil")
-		}
+		cq.bottom = &qNode{data: data}
+		cq.bottom.next = cq.top
+		cq.bottom.prev = nil
+		cq.top.prev = cq.bottom
+		cq.top.next = nil
+		cq.swap(cq.top, cq.bottom)
+		cq.nodes.Store(data.Key, data)
 		return nil, false, true
 	}
 
@@ -256,7 +392,7 @@ func (cq *CQ) enqueue(data Data) (evictedNode *qNode, wasAlreadyTop bool, insert
 	} else {
 		n = &qNode{data: data, index: cq.findFirstNilIndex()}
 		if n.index >= 0 {
-			cq.hash[data.Key] = n.index
+			cq.hash.Store(data.Key, n.index)
 			cq.nodes[n.index] = n
 			cq.moveNodeToTop(n)
 			//fmt.Printf("\nAfter moving to top: \n%s\n", q.toString())
@@ -266,9 +402,9 @@ func (cq *CQ) enqueue(data Data) (evictedNode *qNode, wasAlreadyTop bool, insert
 			cq.swap(n, bottom)
 			//fmt.Printf("\nAfter swapping bottom: \n%s\n", q.toString())
 			cq.nodes[bottom.index] = n
-			delete(cq.hash, bottom.data.Key)
+			cq.hash.Delete(bottom.data.Key)
 			n.index = bottom.index
-			cq.hash[data.Key] = n.index
+			cq.hash.Store(data.Key, n.index)
 			//fmt.Printf("\nAfter replacing index: \n%s\n", q.toString())
 			cq.moveNodeToTop(n)
 			//fmt.Printf("\nAfter moving to top: \n%s\n", q.toString())
@@ -277,36 +413,51 @@ func (cq *CQ) enqueue(data Data) (evictedNode *qNode, wasAlreadyTop bool, insert
 	}
 }
 
-func (cq *CQ) dequeue() (dequeuedNode *qNode, wasEmpty bool) {
-
+func (cq *CQ) dequeue() (dequeuedNode *qNode) {
 	defer func() {
 		if dequeuedNode != nil {
 			cq.decrSize()
 		}
 	}()
-
-	if cq.top == nil {
-		return nil, true
-	}
-	bottom := cq.popBottom()
-	if bottom == nil {
-		return nil, true
-	}
-	cq.isFull_ = false
-	return bottom, false
+	return cq.popBottom()
 }
 
 func (cq *CQ) popBottom() *qNode {
+	cq.topMu.Lock()
+	cq.bottomMu.Lock()
+	defer cq.topMu.Unlock()
+	defer cq.bottomMu.Unlock()
+
 	if cq.bottom == nil {
 		if cq.top == nil {
 			return nil
 		}
 		top := cq.top
-		cq.remove(top, true)
+		cq.lock(cq.top.data.Key)
+		cq.nodes.Delete(cq.top.data.Key)
+		cq.unlock(cq.top.data.Key)
+		cq.top = nil
 		return top
 	}
+	k11, k22 := cq.bottom.data.Key, cq.top.data.Key
+	cq.lockBoth(k11, k22)
+
+	if cq.bottom.next == cq.top {
+		bottom := cq.bottom
+		cq.nodes.Delete(bottom.data.Key)
+		cq.top.prev = nil
+		cq.unlockBoth(k11, k22)
+		cq.bottom = nil
+		return bottom
+	}
 	bottom := cq.bottom
-	cq.remove(bottom, true)
+	k1, k2 := bottom.data.Key, bottom.next.data.Key
+	cq.unlockBoth(k11, k22)
+	cq.lockBoth(k1, k2)
+	bottom.next.prev = nil
+	cq.bottom = bottom.next
+	cq.nodes.Delete(k1)
+	cq.unlockBoth(k1, k2)
 	return bottom
 }
 
@@ -319,24 +470,16 @@ func (cq *CQ) popTop() *qNode {
 	return top
 }
 
-func (cq *CQ) contains(key string) (int, bool) {
-	if index, exists := cq.hash[key]; exists {
-		if cq.nodes[index] != nil {
-			if cq.nodes[index].data.Key == key {
-				return index, true
-			}
-		}
-	}
-	return -1, false
-}
-
-func (cq *CQ) hashNewKey(str string) int {
-	if h, exists := cq.hash[str]; exists {
-		return h
-	} else {
-		return cq.findFirstNilIndex()
-	}
-}
+//func (cq *CQ) contains(key string) (int, bool) {
+//	if index, exists := cq.hash[key]; exists {
+//		if cq.nodes[index] != nil {
+//			if cq.nodes[index].data.Key == key {
+//				return index, true
+//			}
+//		}
+//	}
+//	return -1, false
+//}
 
 func (cq *CQ) isFull() bool {
 	return cq.findFirstNilIndex() == -1
@@ -356,6 +499,9 @@ func (cq *CQ) findFirstNilIndex() int {
 }
 
 func (cq *CQ) Get(key string) (map[string][]byte, bool) {
+	cq.rLock(key)
+	defer cq.rUnlock(key)
+
 	if index, exists := cq.contains(key); exists && index < cq.maxSize {
 		if node := cq.nodes[index]; node != nil {
 			cq.moveNodeToTop(node)

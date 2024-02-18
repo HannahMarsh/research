@@ -135,8 +135,8 @@ func (o *op) test(t *testing.T, cq *CQ) result {
 			}
 		}
 	} else if o.doDequeue {
-		nodeDq, wasEmpty := cq.dequeue()
-		dr = &dqResult{dequeuedNode: nodeDq, wasEmpty: wasEmpty}
+		nodeDq := cq.dequeue()
+		dr = &dqResult{dequeuedNode: nodeDq}
 		if o.print {
 			fmt.Printf("dequeue(): \n%s\n", cq.toString())
 		}
@@ -514,16 +514,16 @@ func TestQueuePopularityDequeue(t *testing.T) {
 		// Initialize your priority queue
 		pq := NewConcurrentQueue(100) // Adjust size as needed
 
-		// Enqueue the keys
+		// Enqueue the keyLocks
 		for _, key := range keys {
 			pq.enqueue(mockData(key))
 			//fmt.Printf("enqueue(%s): \n%s\n", key, pq.ToString())
 		}
 
-		// Dequeue the keys and collect the order
+		// Dequeue the keyLocks and collect the order
 		var dequeuedKeys []string
 		for i := 0; i < len(expectedDequeue); i++ {
-			if dqNode, _ := pq.dequeue(); dqNode != nil {
+			if dqNode := pq.dequeue(); dqNode != nil {
 				dequeuedKeys = append(dequeuedKeys, dqNode.data.Key)
 			} else {
 				t.Errorf("Test%d: Expected non-empty dequeue, but got none", testNum)
