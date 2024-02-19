@@ -68,7 +68,12 @@ func (cq *CQ) insertAtTop(n *qNode) {
 		panic("insertAtTop called on nil")
 	}
 
-	unlockFunc := cq.lock(cq.top, cq.bottom, n)
+	cq.topMu.Lock()
+	cq.bottomMu.Lock()
+	defer cq.topMu.Unlock()
+	defer cq.bottomMu.Unlock()
+
+	unlockFunc := cq.lock(cq.top, n)
 	defer unlockFunc()
 
 	if cq.top == nil {
@@ -88,6 +93,11 @@ func (cq *CQ) moveNodeToTop(n *qNode) {
 	if n == nil {
 		panic("moveNodeToFront called on nil")
 	}
+	cq.topMu.Lock()
+	cq.bottomMu.Lock()
+	defer cq.topMu.Unlock()
+	defer cq.bottomMu.Unlock()
+
 	unlockFunc := cq.lock(cq.top, cq.bottom, n, n.next, n.prev)
 	defer unlockFunc()
 
@@ -134,6 +144,11 @@ func (cq *CQ) moveNodeToBottom(n *qNode) {
 	if n == nil {
 		panic("moveNodeToBottom called on nil")
 	}
+	cq.topMu.Lock()
+	cq.bottomMu.Lock()
+	defer cq.topMu.Unlock()
+	defer cq.bottomMu.Unlock()
+
 	unlockFunc := cq.lock(cq.top, cq.bottom, n, n.next, n.prev)
 	defer unlockFunc()
 
@@ -235,20 +250,6 @@ func (cq *CQ) getNode(key string) (n *qNode, exists bool) {
 
 // lock locks the provided qNodes based on their keys in alphabetical order.
 func (cq *CQ) lock(nodes ...*qNode) (unlockFunc func()) {
-	lockTop := false
-	lockBottom := false
-	cq.topMu.RLock()
-	cq.bottomMu.RLock()
-	for _, node := range nodes {
-		if cq.top != nil && node == cq.top {
-			lockTop = true
-		}
-		if cq.bottom != nil && node == cq.bottom {
-			lockBottom = true
-		}
-	}
-	cq.topMu.RUnlock()
-	cq.bottomMu.RUnlock()
 
 	var keys []string
 	for _, node := range nodes {
@@ -257,20 +258,9 @@ func (cq *CQ) lock(nodes ...*qNode) (unlockFunc func()) {
 		}
 	}
 	unlock := cq.lockKeys(keys...)
-	if lockTop {
-		cq.topMu.Lock()
-	}
-	if lockBottom {
-		cq.bottomMu.Lock()
-	}
+
 	return func() {
 		unlock()
-		if lockTop {
-			cq.topMu.Unlock()
-		}
-		if lockBottom {
-			cq.bottomMu.Unlock()
-		}
 	}
 }
 
@@ -282,15 +272,27 @@ func (cq *CQ) lockKeys(keys ...string) (unlockFunc func()) {
 		return func() {}
 	}
 
-	// Sort the keys alphabetically to prevent deadlocks
+	// Use a map to filter out duplicate keys
+	uniqueKeys := make(map[string]struct{})
+	for _, key := range keys {
+		uniqueKeys[key] = struct{}{}
+	}
+
+	// Convert the map back to a slice of unique keys
+	keys = make([]string, 0, len(uniqueKeys))
+	for key := range uniqueKeys {
+		keys = append(keys, key)
+	}
+
+	// Sort the unique keys alphabetically to prevent deadlocks
 	sort.Strings(keys)
 
-	lockedMutexes := make([]*sync.RWMutex, len(keys))
-	for i, key := range keys {
-		// Lock each key's mutex
+	// Lock by key in sorted order
+	lockedMutexes := make([]*sync.RWMutex, 0, len(keys))
+	for _, key := range keys {
 		mu := cq.getLock(key)
 		mu.Lock()
-		lockedMutexes[i] = mu // Store the locked mutex to unlock later
+		lockedMutexes = append(lockedMutexes, mu) // Store the locked mutex to unlock later
 	}
 
 	// Return a function that unlocks all the mutexes
@@ -316,7 +318,7 @@ func (cq *CQ) decrementSize() bool {
 	cq.sizeLock.Lock()
 	defer cq.sizeLock.Unlock() // Ensure the lock is always released
 
-	if cq.size < cq.maxSize {
+	if cq.size > 0 {
 		cq.size--
 		return true
 	}
@@ -351,6 +353,22 @@ func (cq *CQ) dequeue() (dequeuedNode *qNode) {
 }
 
 func (cq *CQ) popBottom() *qNode {
+	cq.topMu.Lock()
+	cq.bottomMu.Lock()
+	defer cq.topMu.Unlock()
+	defer cq.bottomMu.Unlock()
+
+	if cq.bottom == nil {
+		if cq.top == nil {
+			return nil
+		}
+		unlockFunc := cq.lock(cq.top)
+		defer unlockFunc()
+		top := cq.top
+		cq.nodes.Delete(cq.top.data.Key)
+		cq.top = nil
+		return top
+	}
 	unlockFunc := cq.lock(cq.bottom, cq.top, cq.bottom.next)
 	defer unlockFunc()
 
