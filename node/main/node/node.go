@@ -30,7 +30,20 @@ type Node struct {
 	cq          *cq.CQ
 }
 
+func (n *Node) getOtherNode(id int) *OtherNode {
+	if id < n.id {
+		return &n.otherNodes[id]
+	} else if id > n.id {
+		return &n.otherNodes[id-1]
+	} else {
+		panic("Cannot get other node with the same id")
+		//return &n.otherNodes[0]
+	}
+}
+
 func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, otherNodes []string) *Node {
+	log.Printf("Creating new node with id %d\n", id)
+
 	ctx := context.Background()
 	c := new(Node)
 	c.id = int(id)
@@ -107,6 +120,7 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 }
 
 func (c *Node) Done() {
+	log.Printf("Node %d is shutting down\n", c.id)
 	if err := c.redisClient.Close(); err != nil {
 		log.Printf("Failed to close Redis client: %v", err)
 	}
@@ -114,6 +128,7 @@ func (c *Node) Done() {
 }
 
 func (c *Node) StartTopKeysUpdateTask(updateInterval time.Duration) {
+	log.Printf("Starting top keys update task for node %d\n", c.id)
 	ticker := time.NewTicker(updateInterval)
 	go func() {
 		for {
@@ -135,21 +150,30 @@ const (
 )
 
 func (c *Node) SendUpdateToBackUpNodes() {
+	//log.Printf("Sending top %d keys to backup nodes\n", numToSend)
+
 	m := c.cq.GetTop(numToSend)
 
 	for node, data := range m {
 
-		jsonData, err := json.Marshal(data)
+		type params struct {
+			Data   map[string]map[string][]byte `json:"value"`
+			NodeId int                          `json:"nodeId"`
+		}
+
+		jsonData, err := json.Marshal(params{Data: data, NodeId: c.id})
 		if err != nil {
 			fmt.Println("Error marshaling JSON:", err)
 			return
 		}
 
 		// Create a new POST request with JSON body
-		req, err := http.NewRequest("POST", c.otherNodes[node].address, bytes.NewBuffer(jsonData))
+		req, err := http.NewRequest("POST", c.getOtherNode(node).address+"/updateKey", bytes.NewBuffer(jsonData))
 		if err != nil {
 			fmt.Println("Error creating request:", err)
 			return
+		} else {
+			log.Printf("Sending update to node %d\n", node)
 		}
 
 		// Set Content-Type header
@@ -161,6 +185,8 @@ func (c *Node) SendUpdateToBackUpNodes() {
 		if err != nil {
 			fmt.Println("Error sending request:", err)
 			return
+		} else {
+			log.Printf("Received response from node %d: %v: ", node, resp.StatusCode)
 		}
 		defer func(Body io.ReadCloser) {
 			err := Body.Close()
@@ -170,18 +196,23 @@ func (c *Node) SendUpdateToBackUpNodes() {
 		}(resp.Body)
 
 		// Read and print the response body
-		_, err = io.ReadAll(resp.Body)
+		response, err := io.ReadAll(resp.Body)
 		if err != nil {
 			fmt.Println("Error reading response body:", err)
 			return
+		} else {
+			log.Printf("Response body: %v\n", response)
 		}
 	}
 }
 
 func (c *Node) ReceiveUpdate(data map[string]map[string][]byte, node int) {
-	c.otherNodes[node].dataMutex.Lock()
-	c.otherNodes[node].data = data
-	c.otherNodes[node].dataMutex.Unlock()
+	//log.Printf("Received update from node %d\n", node)
+
+	othernode := c.getOtherNode(node)
+	othernode.dataMutex.Lock()
+	othernode.data = data
+	othernode.dataMutex.Unlock()
 }
 
 func (c *Node) Set(key string, value map[string][]byte, backupNode int) (error, int64) {
@@ -196,7 +227,7 @@ func (c *Node) Set(key string, value map[string][]byte, backupNode int) (error, 
 		return err, size_ // Handle JSON serialization error
 	}
 
-	c.cq.Set(key, cq.Data{Key: key, Value: value, PrimaryNode: c.id, BackUpNode: backupNode})
+	c.cq.Set(key, value, backupNode)
 
 	_, err = c.redisClient.Set(c.Ctx, key, serializedValue, 0).Result() // '0' means no expiration
 	return err, size_

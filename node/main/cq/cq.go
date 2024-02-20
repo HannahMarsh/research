@@ -37,17 +37,18 @@ func (qn *qNode) toString() string {
 }
 
 type CQ struct {
-	top      *qNode
-	bottom   *qNode
-	nodes    sync.Map
-	keyLocks sync.Map
-	maxSize  int
-	isFull_  bool
-	size     int
-	sizeLock sync.RWMutex
-	topMu    sync.RWMutex
-	bottomMu sync.RWMutex
-	lockNMu  sync.RWMutex
+	top        *qNode
+	bottom     *qNode
+	nodes      sync.Map
+	keyLocks   sync.Map
+	maxSize    int
+	isFull_    bool
+	size       int
+	sizeLock   sync.RWMutex
+	topMu      sync.RWMutex
+	bottomMu   sync.RWMutex
+	lockNMu    sync.RWMutex
+	globalLock sync.RWMutex
 }
 
 func NewConcurrentQueue(maxSize int) *CQ {
@@ -57,6 +58,8 @@ func NewConcurrentQueue(maxSize int) *CQ {
 }
 
 func (cq *CQ) Size() int {
+	cq.globalLock.RLock()
+	defer cq.globalLock.RUnlock()
 	cq.sizeLock.RLock()
 	defer cq.sizeLock.RUnlock()
 	return cq.size
@@ -213,20 +216,21 @@ func (cq *CQ) getLock(key string) *sync.RWMutex {
 	}
 }
 
-func (cq *CQ) getOrNewNode(key string) (n *qNode, created bool) {
-	unlockFunc := cq.lockKeys(key)
+func (cq *CQ) getOrNewNode(data Data) (n *qNode, created bool) {
+	unlockFunc := cq.lockKeys(data.Key)
 	defer unlockFunc()
 
-	if stored, ok := cq.nodes.Load(key); ok {
+	if stored, ok := cq.nodes.Load(data.Key); ok {
 		if st, ok2 := stored.(*qNode); ok2 {
+			st.data = data
 			return st, false
 		} else {
 			panic("stored is not *qNode")
 		}
 	}
 	v := new(qNode)
-	*v = qNode{data: Data{Key: key}}
-	stored, loaded := cq.nodes.LoadOrStore(key, v)
+	*v = qNode{data: data}
+	stored, loaded := cq.nodes.LoadOrStore(data.Key, v)
 	if st, ok := stored.(*qNode); ok {
 		return st, !loaded
 	} else {
@@ -258,6 +262,21 @@ func (cq *CQ) lock(nodes ...*qNode) (unlockFunc func()) {
 		}
 	}
 	unlock := cq.lockKeys(keys...)
+
+	return func() {
+		unlock()
+	}
+}
+
+func (cq *CQ) rLock(nodes ...*qNode) (unlockFunc func()) {
+
+	var keys []string
+	for _, node := range nodes {
+		if node != nil {
+			keys = append(keys, node.data.Key)
+		}
+	}
+	unlock := cq.rLockKeys(keys...)
 
 	return func() {
 		unlock()
@@ -303,6 +322,45 @@ func (cq *CQ) lockKeys(keys ...string) (unlockFunc func()) {
 	}
 }
 
+func (cq *CQ) rLockKeys(keys ...string) (unlockFunc func()) {
+	cq.lockNMu.Lock()
+	defer cq.lockNMu.Unlock()
+
+	if len(keys) == 0 {
+		return func() {}
+	}
+
+	// Use a map to filter out duplicate keys
+	uniqueKeys := make(map[string]struct{})
+	for _, key := range keys {
+		uniqueKeys[key] = struct{}{}
+	}
+
+	// Convert the map back to a slice of unique keys
+	keys = make([]string, 0, len(uniqueKeys))
+	for key := range uniqueKeys {
+		keys = append(keys, key)
+	}
+
+	// Sort the unique keys alphabetically to prevent deadlocks
+	sort.Strings(keys)
+
+	// Lock by key in sorted order
+	lockedMutexes := make([]*sync.RWMutex, 0, len(keys))
+	for _, key := range keys {
+		mu := cq.getLock(key)
+		mu.RLock()
+		lockedMutexes = append(lockedMutexes, mu) // Store the locked mutex to unlock later
+	}
+
+	// Return a function that unlocks all the mutexes
+	return func() {
+		for _, mu := range lockedMutexes {
+			mu.RUnlock()
+		}
+	}
+}
+
 func (cq *CQ) incrementSize() bool {
 	cq.sizeLock.Lock()
 	defer cq.sizeLock.Unlock() // Ensure the lock is always released
@@ -326,9 +384,10 @@ func (cq *CQ) decrementSize() bool {
 }
 
 func (cq *CQ) enqueue(data Data) (evictedNode *qNode, wasAlreadyTop bool, insertedNew bool) {
-	n, insertedNewNode := cq.getOrNewNode(data.Key)
+	n, insertedNewNode := cq.getOrNewNode(data)
 
 	if insertedNewNode {
+
 		cq.insertAtTop(n)
 
 		if !cq.incrementSize() {
@@ -398,6 +457,8 @@ func (cq *CQ) popBottom() *qNode {
 }
 
 func (cq *CQ) Get(key string) (map[string][]byte, bool) {
+	cq.globalLock.Lock()
+	defer cq.globalLock.Unlock()
 	if n, exists := cq.getNode(key); exists {
 		go cq.moveNodeToTop(n)
 		return n.data.Value, true
@@ -407,10 +468,47 @@ func (cq *CQ) Get(key string) (map[string][]byte, bool) {
 }
 
 func (cq *CQ) Set(key string, value map[string][]byte, backupNode int) {
+	cq.globalLock.Lock()
+	defer cq.globalLock.Unlock()
 	cq.enqueue(Data{Key: key, Value: value, BackUpNode: backupNode})
 }
 
+func (cq *CQ) GetTop(num int) map[int]map[string]map[string][]byte {
+
+	result := make(map[int]map[string]map[string][]byte)
+
+	cq.globalLock.RLock()
+	defer cq.globalLock.RUnlock()
+
+	cq.topMu.RLock() // Use read lock since we are only reading the structure
+	defer cq.topMu.RUnlock()
+	cq.bottomMu.RLock()
+	defer cq.bottomMu.RUnlock()
+
+	current := cq.top
+	for i := 0; i < num && current != nil; i++ {
+		unlockFunc := cq.rLock(current)
+		node := current.data.BackUpNode
+		if _, ok := result[node]; !ok {
+			result[node] = make(map[string]map[string][]byte)
+		}
+		result[node][current.data.Key] = current.data.Value
+		current = current.prev // Move to the next node
+		unlockFunc()
+	}
+
+	return result
+}
+
 func (cq *CQ) toString() string {
+	cq.globalLock.RLock()
+	defer cq.globalLock.RUnlock()
+
+	cq.topMu.RLock() // Use read lock since we are only reading the structure
+	defer cq.topMu.RUnlock()
+	cq.bottomMu.RLock()
+	defer cq.bottomMu.RUnlock()
+
 	str := "\t_______________________________________\n"
 	str += "\tqueue = "
 	cur := cq.top

@@ -18,7 +18,7 @@ func main() {
 	flag.Parse()
 
 	go serveClients()
-	go serveOtherNodes()
+	serveOtherNodes()
 }
 
 func serveClients() {

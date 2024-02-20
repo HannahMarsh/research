@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"node/main/node"
 	"strings"
@@ -26,13 +27,15 @@ func (s *stringSlice) Set(value string) error {
 }
 
 func HandleUpdateKey(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Received update request\n")
+
 	if globalNode == nil {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
 		return
 	}
 	var params struct {
-		Data   []byte `json:"value"`
-		NodeId int    `json:"nodeId"`
+		Data   map[string]map[string][]byte `json:"value"`
+		NodeId int                          `json:"nodeId"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
@@ -40,12 +43,12 @@ func HandleUpdateKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var data map[string]map[string][]byte
-	if err := json.Unmarshal(params.Data, &data); err != nil {
-		panic(err)
-	}
+	//var data map[string]map[string][]byte
+	//if err := json.Unmarshal(params.Data, &data); err != nil {
+	//	panic(err)
+	//}
 
-	globalNode.ReceiveUpdate(data, params.NodeId)
+	globalNode.ReceiveUpdate(params.Data, params.NodeId)
 
 	w.WriteHeader(http.StatusOK)
 }

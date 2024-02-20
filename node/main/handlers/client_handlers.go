@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -130,6 +131,7 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 		Fields []string `json:"fields"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&kv); err != nil {
+		log.Printf("Error decoding request body: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -137,6 +139,7 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 	v, err, size := globalNode.Get(kv.Key, kv.Fields)
 
 	if err != nil {
+		log.Printf("Error getting key: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -154,6 +157,7 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// Encode and send the response
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 		return
 	}
@@ -190,11 +194,12 @@ func HandleSet(w http.ResponseWriter, r *http.Request) {
 
 	// Set the Content-Type header
 	w.Header().Set("Content-Type", "application/json")
+	// Write the status code to the response
+	w.WriteHeader(http.StatusCreated) // Make sure this is the only call to WriteHeader
 	// Encode and send the response
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Error encoding response", http.StatusInternalServerError)
-		return
+		// If encoding fails, we cannot call http.Error since the header has already been written
+		log.Printf("Error encoding response: %v", err)
+		return // Make sure to return here so no more writes occur
 	}
-
-	w.WriteHeader(http.StatusCreated)
 }
