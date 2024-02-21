@@ -101,14 +101,13 @@ func HandleGetBackup(w http.ResponseWriter, r *http.Request) {
 	var kv struct {
 		Key    string   `json:"key"`
 		Fields []string `json:"fields"`
-		NodeId int      `json:"nodeId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&kv); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	v, err, size := globalNode.GetBackUp(kv.Key, kv.Fields, kv.NodeId)
+	v, err, size := globalNode.GetBackUp(kv.Key, kv.Fields)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

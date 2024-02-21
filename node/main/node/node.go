@@ -21,20 +21,21 @@ type OtherNode struct {
 }
 
 type Node struct {
-	Ctx         context.Context
-	isFailed    bool
-	failMutex   sync.Mutex
-	redisClient *redis.Client
-	otherNodes  []OtherNode
-	id          int
-	cq          *cq.CQ
+	Ctx             context.Context
+	isFailed        bool
+	failMutex       sync.Mutex
+	redisClient     *redis.Client
+	otherNodes      []*OtherNode
+	id              int
+	cq              *cq.CQ
+	keysToOtherNode sync.Map
 }
 
-func (n *Node) getOtherNode(id int) *OtherNode {
+func (n *Node) getOtherNode(id int) (_ *OtherNode, index int) {
 	if id < n.id {
-		return &n.otherNodes[id]
+		return n.otherNodes[id], id
 	} else if id > n.id {
-		return &n.otherNodes[id-1]
+		return n.otherNodes[id-1], id - 1
 	} else {
 		panic("Cannot get other node with the same id")
 		//return &n.otherNodes[0]
@@ -48,12 +49,13 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 	c := new(Node)
 	c.id = int(id)
 	c.Ctx = ctx
-	c.otherNodes = make([]OtherNode, len(otherNodes))
+	c.otherNodes = make([]*OtherNode, len(otherNodes))
 	c.cq = cq.NewConcurrentQueue(20_000)
 
 	for node, addr := range otherNodes {
-		c.otherNodes[node] = OtherNode{
+		c.otherNodes[node] = &OtherNode{
 			address: addr,
+			data:    make(map[string]map[string][]byte),
 		}
 	}
 
@@ -168,7 +170,8 @@ func (c *Node) SendUpdateToBackUpNodes() {
 		}
 
 		// Create a new POST request with JSON body
-		req, err := http.NewRequest("POST", c.getOtherNode(node).address+"/updateKey", bytes.NewBuffer(jsonData))
+		otherNode, _ := c.getOtherNode(node)
+		req, err := http.NewRequest("POST", otherNode.address+"/updateKey", bytes.NewBuffer(jsonData))
 		if err != nil {
 			fmt.Println("Error creating request:", err)
 			return
@@ -209,10 +212,13 @@ func (c *Node) SendUpdateToBackUpNodes() {
 func (c *Node) ReceiveUpdate(data map[string]map[string][]byte, node int) {
 	//log.Printf("Received update from node %d\n", node)
 
-	othernode := c.getOtherNode(node)
-	othernode.dataMutex.Lock()
-	othernode.data = data
-	othernode.dataMutex.Unlock()
+	otherNode, index := c.getOtherNode(node)
+	otherNode.dataMutex.Lock()
+	otherNode.data = data
+	for key, _ := range data {
+		c.keysToOtherNode.LoadOrStore(key, index)
+	}
+	otherNode.dataMutex.Unlock()
 }
 
 func (c *Node) Set(key string, value map[string][]byte, backupNode int) (error, int64) {
@@ -269,43 +275,65 @@ func (c *Node) Get(key string, fields []string) (map[string][]byte, error, int64
 	return result, nil, size_
 }
 
-func (c *Node) GetBackUp(key string, fields []string, node int) (map[string][]byte, error, int64) {
+func (c *Node) GetBackUp(key string, fields []string) (map[string][]byte, error, int64) {
 	if err, isFailed := c.checkFailed(); isFailed {
 		return nil, err, 0
 	}
 	size_ := c.Size(c.Ctx)
-	c.otherNodes[node].dataMutex.RLock()
-	if data, present := c.otherNodes[node].data[key]; present {
-		c.otherNodes[node].dataMutex.RUnlock()
-		// If no specific fields are requested, return the full data
-		if len(fields) == 0 {
-			return data, nil, size_
-		}
 
-		// Extract only the requested fields
-		result := make(map[string][]byte)
-		for _, field := range fields {
-			if value2, ok := data[field]; ok {
-				result[field] = value2
+	if i, ok := c.keysToOtherNode.Load(key); ok {
+		if index, ok2 := i.(int); ok2 {
+			if index < len(c.otherNodes) {
+				otherNode := c.otherNodes[index]
+				otherNode.dataMutex.RLock()
+				defer otherNode.dataMutex.RUnlock()
+				if data, present := otherNode.data[key]; present {
+					if len(fields) == 0 { // If no specific fields are requested, return the full data
+						return data, nil, size_
+					} else { // Extract only the requested fields
+						result := make(map[string][]byte)
+						for _, field := range fields {
+							if value2, ok3 := data[field]; ok3 {
+								result[field] = value2
+							}
+						}
+						return result, nil, size_
+					}
+				} else {
+					return nil, redis.Nil, size_
+				}
+			} else {
+				panic("Othernode index out of bounds")
 			}
+		} else {
+			panic("Error loading key to other node index")
 		}
-		return result, nil, size_
 	} else {
-		c.otherNodes[node].dataMutex.RUnlock()
-		return nil, redis.Nil, size_
+		panic("backup data has not yet been stored for this key")
 	}
 }
 
-func (c *Node) SetBackup(key string, value map[string][]byte, node int) (error, int64) {
+func (c *Node) SetBackup(key string, value map[string][]byte, backUpNode int) (error, int64) {
 	if err, isFailed := c.checkFailed(); isFailed {
 		return err, 0
 	}
 	size_ := c.Size(c.Ctx)
 
-	c.otherNodes[node].dataMutex.Lock()
-	c.otherNodes[node].data[key] = value
-	c.otherNodes[node].dataMutex.Unlock()
-	return nil, size_
+	i, _ := c.keysToOtherNode.LoadOrStore(key, backUpNode)
+
+	if index, ok2 := i.(int); ok2 {
+		if index < len(c.otherNodes) {
+			otherNode := c.otherNodes[index]
+			otherNode.dataMutex.Lock()
+			defer otherNode.dataMutex.Unlock()
+			otherNode.data[key] = value
+			return nil, size_
+		} else {
+			panic("Othernode index out of bounds")
+		}
+	} else {
+		panic("Error loading key to other node index")
+	}
 }
 
 func (c *Node) IsFailed() bool {

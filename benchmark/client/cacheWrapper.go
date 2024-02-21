@@ -96,7 +96,7 @@ func nodeFailureMeasure(t time.Time, nodeIndex int, isStart bool) {
 }
 
 type CacheWrapper struct {
-	nodes []*cache.Node
+	nodes []string
 	p     *bconfig.Config
 	//nodeRing     *cache.NodeRing
 	timers []*time.Timer // Timers for scheduling node failures
