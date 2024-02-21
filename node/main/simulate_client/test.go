@@ -15,7 +15,7 @@ func main() {
 
 	time.Sleep(2 * time.Second)
 
-	nodes := []int{8080, 8081}
+	nodes := []int{8081, 8082}
 
 	for id, n := range nodes {
 		simulateNewNode(n, id)

@@ -1,20 +1,52 @@
-# Use an official Node runtime as a parent image
-FROM node:14
+FROM golang:1.18 as builder
 
-# Set the working directory in the container
-WORKDIR /usr/src/app
+# Set the working directory outside GOPATH to enable the support for modules.
+WORKDIR /node
 
-# Copy the current directory contents into the container at /usr/src/app
+# Copy the go.mod and go.sum to download all dependencies.
+COPY go.* ./
+RUN go mod download
+
+# Copy the rest of the source code.
 COPY . .
+COPY node_configs/ /node/node_configs/
 
-# Install any needed packages specified in package.json
-RUN npm install
 
-# Make port 3000 available to the world outside this container
-EXPOSE 3000
 
-# Define environment variable
-ENV NAME NodeApp
+# Set the entrypoint to your binary.
+ENTRYPOINT ["/node"]
 
-# Run server.js when the container launches
-CMD ["node", "server.js"]
+
+# Set the command to run your binary.
+CMD ["./node", "nodeId"]
+
+# Build the application
+RUN go build -o node -nodeId <nodeId>
+
+EXPOSE 8081
+
+## Build the Docker image
+# docker build -t myclient .
+#
+## Run the Docker container
+# docker run -it --rm myclient
+
+# docker build --platform=linux/amd64 -t hannahmarsh12/client:client .
+# docker run -it --rm hannahmarsh12/client:client
+
+
+
+## Build the Docker image
+# docker build -t mynode .
+#
+## Run the Docker container
+# docker run -it --rm -p <host>:<container> hannahmarsh12/node
+
+# docker build -t mynode .
+# docker network create mynetwork
+# docker run -it --rm --network mynetwork --name mynode -p 443:443 mynode
+
+# docker build --platform=linux/amd64 -t hannahmarsh12/node .
+# docker run -it --rm -p <host>:<container> hannahmarsh12/node
+
+

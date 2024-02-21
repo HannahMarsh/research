@@ -139,6 +139,7 @@ func getFieldLengthGenerator(p *bconfig.Config) generator.Generator {
 	}
 
 	return fieldLengthGenerator
+
 }
 
 func createOperationGenerator(p *bconfig.Config) generator.Discrete {

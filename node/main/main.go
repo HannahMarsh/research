@@ -1,24 +1,42 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"fmt"
+	"io"
+	"log"
 	"net/http"
-	"node/main/handlers"
+	"os"
+	"sync"
 )
 
-var clientPort string
-var otherNodePort string
+var config *Config
 
 func main() {
-	flag.StringVar(&clientPort, "p", "8080", "Port for client communication")
-	flag.StringVar(&otherNodePort, "n", "8081", "Port for other node communication")
-	flag.StringVar(&handlers.RedisAddress, "ra", "127.0.0.1:9042", "address of redis server")
-	flag.Var(&handlers.OtherNodes, "nodes", "comma-separated list of other node urls")
+	var id int
+	flag.IntVar(&id, "nodeId", -1, "Id of this node.")
+	if flag.Parse(); id == -1 {
+		log.Fatalf("Please provide nodeId integer as flag: -nodeId <nodeId>")
+	}
 
-	flag.Parse()
+	config = GetConfig(id)
 
-	go serveClients()
-	serveOtherNodes()
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done() // Decrement the counter when the goroutine completes
+		serveClients()
+	}()
+
+	go func() {
+		defer wg.Done() // Decrement the counter when the goroutine completes
+		serveOtherNodes()
+	}()
+
+	// Wait for all goroutines to complete
+	wg.Wait()
 }
 
 func serveClients() {
@@ -26,18 +44,19 @@ func serveClients() {
 	mux := http.NewServeMux()
 
 	// Register handler functions for different paths
-	mux.HandleFunc("/newNode", handlers.NewNodeHandler)
-	mux.HandleFunc("/get", handlers.HandleGet)
-	mux.HandleFunc("/getBackup", handlers.HandleGetBackup)
-	mux.HandleFunc("/set", handlers.HandleSet)
-	mux.HandleFunc("/setBackup", handlers.HandleSetBackup)
-	mux.HandleFunc("/fail", handlers.HandleFail)
-	mux.HandleFunc("/recover", handlers.HandleRecover)
-	mux.HandleFunc("/ping", handlers.HandlePing)
-	mux.HandleFunc("/done", handlers.HandleDone)
+	mux.HandleFunc("/newNode", NewNodeHandler)
+	mux.HandleFunc("/get", HandleGet)
+	mux.HandleFunc("/getBackup", HandleGetBackup)
+	mux.HandleFunc("/set", HandleSet)
+	mux.HandleFunc("/setBackup", HandleSetBackup)
+	mux.HandleFunc("/fail", HandleFail)
+	mux.HandleFunc("/recover", HandleRecover)
+	mux.HandleFunc("/ping", HandlePing)
+	mux.HandleFunc("/done", HandleDone)
 
 	// Start the server with the mux as the handler
-	err := http.ListenAndServe(":"+clientPort, mux)
+	log.Printf("Starting server on port %s\n", config.ClientPort)
+	err := http.ListenAndServe(config.ClientPort, mux)
 	if err != nil {
 		panic(err)
 	}
@@ -48,11 +67,41 @@ func serveOtherNodes() {
 	mux := http.NewServeMux()
 
 	// Register handler functions for different paths
-	mux.HandleFunc("/updateKey", handlers.HandleUpdateKey)
+	mux.HandleFunc("/updateKey", HandleUpdateKey)
 
 	// Start the server with the mux as the handler
-	err := http.ListenAndServe(":"+otherNodePort, mux)
+	log.Printf("Starting server on port %s\n", config.NodePort)
+	err := http.ListenAndServe(config.NodePort, mux)
 	if err != nil {
 		panic(err)
 	}
+}
+
+type Config struct {
+	Id         int               `json:"id"`
+	Redis      string            `json:"redis"`
+	ClientPort string            `json:"clientPort"`
+	NodePort   string            `json:"nodePort"`
+	AllNodes   map[string]string `json:"allNodes"`
+}
+
+func GetConfig(nodeId int) *Config {
+	var config Config
+	fileName := fmt.Sprintf("node_configs/config%d.json", nodeId)
+	// Read the JSON file
+	if file, err := os.Open(fileName); err != nil {
+		log.Fatalf("Failed to open %s: %v", fileName, err)
+	} else {
+		defer func(file *os.File) {
+			if err = file.Close(); err != nil {
+				log.Fatalf("Failed to close config file: %v", err)
+			}
+		}(file)
+		if data, err := io.ReadAll(file); err != nil {
+			log.Fatalf("Failed to read config file: %s", err)
+		} else if err = json.Unmarshal(data, &config); err != nil {
+			log.Fatalf("Error unmarshaling JSON: %v", err)
+		}
+	}
+	return &config
 }
