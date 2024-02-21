@@ -1,12 +1,19 @@
 package client
 
 import (
-	"benchmark/cache"
 	bconfig "benchmark/config"
 	metrics2 "benchmark/metrics"
 	"benchmark/util"
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/go-redis/redis/v8"
+	"io"
+	"log"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -95,8 +102,51 @@ func nodeFailureMeasure(t time.Time, nodeIndex int, isStart bool) {
 	}
 }
 
+func (c *CacheWrapper) sendRequestToNode(nodeId int, method, endpoint string, payload []byte) (string, int) {
+	return sendRequest(method, fmt.Sprintf("%s/%s", c.nodes[nodeId], endpoint), payload)
+}
+
+func sendRequest(method, url string, payload []byte) (string, int) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return "", -1
+	}
+
+	// Set the Content-Type header only if there's a payload
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
+		return "", -1
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(resp.Body) // Simplified defer statement
+
+	// Read the entire response body
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return "", -1
+	}
+
+	if resp.StatusCode == 500 && string(b) != "redis: nil\n" {
+		log.Printf("Received response from %s: %v: %s\n", url, resp.StatusCode, resp.Status)
+	}
+
+	return string(b), resp.StatusCode
+}
+
 type CacheWrapper struct {
-	nodes []string
+	nodes map[int]string
 	p     *bconfig.Config
 	//nodeRing     *cache.NodeRing
 	timers []*time.Timer // Timers for scheduling node failures
@@ -136,39 +186,31 @@ func permute(nums []int) [][]int {
 }
 
 func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
-	c := CacheWrapper{}
-	c.p = p
-	c.ctx = ctx
-	//c.nodeRing = cache.NewNodeRing(len(p.Cache.Nodes), p.Cache.VirtualNodes.Value, p.Cache.EnableReconfiguration.Value)
-	//c.memNodes = make(map[string][]int)
-	c.cacheTimeout = time.Duration(3000) * time.Millisecond
-	c.failedNodes = make(map[int]bool)
-	c.numFailDetections = make(map[int]int)
-	c.threshhold = 1200
-	c.nodeOrders = permute(util.CreateArray(len(p.Cache.Nodes)))
-	c.nodes = make([]*cache.Node, 0, len(p.Cache.Nodes))
+	c := &CacheWrapper{
+		p:                 p,
+		ctx:               ctx,
+		cacheTimeout:      time.Duration(3000) * time.Millisecond,
+		failedNodes:       make(map[int]bool),
+		numFailDetections: make(map[int]int),
+		threshhold:        1200,
+		nodeOrders:        permute(util.CreateArray(len(p.Cache.Nodes))),
+		nodes:             make(map[int]string),
+	}
 
-	for i := 0; i < len(p.Cache.Nodes); i++ {
-		nodeConfig := p.Cache.Nodes[i]
-		c.addNode(nodeConfig, ctx, len(p.Cache.Nodes))
-		c.failedNodes[i] = false
-	}
-	for _, node := range c.nodes {
-		node.SetOtherNodes(c.nodes)
-	}
 	updateInterval := time.Duration((time.Duration(p.Workload.TargetExecutionTime.Value)*time.Second).Milliseconds()/100) * time.Millisecond
-	for _, node := range c.nodes {
-		node.StartTopKeysUpdateTask(ctx, updateInterval)
+
+	for i := range p.Cache.Nodes {
+		nodeId := c.addNode(p.Cache.Nodes[i], updateInterval.Seconds())
+		c.failedNodes[nodeId] = false
 	}
+
 	go c.scheduleFailures()
 	go c.scheduleCheckForRecoveries(ctx)
-	return &c
+	return c
 }
 
 func (c *CacheWrapper) scheduleFailures() {
-	for i := 0; i < len(c.p.Cache.Nodes); i++ {
-		nodeIndex := i
-
+	for nodeIndex, _ := range c.nodes {
 		warmUpTime := time.Duration(c.p.Measurements.WarmUpTime.Value) * time.Second
 		targetRunningTime := float64(c.p.Workload.TargetExecutionTime.Value)
 		for j := 0; j < len(c.p.Cache.Nodes[nodeIndex].FailureIntervals); j++ {
@@ -179,13 +221,12 @@ func (c *CacheWrapper) scheduleFailures() {
 
 			// Schedule node failure
 			failTimer := time.AfterFunc(startDelay, func() {
-				go c.nodes[nodeIndex].Fail()
-				//c.nodeRing.ReconfigureRingAfterFailure(nodeIndex)
+				go c.sendRequestToNode(nodeIndex, "POST", "fail", nil)
 				go nodeFailureMeasure(time.Now(), nodeIndex, true)
 
 				// Schedule node recovery
 				recoverTimer := time.AfterFunc(endDelay-startDelay, func() {
-					go c.nodes[nodeIndex].Recover(c.ctx)
+					go c.sendRequestToNode(nodeIndex, "POST", "recover", nil)
 					//c.nodeRing.ReconfigureRingAfterRecovery(nodeIndex)
 					nodeFailureMeasure(time.Now(), nodeIndex, false)
 				})
@@ -220,7 +261,7 @@ func (c *CacheWrapper) scheduleCheckForRecoveries(ctx context.Context) {
 
 // checkNodeRecovered checks if a given node has recovered.
 func (c *CacheWrapper) checkNodeRecovered(node int, ctx context.Context) {
-	if _, err, _ := c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, "key", []string{}, false); err == nil || !errors.Is(err, context.DeadlineExceeded) {
+	if _, status := c.sendRequestToNode(node, "GET", "/get", make([]byte, 0)); status != http.StatusServiceUnavailable {
 		go markRecoveryDetection(time.Now(), node)
 		c.mu.Lock()
 		c.failedNodes[node] = false
@@ -229,31 +270,49 @@ func (c *CacheWrapper) checkNodeRecovered(node int, ctx context.Context) {
 	}
 }
 
-func (c *CacheWrapper) addNode(p bconfig.NodeConfig, ctx context.Context, numBackUps int) {
-	node := cache.NewNode(p, ctx, numBackUps)
-	c.nodes = append(c.nodes, node)
+func (c *CacheWrapper) addNode(p bconfig.NodeConfig, updateInterval float64) int {
+	address := p.Address.Value
+	maxMemMbs := p.MaxMemoryMbs.Value
+	maxMemoryPolicy := p.MaxMemoryPolicy.Value
+	nodeId := p.NodeId.Value
+
+	type kv struct {
+		Id              int     `json:"id"`
+		MaxMemMbs       int     `json:"maxMemMbs"`
+		MaxMemoryPolicy string  `json:"maxMemoryPolicy"`
+		UpdateInterval  float64 `json:"updateInterval"`
+	}
+	var jsonPayload = kv{
+		Id:              nodeId,
+		MaxMemMbs:       maxMemMbs,
+		MaxMemoryPolicy: maxMemoryPolicy,
+		UpdateInterval:  updateInterval,
+	}
+
+	jsonPayloadBytes, err := json.Marshal(jsonPayload)
+	if err != nil {
+		panic(err)
+	}
+
+	// This is a GET request, so no payload is sent
+	response, status := sendRequest("GET", fmt.Sprintf("%s/newNode", address), []byte(jsonPayloadBytes))
+	if status != http.StatusOK {
+		log.Printf("Received response from %s: %v: %s\n", fmt.Sprintf("%s/newNode", address), status, response)
+	} else {
+		log.Printf("Node %d created successfully\n", nodeId)
+	}
+
+	c.nodes[nodeId] = address
+	return nodeId
 }
 
-func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
-
-	var result map[string][]byte = nil
-	var err error = nil
-	var size int64 = 0
+func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (map[string]map[string][]byte, error, int64) {
 
 	start := time.Now()
 
 	if !c.p.Cache.EnableReconfiguration.Value {
 		nodeId := c.GetNode(key)
-		result, err, size = c.nodes[nodeId].GetWithTimeout(c.cacheTimeout, ctx, key, fields, false)
-		if err != nil && errors.Is(err, context.DeadlineExceeded) {
-			//go func() {
-			if c.markFailureDetection(nodeId) {
-				markFailureDetection(start, key, nodeId, metrics2.INSERT)
-			}
-			//}()
-		}
-		go cacheMeasure(start, key, nodeId, metrics2.READ, err, size, false)
-		return result, err, size
+		return c.sendGet(key, nodeId, start, false)
 	}
 
 	nodes := c.GetNodes(key)
@@ -262,23 +321,70 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 	for i := 0; i < len(nodes); i++ {
 		node := nodes[i]
 		if !c.isNodeFailed(node) {
-			result, err, size = c.nodes[node].GetWithTimeout(c.cacheTimeout, ctx, key, fields, i > 0)
-			if err != nil && errors.Is(err, context.DeadlineExceeded) {
-				// go cacheMeasure(start, key, nodeId, metrics2.READ, err, size, false)
-				//go func() {
-				if c.markFailureDetection(node) {
-					markFailureDetection(start, key, node, metrics2.READ)
-				}
-				//}()
-			} else {
-				nodeId = node
-				break
-			}
+			return c.sendGet(key, nodeId, start, true)
 		}
 	}
+	go cacheMeasure(start, key, nodeId, metrics2.READ, errors.New("All nodes failed"), 0, false)
+	return nil, errors.New("All nodes failed"), 0
+}
 
-	go func() { cacheMeasure(start, key, nodeId, metrics2.READ, err, size, c.nodes[nodeId].IsTopKey(key)) }()
-	return result, err, size
+func (c *CacheWrapper) sendGet(key string, nodeId int, start time.Time, getBackup bool) (map[string]map[string][]byte, error, int64) {
+	type kv struct {
+		Key    string   `json:"key"`
+		Fields []string `json:"fields"`
+	}
+	var jsonPayload = kv{
+		Key:    key,
+		Fields: make([]string, 0),
+	}
+
+	jsonPayloadBytes, err := json.Marshal(jsonPayload)
+	if err != nil {
+		panic(err)
+	}
+	var response string
+	var status int
+
+	// This is a GET request, so no payload is sent
+	if getBackup {
+		response, status = c.sendRequestToNode(nodeId, "GET", "/getBackup", []byte(jsonPayloadBytes))
+	} else {
+		response, status = c.sendRequestToNode(nodeId, "GET", "/get", []byte(jsonPayloadBytes))
+	}
+	if status != http.StatusOK {
+		err = errors.New(response)
+		if response != "redis: nil\n" {
+			if c.markFailureDetection(nodeId) {
+				markFailureDetection(start, key, nodeId, metrics2.INSERT)
+			}
+			err = redis.Nil
+		}
+		go cacheMeasure(start, key, nodeId, metrics2.READ, err, 0, false)
+		return nil, err, 0
+	}
+	// Define a structure to unmarshal the JSON string
+	var data struct {
+		Value map[string]string `json:"value"`
+		Size  int               `json:"size"`
+	}
+
+	// Unmarshal the JSON string
+	if err = json.Unmarshal([]byte(response), &data); err != nil {
+		log.Fatal(err)
+	}
+
+	// Convert the string values in the map to []byte
+	result := make(map[string]map[string][]byte)
+	result["value"] = make(map[string][]byte)
+	for key, valueStr := range data.Value {
+		decodedBytes, err := base64.StdEncoding.DecodeString(valueStr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		result["value"][key] = decodedBytes
+	}
+	go cacheMeasure(start, key, nodeId, metrics2.READ, err, int64(data.Size), false)
+	return result, nil, int64(data.Size)
 }
 
 func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]byte) (error, int64) {
