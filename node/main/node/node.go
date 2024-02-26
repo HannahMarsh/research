@@ -22,6 +22,7 @@ type OtherNode struct {
 
 type Node struct {
 	Ctx             context.Context
+	Cancel          context.CancelFunc
 	isFailed        bool
 	failMutex       sync.Mutex
 	redisClient     *redis.Client
@@ -32,10 +33,10 @@ type Node struct {
 }
 
 func (n *Node) getOtherNode(id int) (_ *OtherNode, index int) {
-	if id < n.id {
+	if id != n.id {
 		return n.otherNodes[id], id
-	} else if id > n.id {
-		return n.otherNodes[id-1], id - 1
+		//} else if id > n.id {
+		//return n.otherNodes[id-1], id - 1
 	} else {
 		panic("Cannot get other node with the same id")
 		//return &n.otherNodes[0]
@@ -45,10 +46,11 @@ func (n *Node) getOtherNode(id int) (_ *OtherNode, index int) {
 func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, updateInterval float64, otherNodes []string) *Node {
 	log.Printf("Creating new node with id %d\n", id)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	c := new(Node)
 	c.id = int(id)
 	c.Ctx = ctx
+	c.Cancel = cancel
 	c.otherNodes = make([]*OtherNode, len(otherNodes))
 	c.cq = cq.NewConcurrentQueue(20_000)
 
@@ -122,25 +124,25 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 	return c
 }
 
-func (c *Node) Done() {
-	log.Printf("Node %d is shutting down\n", c.id)
-	if err := c.redisClient.Close(); err != nil {
+func (n *Node) Done() {
+	log.Printf("Node %d is shutting down\n", n.id)
+	if err := n.redisClient.Close(); err != nil {
 		log.Printf("Failed to close Redis client: %v", err)
 	}
-	c.Ctx.Done()
+	n.Cancel()
 }
 
-func (c *Node) StartTopKeysUpdateTask(updateInterval time.Duration) {
-	log.Printf("Starting top keys update task for node %d\n", c.id)
+func (n *Node) StartTopKeysUpdateTask(updateInterval time.Duration) {
+	log.Printf("Starting top keys update task for node %d\n", n.id)
 	ticker := time.NewTicker(updateInterval)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				if !c.IsFailed() {
-					go c.SendUpdateToBackUpNodes()
+				if !n.IsFailed() {
+					go n.SendUpdateToBackUpNodes()
 				}
-			case <-c.Ctx.Done():
+			case <-n.Ctx.Done():
 				ticker.Stop()
 				return
 			}
@@ -152,26 +154,30 @@ const (
 	numToSend int = 1000
 )
 
-func (c *Node) SendUpdateToBackUpNodes() {
+func (n *Node) SendUpdateToBackUpNodes() {
 	//log.Printf("Sending top %d keys to backup nodes\n", numToSend)
 
-	m := c.cq.GetTop(numToSend)
+	m := n.cq.GetTop(numToSend)
 
 	for node, data := range m {
+
+		if node == n.id {
+			continue
+		}
 
 		type params struct {
 			Data   map[string]map[string][]byte `json:"value"`
 			NodeId int                          `json:"nodeId"`
 		}
 
-		jsonData, err := json.Marshal(params{Data: data, NodeId: c.id})
+		jsonData, err := json.Marshal(params{Data: data, NodeId: n.id})
 		if err != nil {
 			fmt.Println("Error marshaling JSON:", err)
 			return
 		}
 
 		// Create a new POST request with JSON body
-		otherNode, _ := c.getOtherNode(node)
+		otherNode, _ := n.getOtherNode(node)
 		req, err := http.NewRequest("POST", otherNode.address+"/updateKey", bytes.NewBuffer(jsonData))
 		if err != nil {
 			fmt.Println("Error creating request:", err)
@@ -190,7 +196,7 @@ func (c *Node) SendUpdateToBackUpNodes() {
 			fmt.Println("Error sending request:", err)
 			return
 		} else {
-			log.Printf("Received response from node %d: %v: ", node, resp.StatusCode)
+			//log.Printf("Received response from node %d: %v: %v", node, resp.StatusCode)
 		}
 		defer func(Body io.ReadCloser) {
 			err := Body.Close()
@@ -200,33 +206,33 @@ func (c *Node) SendUpdateToBackUpNodes() {
 		}(resp.Body)
 
 		// Read and print the response body
-		response, err := io.ReadAll(resp.Body)
+		_, err = io.ReadAll(resp.Body)
 		if err != nil {
 			fmt.Println("Error reading response body:", err)
 			return
 		} else {
-			log.Printf("Response body: %v\n", response)
+			//log.Printf("Response body: %v\n", response)
 		}
 	}
 }
 
-func (c *Node) ReceiveUpdate(data map[string]map[string][]byte, node int) {
+func (n *Node) ReceiveUpdate(data map[string]map[string][]byte, node int) {
 	//log.Printf("Received update from node %d\n", node)
 
-	otherNode, index := c.getOtherNode(node)
+	otherNode, index := n.getOtherNode(node)
 	otherNode.dataMutex.Lock()
 	otherNode.data = data
 	for key, _ := range data {
-		c.keysToOtherNode.LoadOrStore(key, index)
+		n.keysToOtherNode.LoadOrStore(key, index)
 	}
 	otherNode.dataMutex.Unlock()
 }
 
-func (c *Node) Set(key string, value map[string][]byte, backupNode int) (error, int64) {
-	if err, isFailed := c.checkFailed(); isFailed {
+func (n *Node) Set(key string, value map[string][]byte, backupNode int) (error, int64) {
+	if err, isFailed := n.checkFailed(); isFailed {
 		return err, 0
 	}
-	size_ := c.Size(c.Ctx)
+	size_ := n.Size(n.Ctx)
 
 	// Serialize the map into a JSON string for storage
 	serializedValue, err := json.Marshal(value)
@@ -234,19 +240,19 @@ func (c *Node) Set(key string, value map[string][]byte, backupNode int) (error, 
 		return err, size_ // Handle JSON serialization error
 	}
 
-	c.cq.Set(key, value, backupNode)
+	n.cq.Set(key, value, backupNode)
 
-	_, err = c.redisClient.Set(c.Ctx, key, serializedValue, 0).Result() // '0' means no expiration
+	_, err = n.redisClient.Set(n.Ctx, key, serializedValue, 0).Result() // '0' means no expiration
 	return err, size_
 }
 
-func (c *Node) Get(key string, fields []string) (map[string][]byte, error, int64) {
-	if err, isFailed := c.checkFailed(); isFailed {
+func (n *Node) Get(key string, fields []string) (map[string][]byte, error, int64) {
+	if err, isFailed := n.checkFailed(); isFailed {
 		return nil, err, 0
 	}
-	size_ := c.Size(c.Ctx)
+	size_ := n.Size(n.Ctx)
 
-	str := c.redisClient.Get(c.Ctx, key)
+	str := n.redisClient.Get(n.Ctx, key)
 	val, err := str.Result()
 	if err != nil {
 		return nil, err, size_ // cache miss happens when err == redis.Nil
@@ -259,7 +265,7 @@ func (c *Node) Get(key string, fields []string) (map[string][]byte, error, int64
 		return nil, err, size_ // Handle JSON deserialization error
 	}
 
-	c.cq.Get(key)
+	n.cq.Get(key)
 
 	// If no specific fields are requested, return the full data
 	if len(fields) == 0 {
@@ -276,16 +282,16 @@ func (c *Node) Get(key string, fields []string) (map[string][]byte, error, int64
 	return result, nil, size_
 }
 
-func (c *Node) GetBackUp(key string, fields []string) (map[string][]byte, error, int64) {
-	if err, isFailed := c.checkFailed(); isFailed {
+func (n *Node) GetBackUp(key string, fields []string) (map[string][]byte, error, int64) {
+	if err, isFailed := n.checkFailed(); isFailed {
 		return nil, err, 0
 	}
-	size_ := c.Size(c.Ctx)
+	size_ := n.Size(n.Ctx)
 
-	if i, ok := c.keysToOtherNode.Load(key); ok {
+	if i, ok := n.keysToOtherNode.Load(key); ok {
 		if index, ok2 := i.(int); ok2 {
-			if index < len(c.otherNodes) {
-				otherNode := c.otherNodes[index]
+			if index < len(n.otherNodes) {
+				otherNode := n.otherNodes[index]
 				otherNode.dataMutex.RLock()
 				defer otherNode.dataMutex.RUnlock()
 				if data, present := otherNode.data[key]; present {
@@ -315,17 +321,17 @@ func (c *Node) GetBackUp(key string, fields []string) (map[string][]byte, error,
 	}
 }
 
-func (c *Node) SetBackup(key string, value map[string][]byte, backUpNode int) (error, int64) {
-	if err, isFailed := c.checkFailed(); isFailed {
+func (n *Node) SetBackup(key string, value map[string][]byte, backUpNode int) (error, int64) {
+	if err, isFailed := n.checkFailed(); isFailed {
 		return err, 0
 	}
-	size_ := c.Size(c.Ctx)
+	size_ := n.Size(n.Ctx)
 
-	i, _ := c.keysToOtherNode.LoadOrStore(key, backUpNode)
+	i, _ := n.keysToOtherNode.LoadOrStore(key, backUpNode)
 
 	if index, ok2 := i.(int); ok2 {
-		if index < len(c.otherNodes) {
-			otherNode := c.otherNodes[index]
+		if index < len(n.otherNodes) {
+			otherNode := n.otherNodes[index]
 			otherNode.dataMutex.Lock()
 			defer otherNode.dataMutex.Unlock()
 			otherNode.data[key] = value
@@ -338,25 +344,25 @@ func (c *Node) SetBackup(key string, value map[string][]byte, backUpNode int) (e
 	}
 }
 
-func (c *Node) IsFailed() bool {
-	c.failMutex.Lock()
-	defer c.failMutex.Unlock()
-	return c.isFailed
+func (n *Node) IsFailed() bool {
+	n.failMutex.Lock()
+	defer n.failMutex.Unlock()
+	return n.isFailed
 }
 
-func (c *Node) checkFailed() (error, bool) {
-	if c.IsFailed() {
+func (n *Node) checkFailed() (error, bool) {
+	if n.IsFailed() {
 		// time.Sleep(10 * time.Second)
 		return context.DeadlineExceeded, true
 	}
 	return nil, false
 }
 
-func (c *Node) Size(ctx context.Context) int64 {
-	if c.IsFailed() {
+func (n *Node) Size(ctx context.Context) int64 {
+	if n.IsFailed() {
 		return 0
 	}
-	size, err := c.redisClient.DBSize(ctx).Result()
+	size, err := n.redisClient.DBSize(ctx).Result()
 	if err != nil {
 		//panic(err)
 		return 0
@@ -364,21 +370,21 @@ func (c *Node) Size(ctx context.Context) int64 {
 	return size
 }
 
-func (c *Node) Recover(ctx context.Context) {
-	c.failMutex.Lock()
-	defer c.failMutex.Unlock()
-	c.isFailed = false
+func (n *Node) Recover(ctx context.Context) {
+	n.failMutex.Lock()
+	defer n.failMutex.Unlock()
+	n.isFailed = false
 
 	// clear the cache to simulate an empty state
-	err := c.redisClient.FlushDB(ctx).Err()
+	err := n.redisClient.FlushDB(ctx).Err()
 	if err != nil {
 		log.Printf("Failed to clear cache: %v", err)
 	}
 }
 
-func (c *Node) Fail() {
-	c.failMutex.Lock()
-	c.isFailed = true
-	c.failMutex.Unlock()
+func (n *Node) Fail() {
+	n.failMutex.Lock()
+	n.isFailed = true
+	n.failMutex.Unlock()
 	// TODO clear c.cq
 }

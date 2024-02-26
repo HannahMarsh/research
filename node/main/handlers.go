@@ -1,14 +1,21 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"node/main/node"
+	"sync"
 )
 
 var globalNode *node.Node
+
+var globalCtx context.Context
+var globalCancel context.CancelFunc
+
+var globalWg sync.WaitGroup
 
 // params
 //var RedisAddress string
@@ -26,8 +33,26 @@ var globalNode *node.Node
 //	return nil
 //}
 
+func isDone() bool {
+	if globalCancel == nil {
+		return true
+	}
+	select {
+	case <-globalCtx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
 func HandleUpdateKey(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Received update request\n")
+	if isDone() {
+		return
+	}
+	globalWg.Add(1)
+	defer globalWg.Done()
+
+	//log.Printf("Received update request\n")
 
 	if globalNode == nil {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
@@ -54,6 +79,12 @@ func HandleUpdateKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleSetBackup(w http.ResponseWriter, r *http.Request) {
+	if isDone() {
+		return
+	}
+	globalWg.Add(1)
+	defer globalWg.Done()
+
 	if globalNode == nil {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
 		return
@@ -95,6 +126,12 @@ func HandleSetBackup(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetBackup(w http.ResponseWriter, r *http.Request) {
+	if isDone() {
+		return
+	}
+	globalWg.Add(1)
+	defer globalWg.Done()
+
 	if globalNode == nil {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
 		return
@@ -134,6 +171,12 @@ func HandleGetBackup(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleFail(w http.ResponseWriter, r *http.Request) {
+	if isDone() {
+		return
+	}
+	globalWg.Add(1)
+	defer globalWg.Done()
+
 	if globalNode == nil {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
 		return
@@ -143,6 +186,14 @@ func HandleFail(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDone(w http.ResponseWriter, r *http.Request) {
+	if isDone() {
+		return
+	}
+	globalWg.Add(1)
+	defer globalWg.Done()
+
+	globalCancel()
+
 	if globalNode != nil {
 		globalNode.Done()
 		globalNode = nil
@@ -151,6 +202,12 @@ func HandleDone(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandlePing(w http.ResponseWriter, r *http.Request) {
+	if isDone() {
+		return
+	}
+	globalWg.Add(1)
+	defer globalWg.Done()
+
 	if globalNode == nil {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
 		return
@@ -160,6 +217,12 @@ func HandlePing(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleRecover(w http.ResponseWriter, r *http.Request) {
+	if isDone() {
+		return
+	}
+	globalWg.Add(1)
+	defer globalWg.Done()
+
 	if globalNode == nil {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
 		return
@@ -169,6 +232,12 @@ func HandleRecover(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGet(w http.ResponseWriter, r *http.Request) {
+	if isDone() {
+		return
+	}
+	globalWg.Add(1)
+	defer globalWg.Done()
+
 	if globalNode == nil {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
 		return
@@ -211,6 +280,12 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleSet(w http.ResponseWriter, r *http.Request) {
+	if isDone() {
+		return
+	}
+	globalWg.Add(1)
+	defer globalWg.Done()
+
 	if globalNode == nil {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
 		return
@@ -252,7 +327,23 @@ func HandleSet(w http.ResponseWriter, r *http.Request) {
 
 }
 
+var mu sync.Mutex
+
 func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if globalNode != nil {
+		globalNode.Done()
+		globalNode = nil
+	}
+
+	if globalCancel != nil {
+		globalCancel()
+		globalWg.Wait()
+	}
+
 	var params struct {
 		Id              int     `json:"id"`
 		MaxMemMbs       int     `json:"maxMemMbs"`
@@ -265,12 +356,15 @@ func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var nodes []string
-	for index, address := range config.AllNodes {
-		if index != fmt.Sprintf("%d", config.Id) {
-			nodes = append(nodes, address)
-		}
+	var nodes []string = make([]string, len(config.AllNodes))
+	for index := 0; index < len(config.AllNodes); index++ {
+		nodes[index] = config.AllNodes[fmt.Sprintf("%d", index)]
 	}
+	//for index, address := range config.AllNodes {
+	//	//if index != fmt.Sprintf("%d", config.Id) {
+	//	nodes[index] = address
+	//	//}
+	//}
 	globalNode = node.CreateNewNode(params.Id, config.Redis, params.MaxMemMbs, params.MaxMemoryPolicy, params.UpdateInterval, nodes)
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte("Node created successfully"))
@@ -278,4 +372,6 @@ func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 		return
 	}
+
+	globalCtx, globalCancel = context.WithCancel(context.Background())
 }

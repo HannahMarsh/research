@@ -1,0 +1,10 @@
+{
+  "id": 0,
+  "redis": "127.0.0.1:6379",
+  "clientPort": ":8081",
+  "nodePort": ":9081",
+  "allNodes": {
+    "0": "http://localhost:9081",
+    "1": "http://localhost:9082"
+  }
+}

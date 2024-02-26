@@ -14,6 +14,7 @@ import (
 var config *Config
 
 func main() {
+
 	var id int
 	flag.IntVar(&id, "nodeId", -1, "Id of this node.")
 	if flag.Parse(); id == -1 {
@@ -39,12 +40,29 @@ func main() {
 	wg.Wait()
 }
 
+func serveNewNode() {
+	// Create a new ServeMux
+	newNodeMux := http.NewServeMux()
+
+	// Register handler functions for different paths
+	newNodeMux.HandleFunc("/newNode", NewNodeHandler)
+
+	// Start the server with the mux as the handler
+	log.Printf("Starting server on port %s\n", config.ClientPort)
+	err := http.ListenAndServe(config.ClientPort, newNodeMux)
+
+	if err != nil {
+		panic(err)
+	}
+}
+
 func serveClients() {
 	// Create a new ServeMux
 	mux := http.NewServeMux()
+	newNodeMux := http.NewServeMux()
 
 	// Register handler functions for different paths
-	mux.HandleFunc("/newNode", NewNodeHandler)
+	newNodeMux.HandleFunc("/newNode", NewNodeHandler)
 	mux.HandleFunc("/get", HandleGet)
 	mux.HandleFunc("/getBackup", HandleGetBackup)
 	mux.HandleFunc("/set", HandleSet)
@@ -56,9 +74,14 @@ func serveClients() {
 
 	// Start the server with the mux as the handler
 	log.Printf("Starting server on port %s\n", config.ClientPort)
+	err := http.ListenAndServe(config.ClientPort, newNodeMux)
+
+	if err != nil {
+		panic(err)
+	}
 	server := &http.Server{Addr: config.ClientPort, Handler: mux}
 	server.SetKeepAlivesEnabled(true)
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 
 	//err = http.ListenAndServe(config.ClientPort, mux)
 	if err != nil {
@@ -75,10 +98,19 @@ func serveOtherNodes() {
 
 	// Start the server with the mux as the handler
 	log.Printf("Starting server on port %s\n", config.NodePort)
-	err := http.ListenAndServe(config.NodePort, mux)
+	server := &http.Server{Addr: config.NodePort, Handler: mux}
+	server.SetKeepAlivesEnabled(true)
+	err := server.ListenAndServe()
+
+	//err = http.ListenAndServe(config.ClientPort, mux)
 	if err != nil {
 		panic(err)
 	}
+
+	//err := http.ListenAndServe(config.NodePort, mux)
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
 type Config struct {
@@ -90,7 +122,7 @@ type Config struct {
 }
 
 func GetConfig(nodeId int) *Config {
-	var config Config
+	var cnfg Config
 	fileName := fmt.Sprintf("node_configs/config%d.json", nodeId)
 	// Read the JSON file
 	if file, err := os.Open(fileName); err != nil {
@@ -103,9 +135,9 @@ func GetConfig(nodeId int) *Config {
 		}(file)
 		if data, err := io.ReadAll(file); err != nil {
 			log.Fatalf("Failed to read config file: %s", err)
-		} else if err = json.Unmarshal(data, &config); err != nil {
+		} else if err = json.Unmarshal(data, &cnfg); err != nil {
 			log.Fatalf("Error unmarshaling JSON: %v", err)
 		}
 	}
-	return &config
+	return &cnfg
 }

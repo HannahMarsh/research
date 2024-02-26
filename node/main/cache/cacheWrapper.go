@@ -260,7 +260,7 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 	start := time.Now()
 
 	nodes := c.GetNodes(key)
-	primaryNodeId := nodes[0] + 1
+	primaryNodeId := nodes[0]
 	currentNodeId := primaryNodeId
 
 	for i := 1; i < len(nodes); i++ {
@@ -381,11 +381,11 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 	start := time.Now()
 
 	nodes := c.GetNodes(key)
-	primaryNodeId := nodes[0] + 1
+	primaryNodeId := nodes[0]
 	currentNodeId := primaryNodeId
 
 	for i := 1; i < len(nodes); i++ {
-		backupNodeId := nodes[i] + 1
+		backupNodeId := nodes[i]
 		if !c.isNodeFailed(currentNodeId) {
 			go cacheMeasure(start, key, currentNodeId, "INSERT", errors.New("All nodes failed"), 0, false)
 			return c.sendSet(primaryNodeId, key, value, backupNodeId, start, true)

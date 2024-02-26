@@ -319,7 +319,7 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 	}
 
 	nodes := c.GetNodes(key)
-	primaryNodeId := nodes[0] + 1
+	primaryNodeId := nodes[0]
 	currentNodeId := primaryNodeId
 
 	for i := 1; i < len(nodes); i++ {
