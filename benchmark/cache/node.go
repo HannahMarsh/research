@@ -1,7 +1,9 @@
 package cache
 
+import "context"
+
+// import (
 //
-//import (
 //	bconfig "benchmark/config"
 //	"context"
 //	"encoding/json"
@@ -15,31 +17,32 @@ package cache
 //	"strings"
 //	"sync"
 //	"time"
-//)
 //
-//// TODO move node logic to a different docker container.
+// )
 //
-//type Node struct {
-//	isFailed          bool
-//	failMutex         sync.Mutex
-//	redisClient       *redis.Client
-//	id                int
-//	keyAccessCounts   map[string]int64  // Track access counts for keys
-//	topKeys           map[string][]byte // Store this node's top hottest keys
-//	otherNodesTopKeys map[string][]byte // Store other nodes' top hottest keys and their cached values
-//	//otherNodesTopKeys map[int]map[string][]byte // Store other nodes' top hottest keys and their cached values
-//	topKeysLock     sync.Mutex // Protects topKeys and otherNodesTopKeys
-//	isTopKey_       map[string]bool
-//	isTopKeyChanged map[string]bool
-//	backUpNode      map[string]int
+// // TODO move node logic to a different docker container.
 //
-//	otherNodes []OtherNode
-//}
+//	type Node struct {
+//		isFailed          bool
+//		failMutex         sync.Mutex
+//		redisClient       *redis.Client
+//		id                int
+//		keyAccessCounts   map[string]int64  // Track access counts for keys
+//		topKeys           map[string][]byte // Store this node's top hottest keys
+//		otherNodesTopKeys map[string][]byte // Store other nodes' top hottest keys and their cached values
+//		//otherNodesTopKeys map[int]map[string][]byte // Store other nodes' top hottest keys and their cached values
+//		topKeysLock     sync.Mutex // Protects topKeys and otherNodesTopKeys
+//		isTopKey_       map[string]bool
+//		isTopKeyChanged map[string]bool
+//		backUpNode      map[string]int
 //
-//type Cache interface {
-//	Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64)
-//	Set(ctx context.Context, key string, value map[string][]byte) (error, int64)
-//}
+//		otherNodes []OtherNode
+//	}
+type Cache interface {
+	Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64)
+	Set(ctx context.Context, key string, value map[string][]byte) (error, int64)
+}
+
 //
 //type OtherNode interface {
 //	ReceiveUpdateFromOtherNode(key string, serializedValue []byte, accessCounts int64)

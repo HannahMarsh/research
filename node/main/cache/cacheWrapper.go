@@ -1,9 +1,6 @@
-package client
+package main
 
 import (
-	bconfig "benchmark/config"
-	metrics2 "benchmark/metrics"
-	"benchmark/util"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -11,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"github.com/spaolacci/murmur3"
 	"io"
 	"log"
 	"net/http"
@@ -18,95 +16,84 @@ import (
 	"time"
 )
 
-// The CacheWrapper handles a cache request by hashing each key to a primary and a backup node. If the primary node is
-// marked with a failure status, the request is redirected to the backup node.
+func main() {
+	ctx := context.Background()
+	c := NewCache(ctx)
 
-// Each node in the cache cluster tracks the access frequency of each key. Based on these counts, nodes periodically identify
-// their top hottest keys and update their designated backup nodes with these keys and their values. This backup data is stored
-// by the receiving nodes and used if the primary node fails.
+	kv := make(map[string]map[string][]byte)
+	for i := 0; i < 100; i++ {
+		key := fmt.Sprintf("key%d", i)
+		value := fmt.Sprintf("value%d", i)
+		kv[key] = map[string][]byte{"field1": []byte(value + "-1"), "field2": []byte(value + "-2")}
+		time.Sleep(5 * time.Millisecond)
+	}
+	count := 0
+	for i := 0; i < 100; i++ {
+		key := fmt.Sprintf("key%d", i)
+		c.Set(ctx, key, kv[key])
+		count++
+		time.Sleep(5 * time.Millisecond)
+	}
 
-// During Set operations, the CacheWrapper also identifies the backup node so that the primary node can record the backup
-//node's index associated with that key. If the key becomes hot, the primary node can update the backup node with the key-value
-//pair every time the hottest keys are periodically recalculated.
+	time.Sleep(2 * time.Second)
 
-// If a node does not respond within the cacheTimeout period during a request, it triggers a failure detection. Each node's
-// consecutive failure detections are tracked. Upon exceeding a predefined threshold, a node is marked as failed, suspending
-// further requests to it from CacheWrapper until recovery is detected.
+	count = 0
+	for i := 0; i < 100; i++ {
+		key := fmt.Sprintf("key%d", i)
+		expected := kv[key]
+		c.Get(ctx, key, nil)
 
-// Recovery checks happen every second. In these checks, the CacheWrapper attempts a GetWithTimeout operation on each node
-//that has a failure status. If this operation either succeeds or fails with an error other than context.DeadlineExceeded,
-// the node is considered recovered, its failed status is cleared, and its failure detection count is reset to 0.
+		var result map[string][]byte
+
+		result, _, _ = c.Get(ctx, key, nil)
+		//
+		//if resp != nil && resp["value"] != nil {
+		//	result = resp["value"]
+		//}
+
+		if fmt.Sprintf("%v", result) != fmt.Sprintf("%v", expected) {
+			fmt.Printf("key: %s, result: %v, \n\t  expected: %v\n", key, result, expected)
+		} else {
+			//fmt.Printf("key: %s, matched! result: %v\n", key, result)
+		}
+
+		count++
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	time.Sleep(25 * time.Second)
+}
+
+// CreateArray creates an array of n ints from 0 to n-1.
+func CreateArray(n int) []int {
+	arr := make([]int, n)
+	for i := 0; i < n; i++ {
+		arr[i] = i
+	}
+	return arr
+}
 
 func cacheMeasure(start time.Time, key string, nodeIndex int, operationType string, err error, cacheSize int64, isHottest bool) {
-	latency := time.Since(start)
-	if err != nil {
-		metrics2.AddMeasurement(metrics2.CACHE_OPERATION, start,
-			map[string]interface{}{
-				metrics2.SUCCESSFUL: false,
-				metrics2.OPERATION:  operationType,
-				metrics2.ERROR:      err.Error(),
-				metrics2.LATENCY:    latency.Seconds(),
-				metrics2.NODE_INDEX: nodeIndex,
-				metrics2.SIZE:       cacheSize,
-				metrics2.KEY:        key,
-				metrics2.HOTTEST:    isHottest,
-			})
-		return
-	} else {
-		metrics2.AddMeasurement(metrics2.CACHE_OPERATION, start,
-			map[string]interface{}{
-				metrics2.SUCCESSFUL: true,
-				metrics2.OPERATION:  operationType,
-				metrics2.LATENCY:    latency.Seconds(),
-				metrics2.NODE_INDEX: nodeIndex,
-				metrics2.SIZE:       cacheSize,
-				metrics2.KEY:        key,
-				metrics2.HOTTEST:    isHottest,
-			})
-	}
+	fmt.Printf("Cache measure: %s, %s, %d, %v, %d, %v\n", start, key, nodeIndex, operationType, err, cacheSize, isHottest)
 }
 
 func markFailureDetection(start time.Time, key string, nodeIndex int, operationType string) {
-	latency := time.Now().Sub(start)
-	metrics2.AddMeasurement(metrics2.CLIENT_FAILURE_DETECTION, start,
-		map[string]interface{}{
-			metrics2.OPERATION:  operationType,
-			metrics2.LATENCY:    latency.Seconds(),
-			metrics2.NODE_INDEX: nodeIndex,
-			metrics2.KEY:        key,
-		})
+	fmt.Printf("Failure detection: %s, %s, %d, %s\n", start, key, nodeIndex, operationType)
 }
 
 func markRecoveryDetection(start time.Time, nodeIndex int) {
-	latency := time.Now().Sub(start)
-	metrics2.AddMeasurement(metrics2.CLIENT_RECOVERY_DETECTION, start,
-		map[string]interface{}{
-			metrics2.LATENCY:    latency.Seconds(),
-			metrics2.NODE_INDEX: nodeIndex,
-		})
+	fmt.Printf("Recovery detection: %s, %d\n", start, nodeIndex)
 }
 
 func nodeFailureMeasure(t time.Time, nodeIndex int, isStart bool) {
-	if isStart {
-		metrics2.AddMeasurement(metrics2.NODE_FAILURE, t,
-			map[string]interface{}{
-				metrics2.INTERVAL:   metrics2.START,
-				metrics2.NODE_INDEX: nodeIndex,
-			})
-	} else {
-		metrics2.AddMeasurement(metrics2.NODE_FAILURE, t,
-			map[string]interface{}{
-				metrics2.INTERVAL:   metrics2.END,
-				metrics2.NODE_INDEX: nodeIndex,
-			})
-	}
+	fmt.Printf("Node failure measure: %s, %d, %v\n", t, nodeIndex, isStart)
 }
 
 func (c *CacheWrapper) sendRequestToNode(nodeId int, method, endpoint string, payload []byte) (string, int) {
-	return sendRequest(method, fmt.Sprintf("%s/%s", c.nodes[nodeId], endpoint), payload)
+	return sendRequest2(method, fmt.Sprintf("%s/%s", c.nodes[nodeId], endpoint), payload)
 }
 
-func sendRequest(method, url string, payload []byte) (string, int) {
+func sendRequest2(method, url string, payload []byte) (string, int) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
 	if err != nil {
@@ -147,7 +134,6 @@ func sendRequest(method, url string, payload []byte) (string, int) {
 
 type CacheWrapper struct {
 	nodes map[int]string
-	p     *bconfig.Config
 	//nodeRing     *cache.NodeRing
 	timers []*time.Timer // Timers for scheduling node failures
 	ctx    context.Context
@@ -185,60 +171,24 @@ func permute(nums []int) [][]int {
 	return res
 }
 
-func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
+func NewCache(ctx context.Context) *CacheWrapper {
 	c := &CacheWrapper{
-		p:                 p,
 		ctx:               ctx,
 		cacheTimeout:      time.Duration(3000) * time.Millisecond,
 		failedNodes:       make(map[int]bool),
 		numFailDetections: make(map[int]int),
 		threshhold:        1200,
-		nodeOrders:        permute(util.CreateArray(len(p.Cache.Nodes))),
+		nodeOrders:        permute(CreateArray(2)),
 		nodes:             make(map[int]string),
 	}
 
-	updateInterval := time.Duration((time.Duration(p.Workload.TargetExecutionTime.Value)*time.Second).Milliseconds()/100) * time.Millisecond
+	updateInterval := time.Duration((time.Duration(15)*time.Second).Milliseconds()/100) * time.Millisecond
 
-	for i := range p.Cache.Nodes {
-		nodeId := c.addNode(p.Cache.Nodes[i], updateInterval.Seconds())
-		c.failedNodes[nodeId] = false
-	}
+	c.addNode("http://localhost:8081", 10, "allkeys-lru", 1, updateInterval.Seconds())
+	c.addNode("http://localhost:8082", 10, "allkeys-lru", 2, updateInterval.Seconds())
 
-	go c.scheduleFailures()
 	go c.scheduleCheckForRecoveries(ctx)
 	return c
-}
-
-func (c *CacheWrapper) scheduleFailures() {
-
-	for i := range c.p.Cache.Nodes {
-		node := c.p.Cache.Nodes[i]
-		nodeId := node.NodeId.Value
-		failureIntervals := node.FailureIntervals
-		warmUpTime := time.Duration(c.p.Measurements.WarmUpTime.Value) * time.Second
-		targetRunningTime := float64(c.p.Workload.TargetExecutionTime.Value)
-		for j := range failureIntervals {
-			interval := failureIntervals[j]
-			startDelay := (time.Duration(interval.Start*targetRunningTime) * time.Second) + warmUpTime
-			endDelay := (time.Duration(interval.End*targetRunningTime) * time.Second) + warmUpTime
-
-			// Schedule node failure
-			failTimer := time.AfterFunc(startDelay, func() {
-				go c.sendRequestToNode(nodeId, "POST", "fail", nil)
-				go nodeFailureMeasure(time.Now(), nodeId, true)
-
-				// Schedule node recovery
-				recoverTimer := time.AfterFunc(endDelay-startDelay, func() {
-					go c.sendRequestToNode(nodeId, "POST", "recover", nil)
-					//c.nodeRing.ReconfigureRingAfterRecovery(nodeIndex)
-					nodeFailureMeasure(time.Now(), nodeId, false)
-				})
-				c.timers = append(c.timers, recoverTimer)
-			})
-
-			c.timers = append(c.timers, failTimer)
-		}
-	}
 }
 
 func (c *CacheWrapper) scheduleCheckForRecoveries(ctx context.Context) {
@@ -273,11 +223,7 @@ func (c *CacheWrapper) checkNodeRecovered(node int, ctx context.Context) {
 	}
 }
 
-func (c *CacheWrapper) addNode(p bconfig.NodeConfig, updateInterval float64) int {
-	address := p.Address.Value
-	maxMemMbs := p.MaxMemoryMbs.Value
-	maxMemoryPolicy := p.MaxMemoryPolicy.Value
-	nodeId := p.NodeId.Value
+func (c *CacheWrapper) addNode(address string, maxMemMbs int, maxMemoryPolicy string, nodeId int, updateInterval float64) int {
 
 	type kv struct {
 		Id              int     `json:"id"`
@@ -298,7 +244,7 @@ func (c *CacheWrapper) addNode(p bconfig.NodeConfig, updateInterval float64) int
 	}
 
 	// This is a GET request, so no payload is sent
-	response, status := sendRequest("GET", fmt.Sprintf("%s/newNode", address), []byte(jsonPayloadBytes))
+	response, status := sendRequest2("GET", fmt.Sprintf("%s/newNode", address), []byte(jsonPayloadBytes))
 	if status != http.StatusOK {
 		log.Printf("Received response from %s: %v: %s\n", fmt.Sprintf("%s/newNode", address), status, response)
 	} else {
@@ -313,34 +259,29 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 
 	start := time.Now()
 
-	if !c.p.Cache.EnableReconfiguration.Value {
-		nodeId := c.GetNode(key)
-		return c.sendGet(key, fields, nodeId, start, false)
-	}
-
 	nodes := c.GetNodes(key)
 	primaryNodeId := nodes[0] + 1
 	currentNodeId := primaryNodeId
 
 	for i := 1; i < len(nodes); i++ {
 		if !c.isNodeFailed(currentNodeId) {
-			go cacheMeasure(start, key, currentNodeId, metrics2.READ, errors.New("All nodes failed"), 0, false)
-			return c.sendGet(key, fields, currentNodeId, start, currentNodeId == primaryNodeId)
+			go cacheMeasure(start, key, currentNodeId, "READ", nil, 0, false)
+			return c.sendGet(key, currentNodeId, start, currentNodeId == primaryNodeId)
 		}
 	}
 
-	go cacheMeasure(start, key, primaryNodeId, metrics2.READ, errors.New("All nodes failed"), 0, false)
+	go cacheMeasure(start, key, primaryNodeId, "READ", errors.New("All nodes failed"), 0, false)
 	return nil, errors.New("All nodes failed"), 0
 }
 
-func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start time.Time, getBackup bool) (map[string][]byte, error, int64) {
+func (c *CacheWrapper) sendGet(key string, nodeId int, start time.Time, getBackup bool) (map[string][]byte, error, int64) {
 	type kv struct {
 		Key    string   `json:"key"`
 		Fields []string `json:"fields"`
 	}
 	var jsonPayload = kv{
 		Key:    key,
-		Fields: fields,
+		Fields: make([]string, 0),
 	}
 
 	jsonPayloadBytes, err := json.Marshal(jsonPayload)
@@ -360,11 +301,11 @@ func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start ti
 		err = errors.New(response)
 		if response != "redis: nil\n" {
 			if c.markFailureDetection(nodeId) {
-				markFailureDetection(start, key, nodeId, metrics2.INSERT)
+				markFailureDetection(start, key, nodeId, "GET")
 			}
 			err = redis.Nil
 		}
-		go cacheMeasure(start, key, nodeId, metrics2.READ, err, 0, false)
+		go cacheMeasure(start, key, nodeId, "READ", err, 0, false)
 		return nil, err, 0
 	}
 	// Define a structure to unmarshal the JSON string
@@ -388,7 +329,7 @@ func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start ti
 		}
 		result["value"][key] = decodedBytes
 	}
-	go cacheMeasure(start, key, nodeId, metrics2.READ, err, int64(data.Size), false)
+	go cacheMeasure(start, key, nodeId, "READ", err, int64(data.Size), false)
 	return result["value"], nil, int64(data.Size)
 }
 
@@ -419,7 +360,7 @@ func (c *CacheWrapper) sendSet(nodeId int, key string, value map[string][]byte, 
 	}
 	if status != http.StatusOK {
 		err = errors.New(response)
-		go cacheMeasure(start, key, nodeId, metrics2.INSERT, err, 0, false)
+		go cacheMeasure(start, key, nodeId, "INSERT", err, 0, false)
 		return err, 0
 	}
 	// Define a structure to unmarshal the JSON string
@@ -431,7 +372,7 @@ func (c *CacheWrapper) sendSet(nodeId int, key string, value map[string][]byte, 
 	if err = json.Unmarshal([]byte(response), &data); err != nil {
 		log.Fatal(err)
 	}
-	go cacheMeasure(start, key, nodeId, metrics2.INSERT, err, int64(data.Size), false)
+	go cacheMeasure(start, key, nodeId, "INSERT", err, int64(data.Size), false)
 	return nil, int64(data.Size)
 }
 
@@ -439,30 +380,21 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 
 	start := time.Now()
 
-	if !c.p.Cache.EnableReconfiguration.Value {
-		nodeId := c.GetNode(key)
-		return c.sendSet(nodeId, key, value, nodeId, start, false)
-	}
-
 	nodes := c.GetNodes(key)
-	primaryNodeId := nodes[0]
-	backupNodeId := nodes[1]
+	primaryNodeId := nodes[0] + 1
+	currentNodeId := primaryNodeId
 
-	if !c.isNodeFailed(primaryNodeId) {
-		go cacheMeasure(start, key, primaryNodeId, metrics2.INSERT, nil, 0, false)
-		return c.sendSet(primaryNodeId, key, value, backupNodeId, start, false)
-	} else {
-		for i := 1; i < len(nodes); i++ {
-			backupNodeId = nodes[i]
-			if !c.isNodeFailed(backupNodeId) {
-				go cacheMeasure(start, key, backupNodeId, metrics2.INSERT, nil, 0, false)
-				return c.sendSet(backupNodeId, key, value, primaryNodeId, start, true)
-			}
+	for i := 1; i < len(nodes); i++ {
+		backupNodeId := nodes[i] + 1
+		if !c.isNodeFailed(currentNodeId) {
+			go cacheMeasure(start, key, currentNodeId, "INSERT", errors.New("All nodes failed"), 0, false)
+			return c.sendSet(primaryNodeId, key, value, backupNodeId, start, true)
 		}
-
-		go cacheMeasure(start, key, primaryNodeId, metrics2.INSERT, errors.New("All nodes failed"), 0, false)
-		return errors.New("All nodes failed"), 0
+		currentNodeId++
 	}
+
+	go cacheMeasure(start, key, currentNodeId, "INSERT", errors.New("All nodes failed"), 0, false)
+	return errors.New("All nodes failed"), 0
 }
 
 func (c *CacheWrapper) markFailureDetection(node int) bool {
@@ -488,13 +420,22 @@ func (c *CacheWrapper) isNodeFailed(node int) bool {
 	return c.failedNodes[node]
 }
 
+func StringHash(key string) int {
+	// Using MurmurHash to compute the hash
+	hash := murmur3.New32() // create a new 32-bit MurmurHash3 hash
+	if _, err := hash.Write([]byte(key)); err != nil {
+		panic(err)
+	}
+	return int(hash.Sum32())
+}
+
 func (c *CacheWrapper) GetNode(key string) int {
-	return c.nodeOrders[(util.StringHash(key) % len(c.nodeOrders))][0]
+	return c.nodeOrders[(StringHash(key) % len(c.nodeOrders))][0]
 	//return (util.StringHash(key) % len(c.nodes))
 }
 
 func (c *CacheWrapper) GetNodes(key string) []int {
-	return c.nodeOrders[(util.StringHash(key) % len(c.nodeOrders))]
+	return c.nodeOrders[(StringHash(key) % len(c.nodeOrders))]
 	//numbers := make([]int, 0, len(c.nodes))
 	//used := make(map[int]bool)
 	//hash := fmt.Sprintf("%d", util.StringHash64(key))

@@ -61,7 +61,7 @@ func HandleSetBackup(w http.ResponseWriter, r *http.Request) {
 	var kv struct {
 		Key    string            `json:"key"`
 		Value  map[string][]byte `json:"value"`
-		NodeId int               `json:"nodeId"`
+		NodeId int               `json:"backupNode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&kv); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -84,13 +84,14 @@ func HandleSetBackup(w http.ResponseWriter, r *http.Request) {
 
 	// Set the Content-Type header
 	w.Header().Set("Content-Type", "application/json")
+	// Write the status code to the response
+	w.WriteHeader(http.StatusCreated) // Make sure this is the only call to WriteHeader
 	// Encode and send the response
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Error encoding response", http.StatusInternalServerError)
-		return
+		// If encoding fails, we cannot call http.Error since the header has already been written
+		log.Printf("Error encoding response: %v", err)
+		return // Make sure to return here so no more writes occur
 	}
-
-	w.WriteHeader(http.StatusCreated)
 }
 
 func HandleGetBackup(w http.ResponseWriter, r *http.Request) {
@@ -253,9 +254,10 @@ func HandleSet(w http.ResponseWriter, r *http.Request) {
 
 func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 	var params struct {
-		Id              int    `json:"id"`
-		MaxMemMbs       int    `json:"maxMemMbs"`
-		MaxMemoryPolicy string `json:"maxMemoryPolicy"`
+		Id              int     `json:"id"`
+		MaxMemMbs       int     `json:"maxMemMbs"`
+		MaxMemoryPolicy string  `json:"maxMemoryPolicy"`
+		UpdateInterval  float64 `json:"updateInterval"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
@@ -269,7 +271,7 @@ func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 			nodes = append(nodes, address)
 		}
 	}
-	globalNode = node.CreateNewNode(params.Id, config.Redis, params.MaxMemMbs, params.MaxMemoryPolicy, nodes)
+	globalNode = node.CreateNewNode(params.Id, config.Redis, params.MaxMemMbs, params.MaxMemoryPolicy, params.UpdateInterval, nodes)
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte("Node created successfully"))
 	if err != nil {

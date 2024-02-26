@@ -44,10 +44,10 @@ Cache:
     Nodes:
         - NodeId:
             Description: The ID of the node.
-            Value: 1
+            Value: 0
           Address:
             Description: Address and port of redis server
-            Value: 0.0.0.0:6379
+            Value: http://localhost:8081
           FailureIntervals:
             - Start: 0.3
               End: 0.5
@@ -62,42 +62,10 @@ Cache:
             Value: true
         - NodeId:
             Description: The ID of the node.
-            Value: 2
+            Value: 1
           Address:
             Description: Address and port of redis server
-            Value: 0.0.0.0:6380
-          FailureIntervals: []
-          MaxMemoryMbs:
-            Description: The maximum number of megabytes to store in the cache.
-            Value: 27
-          MaxMemoryPolicy:
-            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
-            Value: allkeys-lfu
-          UseDefaultDatabase:
-            Description: Indicates whether to use the default database for the cache.
-            Value: true
-        - NodeId:
-            Description: The ID of the node.
-            Value: 3
-          Address:
-            Description: Address and port of redis server
-            Value: 0.0.0.0:6381
-          FailureIntervals: []
-          MaxMemoryMbs:
-            Description: The maximum number of megabytes to store in the cache.
-            Value: 27
-          MaxMemoryPolicy:
-            Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
-            Value: allkeys-lfu
-          UseDefaultDatabase:
-            Description: Indicates whether to use the default database for the cache.
-            Value: true
-        - NodeId:
-            Description: The ID of the node.
-            Value: 4
-          Address:
-            Description: Address and port of redis server
-            Value: 0.0.0.0:6382
+            Value: http://localhost:8082
           FailureIntervals: []
           MaxMemoryMbs:
             Description: The maximum number of megabytes to store in the cache.
@@ -135,7 +103,7 @@ Workload:
         Value: 10
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 12000
+        Value: 6000
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1

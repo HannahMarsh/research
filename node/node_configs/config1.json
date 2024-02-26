@@ -1,6 +1,6 @@
 {
   "id": 1,
-  "redis": "127.0.0.1:6380",
+  "redis": "127.0.0.1:6379",
   "clientPort": ":8081",
   "nodePort": ":9081",
   "allNodes": {

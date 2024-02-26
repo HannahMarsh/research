@@ -325,7 +325,7 @@ func loadTransCommandFunc(cmd *cobra.Command, args []string) {
 }
 
 func initClientCommand(m *cobra.Command) {
-	m.Flags().StringVar(&propertyFile, "property_file", "P", "Specify a property file")
+	m.Flags().StringVar(&propertyFile, "property_file", "/Users/hanma/cloud computing research/research/benchmark/config/default.yaml", "Specify a property file")
 	m.Flags().StringVar(&workloadId, "wid", "", "Specify the workload id")
 	m.Flags().StringArrayVarP(&propertyValues, "prop", "p", nil, "Specify a property value with name=value")
 }

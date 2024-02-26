@@ -56,7 +56,11 @@ func serveClients() {
 
 	// Start the server with the mux as the handler
 	log.Printf("Starting server on port %s\n", config.ClientPort)
-	err := http.ListenAndServe(config.ClientPort, mux)
+	server := &http.Server{Addr: config.ClientPort, Handler: mux}
+	server.SetKeepAlivesEnabled(true)
+	err := server.ListenAndServe()
+
+	//err = http.ListenAndServe(config.ClientPort, mux)
 	if err != nil {
 		panic(err)
 	}

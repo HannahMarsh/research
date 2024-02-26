@@ -42,7 +42,7 @@ func (n *Node) getOtherNode(id int) (_ *OtherNode, index int) {
 	}
 }
 
-func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, otherNodes []string) *Node {
+func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, updateInterval float64, otherNodes []string) *Node {
 	log.Printf("Creating new node with id %d\n", id)
 
 	ctx := context.Background()
@@ -117,7 +117,8 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 		panic(fmt.Errorf("failed to clear cache: %v", err))
 	}
 
-	c.StartTopKeysUpdateTask(1 * time.Second)
+	updateInterval *= 1000
+	c.StartTopKeysUpdateTask(time.Duration(updateInterval) * time.Millisecond)
 	return c
 }
 
@@ -176,7 +177,7 @@ func (c *Node) SendUpdateToBackUpNodes() {
 			fmt.Println("Error creating request:", err)
 			return
 		} else {
-			log.Printf("Sending update to node %d\n", node)
+			//log.Printf("Sending update to node %d\n", node)
 		}
 
 		// Set Content-Type header
@@ -309,7 +310,8 @@ func (c *Node) GetBackUp(key string, fields []string) (map[string][]byte, error,
 			panic("Error loading key to other node index")
 		}
 	} else {
-		panic("backup data has not yet been stored for this key")
+		// panic("backup data has not yet been stored for this key")
+		return nil, redis.Nil, size_
 	}
 }
 

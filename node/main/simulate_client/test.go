@@ -112,6 +112,10 @@ func main() {
 		count++
 		time.Sleep(5 * time.Millisecond)
 	}
+
+	simulateFail(nodes[0])
+	simulateRecover(nodes[0])
+
 }
 
 func sendRequest(method, url string, payload []byte) (string, int) {
@@ -149,8 +153,27 @@ func sendRequest(method, url string, payload []byte) (string, int) {
 }
 
 func simulateNewNode(port int, id int) {
-	jsonPayload := []byte(fmt.Sprintf("{\"id\": %d, \"maxMemMbs\": 256, \"maxMemoryPolicy\": \"allkeys-lru\"}", id))
-	sendRequest("POST", fmt.Sprintf("http://localhost:%d/newNode", port), jsonPayload)
+
+	type kv struct {
+		Id              int     `json:"id"`
+		MaxMemMbs       int     `json:"maxMemMbs"`
+		MaxMemoryPolicy string  `json:"maxMemoryPolicy"`
+		UpdateInterval  float64 `json:"updateInterval"`
+	}
+	var jsonPayload = kv{
+		Id:              id,
+		MaxMemMbs:       10,
+		MaxMemoryPolicy: "allkeys-lru",
+		UpdateInterval:  1.0,
+	}
+
+	jsonPayloadBytes, err := json.Marshal(jsonPayload)
+	if err != nil {
+		panic(err)
+	}
+
+	// This is a GET request, so no payload is sent
+	sendRequest("POST", fmt.Sprintf("http://localhost:%d/newNode", port), []byte(jsonPayloadBytes))
 }
 
 func simulateGet(port int, key string) map[string]map[string][]byte {
