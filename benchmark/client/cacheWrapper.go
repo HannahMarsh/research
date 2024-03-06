@@ -13,6 +13,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -106,8 +107,26 @@ func (c *CacheWrapper) sendRequestToNode(nodeId int, method, endpoint string, pa
 	return sendRequest(method, fmt.Sprintf("%s/%s", c.nodes[nodeId], endpoint), payload)
 }
 
+var httpClient *http.Client
+
+func init() {
+	httpClient = &http.Client{
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          10000,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 5 * time.Second,
+		},
+		Timeout: 5 * time.Second,
+	}
+}
+
 func sendRequest(method, url string, payload []byte) (string, int) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := httpClient
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
 	if err != nil {
 		fmt.Println("Error creating request:", err)
@@ -197,7 +216,7 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 		nodes:             make(map[int]string),
 	}
 
-	updateInterval := time.Duration((time.Duration(p.Workload.TargetExecutionTime.Value)*time.Second).Milliseconds()/100) * time.Millisecond
+	updateInterval := time.Duration((time.Duration(p.Workload.TargetExecutionTime.Value)*time.Second).Milliseconds()/10) * time.Millisecond
 
 	for i := range p.Cache.Nodes {
 		nodeId := c.addNode(p.Cache.Nodes[i], updateInterval.Seconds())
@@ -309,9 +328,15 @@ func (c *CacheWrapper) addNode(p bconfig.NodeConfig, updateInterval float64) int
 	return nodeId
 }
 
+var empty = make([]string, 0)
+
 func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (map[string][]byte, error, int64) {
 
 	start := time.Now()
+
+	if fields == nil {
+		fields = empty
+	}
 
 	if !c.p.Cache.EnableReconfiguration.Value {
 		nodeId := c.GetNode(key)

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -23,46 +25,54 @@ func main() {
 
 	config = GetConfig(id)
 
-	var wg sync.WaitGroup
-	wg.Add(2)
+	globalCtx, globalCancel = context.WithCancel(context.Background())
 
-	go func() {
-		defer wg.Done() // Decrement the counter when the goroutine completes
-		serveClients()
-	}()
+	for {
+		var wg sync.WaitGroup
+		wg.Add(2)
 
-	go func() {
-		defer wg.Done() // Decrement the counter when the goroutine completes
-		serveOtherNodes()
-	}()
+		go func() {
+			defer wg.Done() // Decrement the counter when the goroutine completes
+			serveClients()
+		}()
+		go func() {
+			defer wg.Done() // Decrement the counter when the goroutine completes
+			serveOtherNodes()
+		}()
 
-	// Wait for all goroutines to complete
-	wg.Wait()
-}
-
-func serveNewNode() {
-	// Create a new ServeMux
-	newNodeMux := http.NewServeMux()
-
-	// Register handler functions for different paths
-	newNodeMux.HandleFunc("/newNode", NewNodeHandler)
-
-	// Start the server with the mux as the handler
-	log.Printf("Starting server on port %s\n", config.ClientPort)
-	err := http.ListenAndServe(config.ClientPort, newNodeMux)
-
-	if err != nil {
-		panic(err)
+		// Wait for all goroutines to complete
+		wg.Wait()
 	}
+
+	//var wg sync.WaitGroup
+	//wg.Add(2)
+	//
+	//go func() {
+	//	defer wg.Done() // Decrement the counter when the goroutine completes
+	//	serveClients()
+	//}()
+	//
+	//go func() {
+	//	defer wg.Done() // Decrement the counter when the goroutine completes
+	//	serveOtherNodes()
+	//}()
+	//
+	//// Wait for all goroutines to complete
+	//wg.Wait()
 }
 
 func serveClients() {
+
+	select {
+	case <-globalCtx.Done():
+		return
+	default:
+	}
 	// Create a new ServeMux
 	mux := http.NewServeMux()
-	newNodeMux := http.NewServeMux()
 
 	// Register handler functions for different paths
-	newNodeMux.HandleFunc("/newNode", NewNodeHandler)
+	mux.HandleFunc("/newNode", NewNodeHandler)
 	mux.HandleFunc("/get", HandleGet)
 	mux.HandleFunc("/getBackup", HandleGetBackup)
 	mux.HandleFunc("/set", HandleSet)
@@ -74,22 +84,35 @@ func serveClients() {
 
 	// Start the server with the mux as the handler
 	log.Printf("Starting server on port %s\n", config.ClientPort)
-	err := http.ListenAndServe(config.ClientPort, newNodeMux)
 
-	if err != nil {
-		panic(err)
-	}
 	server := &http.Server{Addr: config.ClientPort, Handler: mux}
-	server.SetKeepAlivesEnabled(true)
-	err = server.ListenAndServe()
+
+	go func() {
+		<-globalCtx.Done() // Wait for context to be cancelled
+		if err := server.Shutdown(context.Background()); err != nil {
+			log.Printf("HTTP server Shutdown: %v", err)
+		}
+	}()
+
+	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		log.Fatalf("HTTP server ListenAndServe: %v", err)
+	}
+
+	//err := server.ListenAndServe()
 
 	//err = http.ListenAndServe(config.ClientPort, mux)
-	if err != nil {
-		panic(err)
-	}
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
 func serveOtherNodes() {
+	select {
+	case <-globalCtx.Done():
+		return
+	default:
+	}
+
 	// Create a new ServeMux
 	mux := http.NewServeMux()
 
@@ -99,19 +122,81 @@ func serveOtherNodes() {
 	// Start the server with the mux as the handler
 	log.Printf("Starting server on port %s\n", config.NodePort)
 	server := &http.Server{Addr: config.NodePort, Handler: mux}
-	server.SetKeepAlivesEnabled(true)
-	err := server.ListenAndServe()
 
-	//err = http.ListenAndServe(config.ClientPort, mux)
-	if err != nil {
-		panic(err)
+	go func() {
+		<-globalCtx.Done() // Wait for context to be cancelled
+		if err := server.Shutdown(context.Background()); err != nil {
+			log.Printf("HTTP server Shutdown: %v", err)
+		}
+	}()
+
+	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		log.Fatalf("HTTP server ListenAndServe: %v", err)
 	}
+
+	//err := server.ListenAndServe()
+	//
+	////err = http.ListenAndServe(config.ClientPort, mux)
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	//err := http.ListenAndServe(config.NodePort, mux)
 	//if err != nil {
 	//	panic(err)
 	//}
 }
+
+//func serveClients() {
+//	// Create a new ServeMux
+//	mux := http.NewServeMux()
+//
+//	// Register handler functions for different paths
+//	mux.HandleFunc("/get", HandleGet)
+//	mux.HandleFunc("/getBackup", HandleGetBackup)
+//	mux.HandleFunc("/set", HandleSet)
+//	mux.HandleFunc("/setBackup", HandleSetBackup)
+//	mux.HandleFunc("/fail", HandleFail)
+//	mux.HandleFunc("/recover", HandleRecover)
+//	mux.HandleFunc("/ping", HandlePing)
+//	mux.HandleFunc("/done", HandleDone)
+//
+//	// Start the server with the mux as the handler
+//	log.Printf("Starting server on port %s\n", config.ClientPort)
+//
+//	server := &http.Server{Addr: config.ClientPort, Handler: mux}
+//	server.SetKeepAlivesEnabled(true)
+//	err := server.ListenAndServe()
+//
+//	//err = http.ListenAndServe(config.ClientPort, mux)
+//	if err != nil {
+//		panic(err)
+//	}
+//}
+//
+//func serveOtherNodes() {
+//	// Create a new ServeMux
+//	mux := http.NewServeMux()
+//
+//	// Register handler functions for different paths
+//	mux.HandleFunc("/updateKey", HandleUpdateKey)
+//
+//	// Start the server with the mux as the handler
+//	log.Printf("Starting server on port %s\n", config.NodePort)
+//	server := &http.Server{Addr: config.NodePort, Handler: mux}
+//	server.SetKeepAlivesEnabled(true)
+//	err := server.ListenAndServe()
+//
+//	//err = http.ListenAndServe(config.ClientPort, mux)
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	//err := http.ListenAndServe(config.NodePort, mux)
+//	//if err != nil {
+//	//	panic(err)
+//	//}
+//}
 
 type Config struct {
 	Id         int               `json:"id"`

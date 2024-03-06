@@ -58,10 +58,11 @@ func HandleUpdateKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No node available", http.StatusServiceUnavailable)
 		return
 	}
-	var params struct {
-		Data   map[string]map[string][]byte `json:"value"`
+	type p struct {
+		Data   map[string]map[string][]byte `json:"data"`
 		NodeId int                          `json:"nodeId"`
 	}
+	var params p
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -73,7 +74,7 @@ func HandleUpdateKey(w http.ResponseWriter, r *http.Request) {
 	//	panic(err)
 	//}
 
-	globalNode.ReceiveUpdate(params.Data, params.NodeId)
+	go globalNode.ReceiveUpdate(params.Data, params.NodeId)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -255,6 +256,11 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 	v, err, size := globalNode.Get(kv.Key, kv.Fields)
 
 	if err != nil {
+		if err.Error() == "redis: nil" {
+			log.Printf("Cache miss: %v", err)
+			http.Error(w, "redis: nil", http.StatusNotFound)
+			return
+		}
 		log.Printf("Error getting key: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -365,6 +371,9 @@ func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 	//	nodes[index] = address
 	//	//}
 	//}
+
+	globalCtx, globalCancel = context.WithCancel(context.Background())
+
 	globalNode = node.CreateNewNode(params.Id, config.Redis, params.MaxMemMbs, params.MaxMemoryPolicy, params.UpdateInterval, nodes)
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte("Node created successfully"))
@@ -373,5 +382,4 @@ func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	globalCtx, globalCancel = context.WithCancel(context.Background())
 }

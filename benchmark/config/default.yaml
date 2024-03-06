@@ -76,6 +76,38 @@ Cache:
           UseDefaultDatabase:
             Description: Indicates whether to use the default database for the cache.
             Value: true
+        - NodeId:
+              Description: The ID of the node.
+              Value: 2
+          Address:
+              Description: Address and port of redis server
+              Value: http://localhost:8083
+          FailureIntervals: []
+          MaxMemoryMbs:
+              Description: The maximum number of megabytes to store in the cache.
+              Value: 27
+          MaxMemoryPolicy:
+              Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+              Value: allkeys-lfu
+          UseDefaultDatabase:
+              Description: Indicates whether to use the default database for the cache.
+              Value: true
+        - NodeId:
+              Description: The ID of the node.
+              Value: 3
+          Address:
+              Description: Address and port of redis server
+              Value: http://localhost:8084
+          FailureIntervals: []
+          MaxMemoryMbs:
+              Description: The maximum number of megabytes to store in the cache.
+              Value: 27
+          MaxMemoryPolicy:
+              Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+              Value: allkeys-lfu
+          UseDefaultDatabase:
+              Description: Indicates whether to use the default database for the cache.
+              Value: true
 Workload:
     PerformDataIntegrityChecks:
         Description: Enables verification of data integrity during database operations. Requires 'FieldSizeDistribution' to be set to 'constant'.
@@ -97,13 +129,13 @@ Workload:
         Value: 20000
     DbOperationRetryLimit:
         Description: The maximum number of times to retry a failed insert operation.
-        Value: 3
+        Value: 1
     TargetExecutionTime:
         Description: The target duration to run the benchmark for after the warmup time.
-        Value: 10
+        Value: 15
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 6000
+        Value: 3000
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1

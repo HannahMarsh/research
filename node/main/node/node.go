@@ -30,17 +30,18 @@ type Node struct {
 	id              int
 	cq              *cq.CQ
 	keysToOtherNode sync.Map
+	httpClient      *http.Client
 }
 
 func (n *Node) getOtherNode(id int) (_ *OtherNode, index int) {
-	if id != n.id {
-		return n.otherNodes[id], id
-		//} else if id > n.id {
-		//return n.otherNodes[id-1], id - 1
-	} else {
-		panic("Cannot get other node with the same id")
-		//return &n.otherNodes[0]
-	}
+	//if id != n.id {
+	return n.otherNodes[id], id
+	//} else if id > n.id {
+	//return n.otherNodes[id-1], id - 1
+	//} else {
+	//panic("Cannot get other node with the same id")
+	//return &n.otherNodes[0]
+	//}
 }
 
 func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, updateInterval float64, otherNodes []string) *Node {
@@ -53,6 +54,19 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 	c.Cancel = cancel
 	c.otherNodes = make([]*OtherNode, len(otherNodes))
 	c.cq = cq.NewConcurrentQueue(20_000)
+	c.httpClient = &http.Client{}
+	//	Transport: &http.Transport{
+	//		DialContext: (&net.Dialer{
+	//			Timeout:   30 * time.Second,
+	//			KeepAlive: 30 * time.Second,
+	//		}).DialContext,
+	//		MaxIdleConns:          10,
+	//		IdleConnTimeout:       1 * time.Second,
+	//		TLSHandshakeTimeout:   1 * time.Second,
+	//		ExpectContinueTimeout: 1 * time.Second,
+	//	},
+	//	Timeout: 1 * time.Second,
+	//}
 
 	for node, addr := range otherNodes {
 		c.otherNodes[node] = &OtherNode{
@@ -178,7 +192,8 @@ func (n *Node) SendUpdateToBackUpNodes() {
 
 		// Create a new POST request with JSON body
 		otherNode, _ := n.getOtherNode(node)
-		req, err := http.NewRequest("POST", otherNode.address+"/updateKey", bytes.NewBuffer(jsonData))
+		reqBody := bytes.NewBuffer(jsonData)
+		req, err := http.NewRequest("POST", otherNode.address+"/updateKey", reqBody)
 		if err != nil {
 			fmt.Println("Error creating request:", err)
 			return
@@ -190,7 +205,7 @@ func (n *Node) SendUpdateToBackUpNodes() {
 		req.Header.Set("Content-Type", "application/json")
 
 		// Create an HTTP client and send the request
-		client := &http.Client{}
+		client := n.httpClient
 		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Error sending request:", err)
@@ -268,7 +283,7 @@ func (n *Node) Get(key string, fields []string) (map[string][]byte, error, int64
 	n.cq.Get(key)
 
 	// If no specific fields are requested, return the full data
-	if len(fields) == 0 {
+	if fields == nil || len(fields) == 0 {
 		return data, nil, size_
 	}
 

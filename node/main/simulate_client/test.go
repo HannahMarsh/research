@@ -65,7 +65,7 @@ func main() {
 		if fmt.Sprintf("%v", result) != fmt.Sprintf("%v", expected) {
 			fmt.Printf("key: %s, result: %v, \n\t  expected: %v\n", key, result, expected)
 		} else {
-			//fmt.Printf("key: %s, matched! result: %v\n", key, result)
+			fmt.Printf("key: %s, matched! result: %v\n", key, result)
 		}
 
 		count++
@@ -106,7 +106,7 @@ func main() {
 		if fmt.Sprintf("%v", result) != fmt.Sprintf("%v", expected) {
 			fmt.Printf("key: %s, result: %v, \n\t  expected: %v\n", key, result, expected)
 		} else {
-			//fmt.Printf("key: %s, matched! result: %v\n", key, result)
+			fmt.Printf("key: %s, matched! result: %v\n", key, result)
 		}
 
 		count++
@@ -119,7 +119,7 @@ func main() {
 }
 
 func sendRequest(method, url string, payload []byte) (string, int) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 1 * time.Second}
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
 	if err != nil {
 		fmt.Println("Error creating request:", err)

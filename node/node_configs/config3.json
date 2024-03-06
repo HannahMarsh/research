@@ -1,8 +1,8 @@
 {
   "id": 3,
   "redis": "127.0.0.1:6382",
-  "clientPort": ":8083",
-  "nodePort": ":9083",
+  "clientPort": ":8084",
+  "nodePort": ":9084",
   "allNodes": {
     "1": "http://localhost:9081",
     "2": "http://localhost:9082",

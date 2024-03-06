@@ -145,7 +145,7 @@ func averageValue(value func(Metric) float64) func([][]Metric, time.Duration) fl
 func forEachNode(f func(int) category) []category {
 	var nodeCategories []category
 	for _, node := range globalConfig.Cache.Nodes {
-		nodeIndex := node.NodeId.Value - 1
+		nodeIndex := node.NodeId.Value
 		nodeCategories = append(nodeCategories, f(nodeIndex))
 	}
 	return nodeCategories
@@ -154,7 +154,7 @@ func forEachNode(f func(int) category) []category {
 func forEachNodeMulti(f func(int) []category) []category {
 	var nodeCategories []category
 	for _, node := range globalConfig.Cache.Nodes {
-		nodeIndex := node.NodeId.Value - 1
+		nodeIndex := node.NodeId.Value
 		c := f(nodeIndex)
 		for _, cc := range c {
 			nodeCategories = append(nodeCategories, cc)
