@@ -79,8 +79,8 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 		Addr:     address,
 		Password: "", // no password set
 		DB:       0,  // use default DB
-		//PoolSize: 200, // set the pool size to 100
-		//MinIdleConns: 30,                     // maintain at least 10 idle connections
+		//PoolSize:     200,              // set the pool size to 100
+		//MinIdleConns: 30,               // maintain at least 10 idle connections
 		//IdleTimeout:  10 * time.Second, // timeout for idle connections
 		//DialTimeout:  10 * time.Second, // timeout for connecting
 		//ReadTimeout:  1 * time.Second,  // timeout for reads
@@ -133,7 +133,7 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 		panic(fmt.Errorf("failed to clear cache: %v", err))
 	}
 
-	updateInterval *= 1000
+	updateInterval *= 2000
 	c.StartTopKeysUpdateTask(time.Duration(updateInterval) * time.Millisecond)
 	return c
 }
@@ -165,7 +165,7 @@ func (n *Node) StartTopKeysUpdateTask(updateInterval time.Duration) {
 }
 
 const (
-	numToSend int = 1000
+	numToSend int = 500
 )
 
 func (n *Node) SendUpdateToBackUpNodes() {
@@ -173,70 +173,99 @@ func (n *Node) SendUpdateToBackUpNodes() {
 
 	m := n.cq.GetTop(numToSend)
 
+	var wg sync.WaitGroup
+
 	for node, data := range m {
 
 		if node == n.id {
 			continue
 		}
 
-		type params struct {
-			Data   map[string]map[string][]byte `json:"value"`
-			NodeId int                          `json:"nodeId"`
-		}
+		wg.Add(1)
 
-		jsonData, err := json.Marshal(params{Data: data, NodeId: n.id})
-		if err != nil {
-			fmt.Println("Error marshaling JSON:", err)
-			return
-		}
+		go func() {
+			defer wg.Done()
 
-		// Create a new POST request with JSON body
-		otherNode, _ := n.getOtherNode(node)
-		reqBody := bytes.NewBuffer(jsonData)
-		req, err := http.NewRequest("POST", otherNode.address+"/updateKey", reqBody)
-		if err != nil {
-			fmt.Println("Error creating request:", err)
-			return
-		} else {
-			//log.Printf("Sending update to node %d\n", node)
-		}
-
-		// Set Content-Type header
-		req.Header.Set("Content-Type", "application/json")
-
-		// Create an HTTP client and send the request
-		client := n.httpClient
-		resp, err := client.Do(req)
-		if err != nil {
-			fmt.Println("Error sending request:", err)
-			return
-		} else {
-			//log.Printf("Received response from node %d: %v: %v", node, resp.StatusCode)
-		}
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				panic(err)
+			type params struct {
+				Data   map[string][]byte `json:"data"`
+				NodeId int               `json:"nodeId"`
 			}
-		}(resp.Body)
 
-		// Read and print the response body
-		_, err = io.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Error reading response body:", err)
-			return
-		} else {
-			//log.Printf("Response body: %v\n", response)
-		}
+			d := make(map[string][]byte)
+			for k, v := range data {
+				jsonData, err := json.Marshal(v)
+				if err != nil {
+					fmt.Println("Error marshaling JSON:", err)
+					return
+				}
+				d[k] = jsonData
+			}
+
+			jsonData, err := json.Marshal(params{Data: d, NodeId: n.id})
+			if err != nil {
+				fmt.Println("Error marshaling JSON:", err)
+				return
+			}
+
+			// Create a new POST request with JSON body
+			otherNode, _ := n.getOtherNode(node)
+			reqBody := bytes.NewBuffer(jsonData)
+			req, err := http.NewRequest("POST", otherNode.address+"/updateKey", reqBody)
+			if err != nil {
+				fmt.Println("Error creating request:", err)
+				return
+			} else {
+				//log.Printf("Sending update to node %d\n", node)
+			}
+
+			// Set Content-Type header
+			req.Header.Set("Content-Type", "application/json")
+
+			// Create an HTTP client and send the request
+			client := n.httpClient
+			resp, err := client.Do(req)
+			if err != nil {
+				fmt.Println("Error sending request:", err)
+				return
+			} else {
+				//log.Printf("Received response from node %d: %v: %v", node, resp.StatusCode)
+			}
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					panic(err)
+				}
+			}(resp.Body)
+
+			// Read and print the response body
+			_, err = io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Println("Error reading response body:", err)
+				return
+			} else {
+				//log.Printf("Response body: %v\n", response)
+			}
+		}()
+		wg.Wait()
 	}
 }
 
-func (n *Node) ReceiveUpdate(data map[string]map[string][]byte, node int) {
+func (n *Node) ReceiveUpdate(data map[string][]byte, node int) {
 	//log.Printf("Received update from node %d\n", node)
 
+	d := make(map[string]map[string][]byte)
+	for k, v := range data {
+		var m map[string][]byte
+		err := json.Unmarshal(v, &m)
+		if err != nil {
+			fmt.Println("Error unmarshaling JSON:", err)
+			return
+		}
+		d[k] = m
+	}
 	otherNode, index := n.getOtherNode(node)
 	otherNode.dataMutex.Lock()
-	otherNode.data = data
+	otherNode.data = d
 	for key, _ := range data {
 		n.keysToOtherNode.LoadOrStore(key, index)
 	}

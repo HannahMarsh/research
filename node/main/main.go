@@ -86,6 +86,7 @@ func serveClients() {
 	log.Printf("Starting server on port %s\n", config.ClientPort)
 
 	server := &http.Server{Addr: config.ClientPort, Handler: mux}
+	//server.SetKeepAlivesEnabled(true)
 
 	go func() {
 		<-globalCtx.Done() // Wait for context to be cancelled
@@ -122,6 +123,7 @@ func serveOtherNodes() {
 	// Start the server with the mux as the handler
 	log.Printf("Starting server on port %s\n", config.NodePort)
 	server := &http.Server{Addr: config.NodePort, Handler: mux}
+	//server.SetKeepAlivesEnabled(true)
 
 	go func() {
 		<-globalCtx.Done() // Wait for context to be cancelled

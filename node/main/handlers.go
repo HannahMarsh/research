@@ -59,8 +59,8 @@ func HandleUpdateKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type p struct {
-		Data   map[string]map[string][]byte `json:"data"`
-		NodeId int                          `json:"nodeId"`
+		Data   map[string][]byte `json:"data"`
+		NodeId int               `json:"nodeId"`
 	}
 	var params p
 
@@ -149,6 +149,12 @@ func HandleGetBackup(w http.ResponseWriter, r *http.Request) {
 	v, err, size := globalNode.GetBackUp(kv.Key, kv.Fields)
 
 	if err != nil {
+		if err.Error() == "redis: nil" {
+			//log.Printf("Cache miss: %v", err)
+			http.Error(w, "redis: nil", http.StatusNotFound)
+			return
+		}
+		log.Printf("Error getting key: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -166,9 +172,36 @@ func HandleGetBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// Encode and send the response
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 		return
 	}
+
+	//
+	//
+	//
+	//
+	//if err != nil {
+	//	http.Error(w, err.Error(), http.StatusInternalServerError)
+	//	return
+	//}
+	//
+	//// Prepare the response structure
+	//response := struct {
+	//	Value map[string][]byte `json:"value"`
+	//	Size  int64             `json:"size"`
+	//}{
+	//	Value: v,
+	//	Size:  size,
+	//}
+	//
+	//// Set the Content-Type header
+	//w.Header().Set("Content-Type", "application/json")
+	//// Encode and send the response
+	//if err := json.NewEncoder(w).Encode(response); err != nil {
+	//	http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	//	return
+	//}
 }
 
 func HandleFail(w http.ResponseWriter, r *http.Request) {
@@ -214,6 +247,8 @@ func HandlePing(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if !globalNode.IsFailed() {
 		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 }
 

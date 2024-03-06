@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="nodes" type="CompoundRunConfigurationType">
+    <toRun name="node0" type="GoApplicationRunConfiguration" />
+    <toRun name="node1" type="GoApplicationRunConfiguration" />
+    <toRun name="node2" type="GoApplicationRunConfiguration" />
+    <toRun name="node3" type="GoApplicationRunConfiguration" />
+    <method v="2" />
+  </configuration>
+</component>

@@ -4,9 +4,9 @@
   "clientPort": ":8081",
   "nodePort": ":9081",
   "allNodes": {
-    "1": "http://localhost:9081",
-    "2": "http://localhost:9082",
-    "3": "http://localhost:9083",
-    "4": "http://localhost:9084"
+    "0": "http://localhost:9081",
+    "1": "http://localhost:9082",
+    "2": "http://localhost:9083",
+    "3": "http://localhost:9084"
   }
 }
