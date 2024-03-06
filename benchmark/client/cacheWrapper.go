@@ -113,13 +113,13 @@ func init() {
 	httpClient = &http.Client{
 		Transport: &http.Transport{
 			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
+				Timeout: 5 * time.Second,
+				//KeepAlive: 30 * time.Second,
 			}).DialContext,
-			MaxIdleConns:          10000,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 5 * time.Second,
+			MaxIdleConns: 100,
+			//IdleConnTimeout:       10 * time.Second,
+			TLSHandshakeTimeout:   5 * time.Second,
+			ExpectContinueTimeout: 10 * time.Second,
 		},
 		Timeout: 5 * time.Second,
 	}
@@ -127,7 +127,11 @@ func init() {
 
 func sendRequest(method, url string, payload []byte) (string, int) {
 	client := httpClient
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
+	var reader io.Reader = nil
+	if payload != nil {
+		reader = bytes.NewBuffer(payload)
+	}
+	req, err := http.NewRequest(method, url, reader)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return "", -1
@@ -140,8 +144,9 @@ func sendRequest(method, url string, payload []byte) (string, int) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Error sending request:", err)
-		return "", -1
+		//fmt.Println("Error sending request:", err)
+		//return "", -1
+		return err.Error(), -1
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -156,9 +161,12 @@ func sendRequest(method, url string, payload []byte) (string, int) {
 		fmt.Println("Error reading response body:", err)
 		return "", -1
 	}
+	if resp.StatusCode == http.StatusBadRequest {
+		log.Printf("Attempted to send: %s, Received response from %v: %s\n", url, resp.StatusCode, string(b))
+	}
 
-	if resp.StatusCode == 500 && string(b) != "redis: nil\n" {
-		log.Printf("Received response from %s: %v: %s\n", url, resp.StatusCode, resp.Status)
+	if resp.StatusCode == 500 && string(b) != "redis: nil\n" && string(b) != "redis: nil" && string(b) != "context deadline exceeded\n" {
+		log.Printf("Received response from %s: %v: %s, %s\n", url, resp.StatusCode, resp.Status, string(b))
 	}
 
 	return string(b), resp.StatusCode
@@ -171,7 +179,7 @@ type CacheWrapper struct {
 	timers []*time.Timer // Timers for scheduling node failures
 	ctx    context.Context
 	//memNodes          map[string][]int
-	mu                sync.Mutex // Mutex to protect memNodes
+	mu                sync.RWMutex // Mutex to protect memNodes
 	cacheTimeout      time.Duration
 	failedNodes       map[int]bool
 	numFailDetections map[int]int
@@ -230,6 +238,10 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 
 func (c *CacheWrapper) scheduleFailures() {
 
+	for n := range c.failedNodes {
+		c.failedNodes[n] = false
+	}
+
 	for i := range c.p.Cache.Nodes {
 		node := c.p.Cache.Nodes[i]
 		nodeId := node.NodeId.Value
@@ -244,11 +256,13 @@ func (c *CacheWrapper) scheduleFailures() {
 			// Schedule node failure
 			failTimer := time.AfterFunc(startDelay, func() {
 				go c.sendRequestToNode(nodeId, "POST", "fail", nil)
+				c.markFailed(nodeId)
 				go nodeFailureMeasure(time.Now(), nodeId, true)
 
 				// Schedule node recovery
 				recoverTimer := time.AfterFunc(endDelay-startDelay, func() {
 					go c.sendRequestToNode(nodeId, "POST", "recover", nil)
+					c.markRecovered(nodeId)
 					//c.nodeRing.ReconfigureRingAfterRecovery(nodeIndex)
 					nodeFailureMeasure(time.Now(), nodeId, false)
 				})
@@ -261,35 +275,35 @@ func (c *CacheWrapper) scheduleFailures() {
 }
 
 func (c *CacheWrapper) scheduleCheckForRecoveries(ctx context.Context) {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			for node := range c.failedNodes {
-				c.mu.Lock()
-				failed := c.failedNodes[node]
-				c.mu.Unlock()
-				if failed {
-					go c.checkNodeRecovered(node, ctx)
-				}
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
+	//ticker := time.NewTicker(100 * time.Millisecond)
+	//defer ticker.Stop()
+	//
+	//for {
+	//	select {
+	//	case <-ticker.C:
+	//		for node := range c.failedNodes {
+	//			c.mu.Lock()
+	//			failed := c.failedNodes[node]
+	//			c.mu.Unlock()
+	//			if failed {
+	//				go c.checkNodeRecovered(node, ctx)
+	//			}
+	//		}
+	//	case <-ctx.Done():
+	//		return
+	//	}
+	//}
 }
 
 // checkNodeRecovered checks if a given node has recovered.
 func (c *CacheWrapper) checkNodeRecovered(node int, ctx context.Context) {
-	if _, status := c.sendRequestToNode(node, "GET", "/get", make([]byte, 0)); status != http.StatusServiceUnavailable {
-		go markRecoveryDetection(time.Now(), node)
-		c.mu.Lock()
-		c.failedNodes[node] = false
-		c.numFailDetections[node] = 0
-		c.mu.Unlock()
-	}
+	//if _, status := c.sendRequestToNode(node, "GET", "/ping", nil); status == http.StatusOK {
+	//	go markRecoveryDetection(time.Now(), node)
+	//	c.mu.Lock()
+	//	c.failedNodes[node] = false
+	//	c.numFailDetections[node] = 0
+	//	c.mu.Unlock()
+	//}
 }
 
 func (c *CacheWrapper) addNode(p bconfig.NodeConfig, updateInterval float64) int {
@@ -345,14 +359,19 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 
 	nodes := c.GetNodes(key)
 	primaryNodeId := nodes[0]
-	currentNodeId := primaryNodeId
 
-	for i := 1; i < len(nodes); i++ {
-		if !c.isNodeFailed(currentNodeId) {
-			go cacheMeasure(start, key, currentNodeId, metrics2.READ, errors.New("All nodes failed"), 0, false)
-			return c.sendGet(key, fields, currentNodeId, start, currentNodeId == primaryNodeId)
+	for node := range nodes {
+		if !c.isNodeFailed(nodes[node]) {
+			return c.sendGet(key, fields, nodes[node], start, nodes[node] == primaryNodeId)
 		}
 	}
+	//
+	//for i := 1; i < len(nodes); i++ {
+	//	currentNodeId = nodes[i]
+	//	if !c.isNodeFailed(currentNodeId) {
+	//		return c.sendGet(key, fields, currentNodeId, start, currentNodeId == primaryNodeId)
+	//	}
+	//}
 
 	go cacheMeasure(start, key, primaryNodeId, metrics2.READ, errors.New("All nodes failed"), 0, false)
 	return nil, errors.New("All nodes failed"), 0
@@ -383,10 +402,12 @@ func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start ti
 	}
 	if status != http.StatusOK {
 		err = errors.New(response)
-		if response != "redis: nil\n" {
+		if response != "redis: nil\n" && response != "redis: nil" {
 			if c.markFailureDetection(nodeId) {
 				markFailureDetection(start, key, nodeId, metrics2.INSERT)
 			}
+			err = redis.Nil
+		} else {
 			err = redis.Nil
 		}
 		go cacheMeasure(start, key, nodeId, metrics2.READ, err, 0, false)
@@ -442,7 +463,7 @@ func (c *CacheWrapper) sendSet(nodeId int, key string, value map[string][]byte, 
 	} else {
 		response, status = c.sendRequestToNode(nodeId, "POST", "set", []byte(jsonPayloadBytes))
 	}
-	if status != http.StatusOK {
+	if status != http.StatusCreated {
 		err = errors.New(response)
 		go cacheMeasure(start, key, nodeId, metrics2.INSERT, err, 0, false)
 		return err, 0
@@ -454,9 +475,9 @@ func (c *CacheWrapper) sendSet(nodeId int, key string, value map[string][]byte, 
 
 	// Unmarshal the JSON string
 	if err = json.Unmarshal([]byte(response), &data); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-	go cacheMeasure(start, key, nodeId, metrics2.INSERT, err, int64(data.Size), false)
+	go cacheMeasure(start, key, nodeId, metrics2.INSERT, nil, int64(data.Size), false)
 	return nil, int64(data.Size)
 }
 
@@ -474,13 +495,13 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 	backupNodeId := nodes[1]
 
 	if !c.isNodeFailed(primaryNodeId) {
-		go cacheMeasure(start, key, primaryNodeId, metrics2.INSERT, nil, 0, false)
+		//go cacheMeasure(start, key, primaryNodeId, metrics2.INSERT, nil, 0, false)
 		return c.sendSet(primaryNodeId, key, value, backupNodeId, start, false)
 	} else {
 		for i := 1; i < len(nodes); i++ {
 			backupNodeId = nodes[i]
 			if !c.isNodeFailed(backupNodeId) {
-				go cacheMeasure(start, key, backupNodeId, metrics2.INSERT, nil, 0, false)
+				//go cacheMeasure(start, key, backupNodeId, metrics2.INSERT, nil, 0, false)
 				return c.sendSet(backupNodeId, key, value, primaryNodeId, start, true)
 			}
 		}
@@ -491,26 +512,39 @@ func (c *CacheWrapper) Set(ctx context.Context, key string, value map[string][]b
 }
 
 func (c *CacheWrapper) markFailureDetection(node int) bool {
-	isOverThreshhold := false
-	c.mu.Lock()
-	if c.failedNodes[node] {
-		c.mu.Unlock()
-		return false
-	}
-	c.numFailDetections[node]++
-	if c.numFailDetections[node] > c.threshhold {
-		c.failedNodes[node] = true
-		c.numFailDetections[node] = 0
-		isOverThreshhold = true
-	}
-	c.mu.Unlock()
-	return isOverThreshhold
+	//isOverThreshhold := false
+	//c.mu.Lock()
+	//if c.failedNodes[node] {
+	//	c.mu.Unlock()
+	//	return false
+	//}
+	//c.numFailDetections[node]++
+	//if c.numFailDetections[node] > c.threshhold {
+	//	c.failedNodes[node] = true
+	//	c.numFailDetections[node] = 0
+	//	isOverThreshhold = true
+	//}
+	//c.mu.Unlock()
+	//return isOverThreshhold
+	return c.isNodeFailed(node)
 }
 
 func (c *CacheWrapper) isNodeFailed(node int) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.failedNodes[node]
+}
+
+func (c *CacheWrapper) markFailed(node int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.failedNodes[node]
+	c.failedNodes[node] = true
+}
+
+func (c *CacheWrapper) markRecovered(node int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.failedNodes[node] = false
 }
 
 func (c *CacheWrapper) GetNode(key string) int {

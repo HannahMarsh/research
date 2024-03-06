@@ -76,7 +76,14 @@ func HandleUpdateKey(w http.ResponseWriter, r *http.Request) {
 
 	go globalNode.ReceiveUpdate(params.Data, params.NodeId)
 
-	w.WriteHeader(http.StatusOK)
+	//w.WriteHeader(http.StatusOK)
+
+	log.Printf("done updating key")
+
+	// Set the Content-Type header
+	w.Header().Set("Content-Type", "application/json")
+	// Write the status code to the response
+	w.WriteHeader(http.StatusCreated) // Make sure this is the only call to WriteHeader
 }
 
 func HandleSetBackup(w http.ResponseWriter, r *http.Request) {

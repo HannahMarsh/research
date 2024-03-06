@@ -76,34 +76,34 @@ func (mtrc *Metric) IsType(type_ string) bool {
 }
 
 func AddMeasurement(name string, newTimestamp time.Time, values map[string]interface{}) {
-	go func() {
-		now := time.Now()
-		if now.Before(globalStartTime.Add(warmUptime)) {
-			return
-		}
-		//if now.After(start.Add(estimatedRunningTime)) {
-		//	return
-		//}
-		mu.Lock() // maintain exclusive access to the slice
-		defer mu.Unlock()
+	//go func() {
+	now := time.Now()
+	if now.Before(globalStartTime.Add(warmUptime)) {
+		return
+	}
+	//if now.After(start.Add(estimatedRunningTime)) {
+	//	return
+	//}
+	mu.Lock() // maintain exclusive access to the slice
+	defer mu.Unlock()
 
-		values[TAG] = name
-		if values[KEY] != nil && values[NODE_INDEX] != nil {
-			if key, isString := values[KEY].(string); isString {
-				if nodeIndex, isInt := values[NODE_INDEX].(int); isInt {
-					if _, ok := KEYS[nodeIndex][key]; !ok {
-						KEYS[nodeIndex][key] = 0
-					}
-					KEYS[nodeIndex][key] += 1
-				} else {
-					panic(fmt.Errorf("node index is not an int: %v", values[NODE_INDEX]))
+	values[TAG] = name
+	if values[KEY] != nil && values[NODE_INDEX] != nil {
+		if key, isString := values[KEY].(string); isString {
+			if nodeIndex, isInt := values[NODE_INDEX].(int); isInt {
+				if _, ok := KEYS[nodeIndex][key]; !ok {
+					KEYS[nodeIndex][key] = 0
 				}
+				KEYS[nodeIndex][key] += 1
 			} else {
-				panic(fmt.Errorf("key is not a string: %v", values[KEY]))
+				panic(fmt.Errorf("node index is not an int: %v", values[NODE_INDEX]))
 			}
+		} else {
+			panic(fmt.Errorf("key is not a string: %v", values[KEY]))
 		}
-		globalAllMetrics = append(globalAllMetrics, Metric{timestamp: newTimestamp, metricType: name, tags: values})
-	}()
+	}
+	globalAllMetrics = append(globalAllMetrics, Metric{timestamp: newTimestamp, metricType: name, tags: values})
+	//}()
 }
 
 type MetricSlice []Metric

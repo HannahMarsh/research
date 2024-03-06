@@ -1148,14 +1148,14 @@ func (plt *plotInfo) plotNodeFailures(p *plot.Plot) {
 
 	for _, node := range globalConfig.Cache.Nodes {
 		if node.FailureIntervals != nil && len(node.FailureIntervals) > 0 {
-			for _, mm := range m.Filter(func(m Metric) bool { return has(m, NODE_INDEX, node.NodeId.Value-1) && has(m, INTERVAL, START) }) {
+			for _, mm := range m.Filter(func(m Metric) bool { return has(m, NODE_INDEX, node.NodeId.Value) && has(m, INTERVAL, START) }) {
 				if iStart := time.Duration(mm.timestamp.Sub(plt.start).Nanoseconds()).Seconds(); iStart < duration.Seconds() {
-					addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed\n(t = %.2f)", node.NodeId.Value, iStart), LIGHT_COLORS[node.NodeId.Value-1])
+					addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed\n(t = %.2f)", node.NodeId.Value, iStart), LIGHT_COLORS[node.NodeId.Value])
 				}
 			}
-			for _, mm := range m.Filter(func(m Metric) bool { return has(m, NODE_INDEX, node.NodeId.Value-1) && has(m, INTERVAL, END) }) {
+			for _, mm := range m.Filter(func(m Metric) bool { return has(m, NODE_INDEX, node.NodeId.Value) && has(m, INTERVAL, END) }) {
 				if iEnd := time.Duration(mm.timestamp.Sub(plt.start).Nanoseconds()).Seconds(); iEnd < duration.Seconds() {
-					addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered\n(t = %.2f)", node.NodeId.Value, iEnd), LIGHT_COLORS[node.NodeId.Value-1])
+					addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered\n(t = %.2f)", node.NodeId.Value, iEnd), LIGHT_COLORS[node.NodeId.Value])
 				}
 			}
 		}

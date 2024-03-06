@@ -8,6 +8,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"node/main/cq"
 	"sync"
@@ -54,19 +55,19 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 	c.Cancel = cancel
 	c.otherNodes = make([]*OtherNode, len(otherNodes))
 	c.cq = cq.NewConcurrentQueue(20_000)
-	c.httpClient = &http.Client{}
-	//	Transport: &http.Transport{
-	//		DialContext: (&net.Dialer{
-	//			Timeout:   30 * time.Second,
-	//			KeepAlive: 30 * time.Second,
-	//		}).DialContext,
-	//		MaxIdleConns:          10,
-	//		IdleConnTimeout:       1 * time.Second,
-	//		TLSHandshakeTimeout:   1 * time.Second,
-	//		ExpectContinueTimeout: 1 * time.Second,
-	//	},
-	//	Timeout: 1 * time.Second,
-	//}
+	c.httpClient = &http.Client{
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          15,
+			IdleConnTimeout:       10 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 10 * time.Second,
+		},
+		Timeout: 15 * time.Second,
+	}
 
 	for node, addr := range otherNodes {
 		c.otherNodes[node] = &OtherNode{
@@ -76,15 +77,15 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 	}
 
 	opts := &redis.Options{
-		Addr:     address,
-		Password: "", // no password set
-		DB:       0,  // use default DB
-		//PoolSize:     200,              // set the pool size to 100
-		//MinIdleConns: 30,               // maintain at least 10 idle connections
-		//IdleTimeout:  10 * time.Second, // timeout for idle connections
-		//DialTimeout:  10 * time.Second, // timeout for connecting
-		//ReadTimeout:  1 * time.Second,  // timeout for reads
-		//WriteTimeout: 1 * time.Second,  // timeout for writes
+		Addr:         address,
+		Password:     "",               // no password set
+		DB:           0,                // use default DB
+		PoolSize:     200,              // set the pool size to 100
+		MinIdleConns: 30,               // maintain at least 10 idle connections
+		IdleTimeout:  10 * time.Second, // timeout for idle connections
+		DialTimeout:  10 * time.Second, // timeout for connecting
+		ReadTimeout:  5 * time.Second,  // timeout for reads
+		WriteTimeout: 5 * time.Second,  // timeout for writes
 	}
 
 	// Initialize Redis client
@@ -215,11 +216,16 @@ func (n *Node) SendUpdateToBackUpNodes() {
 				fmt.Println("Error creating request:", err)
 				return
 			} else {
-				//log.Printf("Sending update to node %d\n", node)
+				log.Printf("Sending update to node %d\n", node)
 			}
 
 			// Set Content-Type header
-			req.Header.Set("Content-Type", "application/json")
+			//req.Header.Set("Content-Type", "application/json")
+
+			// Set the Content-Type header only if there's a payload
+			if jsonData != nil {
+				req.Header.Set("Content-Type", "application/json")
+			}
 
 			// Create an HTTP client and send the request
 			client := n.httpClient
@@ -228,7 +234,7 @@ func (n *Node) SendUpdateToBackUpNodes() {
 				fmt.Println("Error sending request:", err)
 				return
 			} else {
-				//log.Printf("Received response from node %d: %v: %v", node, resp.StatusCode)
+				log.Printf("Received response from node %d: %d", node, resp.StatusCode)
 			}
 			defer func(Body io.ReadCloser) {
 				err := Body.Close()
@@ -246,8 +252,8 @@ func (n *Node) SendUpdateToBackUpNodes() {
 				//log.Printf("Response body: %v\n", response)
 			}
 		}()
-		wg.Wait()
 	}
+	wg.Wait()
 }
 
 func (n *Node) ReceiveUpdate(data map[string][]byte, node int) {
