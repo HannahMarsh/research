@@ -30,11 +30,11 @@ Database:
         Value: 1
     TimeoutMs:
         Description: The timeout, in milliseconds, for database operations.
-        Value: 300
+        Value: 1000
 Cache:
     VirtualNodes:
         Description: The number of virtual nodes.
-        Value: 50000
+        Value: 100000
     NumHottestKeysBackup:
         Description: The number of hottest keys to backup.
         Value: 10000
@@ -117,16 +117,16 @@ Workload:
         Value: false
     MaxFields:
         Description: The maximum number of fields (columns) to include in the database table.
-        Value: 10
+        Value: 2
     AvFieldSizeBytes:
         Description: The average size (in bytes) of each field stored in the database.
-        Value: 900
+        Value: 100
     FieldSizeDistribution:
         Description: The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', and 'zipfian'
         Value: uniform
     NumUniqueKeys:
         Description: If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.
-        Value: 10000
+        Value: 20000
     DbOperationRetryLimit:
         Description: The maximum number of times to retry a failed insert operation.
         Value: 1

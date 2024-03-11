@@ -121,7 +121,7 @@ func init() {
 			TLSHandshakeTimeout:   5 * time.Second,
 			ExpectContinueTimeout: 10 * time.Second,
 		},
-		Timeout: 5 * time.Second,
+		Timeout: 1 * time.Second,
 	}
 }
 
@@ -188,29 +188,53 @@ type CacheWrapper struct {
 }
 
 func permute(nums []int) [][]int {
-	var helper func([]int, int)
-	var res [][]int
-
-	helper = func(nums []int, n int) {
-		if n == 1 {
-			tmp := make([]int, len(nums))
-			copy(tmp, nums)
-			res = append(res, tmp)
-		} else {
-			for i := 0; i < n; i++ {
-				helper(nums, n-1)
-				if n%2 == 1 {
-					nums[i], nums[n-1] = nums[n-1], nums[i]
-				} else {
-					nums[0], nums[n-1] = nums[n-1], nums[0]
-				}
-			}
-		}
-	}
-
-	helper(nums, len(nums))
-	return res
+	var result [][]int
+	backtrack(&result, nums, 0)
+	return result
 }
+
+func backtrack(result *[][]int, nums []int, first int) {
+	// If all integers are used up
+	if first == len(nums) {
+		// Make a deep copy of the current nums (since nums will be modified) and add it to the result
+		tmp := make([]int, len(nums))
+		copy(tmp, nums)
+		*result = append(*result, tmp)
+	}
+	for i := first; i < len(nums); i++ {
+		// Place the i-th integer first in the current permutation
+		nums[first], nums[i] = nums[i], nums[first]
+		// Use next integers to complete the permutations
+		backtrack(result, nums, first+1)
+		// Backtrack
+		nums[first], nums[i] = nums[i], nums[first]
+	}
+}
+
+//func permute(nums []int) [][]int {
+//	var helper func([]int, int)
+//	var res [][]int
+//
+//	helper = func(nums []int, n int) {
+//		if n == 1 {
+//			tmp := make([]int, len(nums))
+//			copy(tmp, nums)
+//			res = append(res, tmp)
+//		} else {
+//			for i := 0; i < n; i++ {
+//				helper(nums, n-1)
+//				if n%2 == 1 {
+//					nums[i], nums[n-1] = nums[n-1], nums[i]
+//				} else {
+//					nums[0], nums[n-1] = nums[n-1], nums[0]
+//				}
+//			}
+//		}
+//	}
+//
+//	helper(nums, len(nums))
+//	return res
+//}
 
 func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c := &CacheWrapper{
@@ -362,7 +386,7 @@ func (c *CacheWrapper) Get(ctx context.Context, key string, fields []string) (ma
 
 	for node := range nodes {
 		if !c.isNodeFailed(nodes[node]) {
-			return c.sendGet(key, fields, nodes[node], start, nodes[node] == primaryNodeId)
+			return c.sendGet(key, fields, nodes[node], start, nodes[node] != primaryNodeId)
 		}
 	}
 	//
@@ -384,7 +408,7 @@ func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start ti
 	}
 	var jsonPayload = kv{
 		Key:    key,
-		Fields: fields,
+		Fields: make([]string, 0),
 	}
 
 	jsonPayloadBytes, err := json.Marshal(jsonPayload)
@@ -408,7 +432,7 @@ func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start ti
 			}
 			err = redis.Nil
 		} else {
-			err = redis.Nil
+			//err = redis.Nil
 		}
 		go cacheMeasure(start, key, nodeId, metrics2.READ, err, 0, false)
 		return nil, err, 0

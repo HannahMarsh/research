@@ -391,7 +391,7 @@ func (c *Workload) DoInsertion(ctx context.Context, db db.DB, cache_ cache.Cache
 
 func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache.Cache, keyName string, fields []string) map[string][]byte {
 	start := time.Now()
-	defer workloadMeasure(start, metrics2.INSERT)
+	defer workloadMeasure(start, metrics2.READ)
 
 	var values map[string][]byte = nil
 
@@ -399,7 +399,7 @@ func (c *Workload) doTransactionRead(ctx context.Context, db db.DB, cache_ cache
 	if cachedValues, cacheErr, _ := cache_.Get(ctx, keyName, fields); cacheErr == nil && cachedValues != nil {
 		// Cache hit
 		values = cachedValues
-		go transactionMeasure(start, metrics2.READ, nil, false)
+		transactionMeasure(start, metrics2.READ, nil, false)
 
 	} else { // Cache miss, go to database
 		for retries := 0; retries < c.p.Workload.DbOperationRetryLimit.Value; retries++ {

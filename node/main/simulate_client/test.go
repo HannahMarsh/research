@@ -196,7 +196,7 @@ func simulateGet(port int, key string) map[string]map[string][]byte {
 	response, status := sendRequest("GET", fmt.Sprintf("http://localhost:%d/get", port), []byte(jsonPayloadBytes))
 	if status != http.StatusOK {
 		if response == "redis: nil\n" {
-			//log.Printf("cache miss: %s\n", key)
+			log.Printf("cache miss: %s\n", key)
 		} else {
 			log.Printf("Received response from %s: %v: %s\n", fmt.Sprintf("http://localhost:%d/get", port), status, response)
 		}

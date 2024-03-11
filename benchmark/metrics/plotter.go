@@ -508,10 +508,10 @@ func PlotMetrics(s time.Time, e time.Time) {
 				{
 					filters: []func(m Metric) bool{
 						func(m Metric) bool {
-							return m.metricType == TRANSACTION && (has(m, OPERATION, READ) || has(m, OPERATION, BATCH_READ) || has(m, OPERATION, SCAN)) && has(m, DATABASE, true)
+							return m.metricType == TRANSACTION && has(m, OPERATION, READ) && has(m, DATABASE, true)
 						},
 						func(m Metric) bool {
-							return m.metricType == TRANSACTION && (has(m, OPERATION, READ) || has(m, OPERATION, BATCH_READ) || has(m, OPERATION, SCAN))
+							return m.metricType == TRANSACTION && has(m, OPERATION, READ)
 						},
 					},
 					reduce:   divideFirstBySecond,

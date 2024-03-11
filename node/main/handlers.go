@@ -324,6 +324,8 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error encoding response: %v", err)
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 		return
+	} else {
+		//w.WriteHeader(http.StatusOK)
 	}
 }
 
