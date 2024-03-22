@@ -4,14 +4,12 @@ import (
 	bconfig "benchmark/config"
 	metrics2 "benchmark/metrics"
 	"benchmark/util"
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
-	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -130,13 +128,15 @@ func init() {
 	//}
 	httpClient = &http.Client{
 		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 10,
+			MaxIdleConns:        1200,
+			MaxIdleConnsPerHost: 300,
 			IdleConnTimeout:     30 * time.Second,
 		},
-		Timeout: 10 * time.Second,
+		Timeout: 5 * time.Second,
 	}
 }
+
+var workerPool *WorkerPool = NewWorkerPool(600)
 
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -173,50 +173,71 @@ func (c *CacheWrapper) sendRequest(method, url_ string, payload []byte) (string,
 		}
 	}
 
-	client := httpClient
-	var reader io.Reader = nil
-	if payload != nil {
-		reader = bytes.NewBuffer(payload)
+	job := Job{
+		Method:  method,
+		URL:     url_,
+		Payload: payload,
 	}
-	req, err := http.NewRequest(method, url_, reader)
-	if err != nil {
-		fmt.Println("Error creating request:", err)
+	resultChan := workerPool.SubmitJob(job)
+	result := <-resultChan // Wait for the job to be processed
+
+	if result.Error != nil {
+		// Handle error
 		return "", -1
 	}
 
-	// Set the Content-Type header only if there's a payload
-	if payload != nil {
-		req.Header.Set("Content-Type", "application/json")
+	//client := httpClient
+	//var reader io.Reader = nil
+	//if payload != nil {
+	//	reader = bytes.NewBuffer(payload)
+	//}
+	//req, err := http.NewRequest(method, url_, reader)
+	//if err != nil {
+	//	fmt.Println("Error creating request:", err)
+	//	return "", -1
+	//}
+	//
+	//// Set the Content-Type header only if there's a payload
+	//if payload != nil {
+	//	req.Header.Set("Content-Type", "application/json")
+	//}
+	//
+	//resp, err := client.Do(req)
+	//if err != nil {
+	//	//fmt.Println("Error sending request:", err)
+	//	//return "", -1
+	//	return err.Error(), -1
+	//}
+	//defer func(Body io.ReadCloser) {
+	//	err := Body.Close()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//}(resp.Body) // Simplified defer statement
+	//
+	//// Read the entire response body
+	//b, err := io.ReadAll(resp.Body)
+	//if err != nil {
+	//	fmt.Println("Error reading response body:", err)
+	//	return "", -1
+	//}
+	//if resp.StatusCode == http.StatusBadRequest {
+	//	log.Printf("Attempted to send: %s, Received response from %v: %s\n", url_, resp.StatusCode, string(b))
+	//}
+	//
+	//if resp.StatusCode == 500 && string(b) != "redis: nil\n" && string(b) != "redis: nil" && string(b) != "context deadline exceeded\n" {
+	//	log.Printf("Received response from %s: %v: %s, %s\n", url_, resp.StatusCode, resp.Status, string(b))
+	//}
+
+	if result.Status == http.StatusBadRequest {
+		log.Printf("Attempted to send: %s, Received response from %v: %s\n", url_, result.Status, result.Response)
 	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		//fmt.Println("Error sending request:", err)
-		//return "", -1
-		return err.Error(), -1
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(resp.Body) // Simplified defer statement
-
-	// Read the entire response body
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error reading response body:", err)
-		return "", -1
-	}
-	if resp.StatusCode == http.StatusBadRequest {
-		log.Printf("Attempted to send: %s, Received response from %v: %s\n", url_, resp.StatusCode, string(b))
+	if result.Status == 500 && result.Response != "redis: nil\n" && result.Response != "redis: nil" && result.Response != "context deadline exceeded\n" {
+		log.Printf("Received response from %s: %v: %s, %s\n", url_, result.Status, result.Status, result.Response)
 	}
 
-	if resp.StatusCode == 500 && string(b) != "redis: nil\n" && string(b) != "redis: nil" && string(b) != "context deadline exceeded\n" {
-		log.Printf("Received response from %s: %v: %s, %s\n", url_, resp.StatusCode, resp.Status, string(b))
-	}
-
-	return string(b), resp.StatusCode
+	return result.Response, result.Status
 }
 
 type CacheWrapper struct {

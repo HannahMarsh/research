@@ -276,7 +276,7 @@ func HandleRecover(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-var mock = true
+var mock = false
 var rr = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 func HandleGet(w http.ResponseWriter, r *http.Request) {

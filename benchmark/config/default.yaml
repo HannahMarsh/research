@@ -135,7 +135,7 @@ Workload:
         Value: 15
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 9000
+        Value: 20000
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1
