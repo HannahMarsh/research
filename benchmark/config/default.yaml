@@ -40,7 +40,7 @@ Cache:
         Value: 10000
     EnableReconfiguration:
         Description: Enables the use of a configuration server for the cache.
-        Value: true
+        Value: false
     Nodes:
         - NodeId:
             Description: The ID of the node.
@@ -135,7 +135,7 @@ Workload:
         Value: 15
     TargetOperationsPerSec:
         Description: The target number of operations per second that the workload should aim to achieve.
-        Value: 3000
+        Value: 9000
     WorkloadIdentifier:
         Description: The name of the workload to be executed (for logging).
         Value: workload1

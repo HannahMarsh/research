@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"node/main/node"
 	"sync"
+	"time"
 )
 
 var globalNode *node.Node
@@ -274,6 +276,9 @@ func HandleRecover(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+var mock = true
+var rr = rand.New(rand.NewSource(time.Now().UnixNano()))
+
 func HandleGet(w http.ResponseWriter, r *http.Request) {
 	if isDone() {
 		return
@@ -295,17 +300,31 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v, err, size := globalNode.Get(kv.Key, kv.Fields)
+	var v map[string][]byte = nil
+	var size int64 = 0
+	var err error = nil
 
-	if err != nil {
-		if err.Error() == "redis: nil" {
-			log.Printf("Cache miss: %v", err)
+	if mock {
+		if rr.Intn(100) >= 92 {
 			http.Error(w, "redis: nil", http.StatusNotFound)
 			return
 		}
-		log.Printf("Error getting key: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		v = make(map[string][]byte)
+		v["field1"] = []byte("value1")
+	} else {
+
+		v, err, size = globalNode.Get(kv.Key, kv.Fields)
+
+		if err != nil {
+			if err.Error() == "redis: nil" {
+				log.Printf("Cache miss: %v", err)
+				http.Error(w, "redis: nil", http.StatusNotFound)
+				return
+			}
+			log.Printf("Error getting key: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Prepare the response structure
@@ -349,12 +368,15 @@ func HandleSet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+	var size int64 = 1
+	var err error = nil
+	if !mock {
+		err, size = globalNode.Set(kv.Key, kv.Value, kv.BackUpNode)
 
-	err, size := globalNode.Set(kv.Key, kv.Value, kv.BackUpNode)
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Prepare the response structure
