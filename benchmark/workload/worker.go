@@ -69,9 +69,16 @@ func (w *Worker) Run(ctx context.Context) {
 	if w.targetOpsPerMs > 0.0 && w.targetOpsPerMs <= 1.0 {
 		time.Sleep(time.Duration(rand.Int63n(w.targetOpsTickNs)))
 	}
+	var i int64 = 0
 
 	for startTime := time.Now(); w.opCount == 0 || w.opsDone < w.opCount; w.opsDone++ {
-		w.workload.DoTransaction(ctx, w.workDB, w.cache)
+
+		if i%4 == 0 {
+			w.workload.DoTransaction(ctx, w.workDB, w.cache)
+		} else {
+			go w.workload.DoTransaction(ctx, w.workDB, w.cache)
+		}
+		i++
 		w.throttle(ctx, startTime)
 
 		select {

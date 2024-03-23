@@ -136,7 +136,7 @@ func init() {
 	}
 }
 
-var workerPool *WorkerPool = NewWorkerPool(400)
+var workerPool *WorkerPool = NewWorkerPool(1100)
 
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -581,7 +581,7 @@ func (c *CacheWrapper) sendSet(nodeId int, key string, value map[string][]byte, 
 	if err = json.Unmarshal([]byte(response), &data); err != nil {
 		panic(err)
 	}
-	cacheMeasure(start, key, nodeId, metrics2.INSERT, nil, int64(data.Size), false)
+	go cacheMeasure(start, key, nodeId, metrics2.INSERT, nil, int64(data.Size), false)
 	return nil, int64(data.Size)
 }
 

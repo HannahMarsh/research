@@ -30,7 +30,7 @@ Database:
     Value: 1
   TimeoutMs:
     Description: The timeout, in milliseconds, for database operations.
-    Value: 100
+    Value: 20
 Cache:
   GetTimeout:
     Description: The timeout, in milliseconds, for cache get operations.
@@ -126,16 +126,16 @@ Workload:
     Value: uniform
   NumUniqueKeys:
     Description: If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.
-    Value: 100000
+    Value: 90000
   DbOperationRetryLimit:
     Description: The maximum number of times to retry a failed insert operation.
-    Value: 1
+    Value: 4
   TargetExecutionTime:
     Description: The target duration to run the benchmark for after the warmup time.
     Value: 15
   TargetOperationsPerSec:
     Description: The target number of operations per second that the workload should aim to achieve.
-    Value: 20000
+    Value: 15000
   WorkloadIdentifier:
     Description: The name of the workload to be executed (for logging).
     Value: workload1
