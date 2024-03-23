@@ -45,7 +45,7 @@ func (n *Node) getOtherNode(id int) (_ *OtherNode, index int) {
 	//}
 }
 
-func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, updateInterval float64, otherNodes []string) *Node {
+func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, updateInterval float64, otherNodes []string, numUniqueKeys int) *Node {
 	log.Printf("Creating new node with id %d: maxMemMbs: %d\n", id, maxMemMbs)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -54,7 +54,7 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 	c.Ctx = ctx
 	c.Cancel = cancel
 	c.otherNodes = make([]*OtherNode, len(otherNodes))
-	c.cq = cq.NewConcurrentQueue(20_000)
+	c.cq = cq.NewConcurrentQueue(numUniqueKeys)
 	c.httpClient = &http.Client{
 		Transport: &http.Transport{
 			DialContext: (&net.Dialer{

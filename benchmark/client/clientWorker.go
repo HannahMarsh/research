@@ -81,12 +81,12 @@ func (wp *WorkerPool) processJob(job Job) JobResult {
 
 	req, err := http.NewRequestWithContext(job.Ctx, job.Method, job.URL, reader)
 	if err != nil {
-		return JobResult{Error: err}
+		return JobResult{Error: err, Status: http.StatusInternalServerError}
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return JobResult{Error: err}
+		return JobResult{Error: err, Status: http.StatusInternalServerError}
 	}
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
@@ -97,7 +97,7 @@ func (wp *WorkerPool) processJob(job Job) JobResult {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return JobResult{Error: err}
+		return JobResult{Error: err, Status: http.StatusInternalServerError}
 	}
 
 	if job.Payload != nil {
@@ -128,11 +128,11 @@ func (wp *WorkerPool) SubmitJob(job Job, timeout time.Duration) <-chan JobResult
 		select {
 		case wp.JobQueue <- job:
 		case <-globalCtx.Done():
-			job.Result <- JobResult{Error: fmt.Errorf("done")}
+			job.Result <- JobResult{Error: fmt.Errorf("done"), Status: http.StatusRequestTimeout}
 			job.Cancel()
 		case <-ctx.Done():
 			// Timeout occurred before we could even queue the job
-			job.Result <- JobResult{Error: fmt.Errorf("job queueing timed out")}
+			job.Result <- JobResult{Error: fmt.Errorf("job queueing timed out"), Status: http.StatusRequestTimeout}
 			job.Cancel()
 		}
 	}()

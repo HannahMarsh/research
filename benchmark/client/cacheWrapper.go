@@ -234,7 +234,7 @@ func (c *CacheWrapper) sendRequest(method, url_ string, payload []byte, timeout 
 		log.Printf("Attempted to send: %s, Received response from %v: %s\n", url_, result.Status, result.Response)
 	}
 
-	if result.Status == 500 && result.Response != "redis: nil\n" && result.Response != "redis: nil" && result.Response != "context deadline exceeded\n" {
+	if result.Status == 500 && result.Response != redis.Nil.Error() && result.Response != "context deadline exceeded\n" {
 		log.Printf("Received response from %s: %v, %s\n", url_, result.Status, result.Response)
 	}
 
@@ -415,12 +415,14 @@ func (c *CacheWrapper) addNode(p bconfig.NodeConfig, updateInterval float64) int
 		MaxMemMbs       int     `json:"maxMemMbs"`
 		MaxMemoryPolicy string  `json:"maxMemoryPolicy"`
 		UpdateInterval  float64 `json:"updateInterval"`
+		NumUniqueKeys   int     `json:"numUniqueKeys"`
 	}
 	var jsonPayload = kv{
 		Id:              nodeId,
 		MaxMemMbs:       maxMemMbs,
 		MaxMemoryPolicy: maxMemoryPolicy,
 		UpdateInterval:  updateInterval,
+		NumUniqueKeys:   c.p.Workload.NumUniqueKeys.Value,
 	}
 
 	jsonPayloadBytes, err := json.Marshal(jsonPayload)
@@ -502,11 +504,11 @@ func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start ti
 	}
 	if status != http.StatusOK {
 		err = errors.New(response)
-		if response != "redis: nil\n" && response != "redis: nil" {
+		if response != redis.Nil.Error() {
 			if c.markFailureDetection(nodeId) {
 				markFailureDetection(start, key, nodeId, metrics2.INSERT)
 			}
-			err = redis.Nil
+			//err = redis.Nil
 		} else {
 			//err = redis.Nil
 		}
@@ -534,7 +536,7 @@ func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start ti
 		}
 		result["value"][key] = decodedBytes
 	}
-	cacheMeasure(start, key, nodeId, metrics2.READ, err, int64(data.Size), false)
+	go cacheMeasure(start, key, nodeId, metrics2.READ, err, int64(data.Size), false)
 	return result["value"], nil, int64(data.Size)
 }
 

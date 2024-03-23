@@ -53,7 +53,7 @@ Cache:
           End: 0.5
       MaxMemoryMbs:
         Description: The maximum number of megabytes to store in the cache.
-        Value: 10
+        Value: 9
       MaxMemoryPolicy:
         Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
         Value: allkeys-lfu
@@ -69,7 +69,7 @@ Cache:
       FailureIntervals: [ ]
       MaxMemoryMbs:
         Description: The maximum number of megabytes to store in the cache.
-        Value: 10
+        Value: 9
       MaxMemoryPolicy:
         Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
         Value: allkeys-lfu
@@ -85,7 +85,7 @@ Cache:
       FailureIntervals: [ ]
       MaxMemoryMbs:
         Description: The maximum number of megabytes to store in the cache.
-        Value: 10
+        Value: 9
       MaxMemoryPolicy:
         Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
         Value: allkeys-lfu
@@ -101,7 +101,7 @@ Cache:
       FailureIntervals: [ ]
       MaxMemoryMbs:
         Description: The maximum number of megabytes to store in the cache.
-        Value: 10
+        Value: 9
       MaxMemoryPolicy:
         Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
         Value: allkeys-lfu
@@ -126,7 +126,7 @@ Workload:
     Value: uniform
   NumUniqueKeys:
     Description: If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.
-    Value: 20000
+    Value: 100000
   DbOperationRetryLimit:
     Description: The maximum number of times to retry a failed insert operation.
     Value: 1

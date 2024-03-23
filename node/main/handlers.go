@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-redis/redis/v8"
 	"log"
 	"math/rand"
 	"net/http"
@@ -18,6 +19,8 @@ var globalCtx context.Context
 var globalCancel context.CancelFunc
 
 var globalWg sync.WaitGroup
+
+var redisNil = redis.Nil.Error()
 
 // params
 //var RedisAddress string
@@ -158,9 +161,9 @@ func HandleGetBackup(w http.ResponseWriter, r *http.Request) {
 	v, err, size := globalNode.GetBackUp(kv.Key, kv.Fields)
 
 	if err != nil {
-		if err.Error() == "redis: nil\n" {
+		if err.Error() == redisNil {
 			//log.Printf("Cache miss: %v", err)
-			http.Error(w, "redis: nil\n", http.StatusNotFound)
+			http.Error(w, redisNil, http.StatusNotFound)
 			return
 		}
 		log.Printf("Error getting key: %v", err)
@@ -306,7 +309,7 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 
 	if mock {
 		if rr.Intn(100) >= 92 {
-			http.Error(w, "redis: nil\n", http.StatusNotFound)
+			http.Error(w, redisNil, http.StatusNotFound)
 			return
 		}
 		v = make(map[string][]byte)
@@ -316,9 +319,9 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 		v, err, size = globalNode.Get(kv.Key, kv.Fields)
 
 		if err != nil {
-			if err.Error() == "redis: nil\n" {
+			if err.Error() == redisNil {
 				log.Printf("Cache miss: %v", err)
-				http.Error(w, "redis: nil\n", http.StatusNotFound)
+				http.Error(w, redisNil, http.StatusNotFound)
 				return
 			}
 			log.Printf("Error getting key: %v", err)
@@ -421,6 +424,7 @@ func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 		MaxMemMbs       int     `json:"maxMemMbs"`
 		MaxMemoryPolicy string  `json:"maxMemoryPolicy"`
 		UpdateInterval  float64 `json:"updateInterval"`
+		NumUniqueKeys   int     `json:"numUniqueKeys"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
@@ -440,7 +444,7 @@ func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 
 	globalCtx, globalCancel = context.WithCancel(context.Background())
 
-	globalNode = node.CreateNewNode(params.Id, config.Redis, params.MaxMemMbs, params.MaxMemoryPolicy, params.UpdateInterval, nodes)
+	globalNode = node.CreateNewNode(params.Id, config.Redis, params.MaxMemMbs, params.MaxMemoryPolicy, params.UpdateInterval, nodes, params.NumUniqueKeys)
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte("Node created successfully"))
 	if err != nil {
