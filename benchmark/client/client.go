@@ -27,7 +27,7 @@ func (c *Client) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	var totalOpCount = int64((c.p.Workload.TargetExecutionTime.Value + c.p.Measurements.WarmUpTime.Value) * c.p.Workload.TargetOperationsPerSec.Value)
-	threadCount := int(float64(totalOpCount) / 100.0)
+	threadCount := int(float64(totalOpCount) / 200.0)
 
 	wg.Add(threadCount)
 	measureCtx, measureCancel := context.WithCancel(ctx)

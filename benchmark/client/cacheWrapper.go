@@ -128,15 +128,15 @@ func init() {
 	//}
 	httpClient = &http.Client{
 		Transport: &http.Transport{
-			MaxIdleConns:        1200,
-			MaxIdleConnsPerHost: 300,
+			MaxIdleConns:        1600,
+			MaxIdleConnsPerHost: 400,
 			IdleConnTimeout:     30 * time.Second,
 		},
 		Timeout: 4 * time.Second,
 	}
 }
 
-var workerPool *WorkerPool = NewWorkerPool(600)
+var workerPool *WorkerPool = NewWorkerPool(400)
 
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 

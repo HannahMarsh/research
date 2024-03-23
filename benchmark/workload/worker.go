@@ -71,7 +71,7 @@ func (w *Worker) Run(ctx context.Context) {
 	}
 
 	for startTime := time.Now(); w.opCount == 0 || w.opsDone < w.opCount; w.opsDone++ {
-		go w.workload.DoTransaction(ctx, w.workDB, w.cache)
+		w.workload.DoTransaction(ctx, w.workDB, w.cache)
 		w.throttle(ctx, startTime)
 
 		select {

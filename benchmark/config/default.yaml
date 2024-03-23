@@ -30,11 +30,11 @@ Database:
     Value: 1
   TimeoutMs:
     Description: The timeout, in milliseconds, for database operations.
-    Value: 1000
+    Value: 100
 Cache:
   GetTimeout:
     Description: The timeout, in milliseconds, for cache get operations.
-    Value: 1000
+    Value: 500
   NumHottestKeysBackup:
     Description: The number of hottest keys to backup.
     Value: 10000
