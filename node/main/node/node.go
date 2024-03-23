@@ -46,7 +46,7 @@ func (n *Node) getOtherNode(id int) (_ *OtherNode, index int) {
 }
 
 func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, updateInterval float64, otherNodes []string) *Node {
-	log.Printf("Creating new node with id %d\n", id)
+	log.Printf("Creating new node with id %d: maxMemMbs: %d\n", id, maxMemMbs)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c := new(Node)

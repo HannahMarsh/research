@@ -62,6 +62,7 @@ type NodeConfig struct {
 
 type CacheConfig struct {
 	VirtualNodes          IntProperty    `yaml:"VirtualNodes"`
+	GetTimeout            IntProperty    `yaml:"GetTimeout"`
 	Nodes                 []NodeConfig   `yaml:"Nodes"`
 	NumHottestKeysBackup  IntProperty    `yaml:"NumHottestKeysBackup"`
 	BackUpAddress         StringProperty `yaml:"BackUpAddress"`

@@ -132,7 +132,7 @@ func init() {
 			MaxIdleConnsPerHost: 300,
 			IdleConnTimeout:     30 * time.Second,
 		},
-		Timeout: 5 * time.Second,
+		Timeout: 4 * time.Second,
 	}
 }
 
@@ -259,6 +259,10 @@ type CacheWrapper struct {
 func permute(nums []int) [][]int {
 	var result [][]int
 	backtrack(&result, nums, 0)
+
+	rand.Shuffle(len(result), func(i, j int) {
+		result[i], result[j] = result[j], result[i]
+	})
 	return result
 }
 
@@ -309,7 +313,7 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 	c := &CacheWrapper{
 		p:                 p,
 		ctx:               ctx,
-		cacheTimeout:      time.Duration(3000) * time.Millisecond,
+		cacheTimeout:      time.Duration(p.Cache.GetTimeout.Value) * time.Millisecond,
 		failedNodes:       make(map[int]bool),
 		numFailDetections: make(map[int]int),
 		threshhold:        1200,
@@ -489,7 +493,7 @@ func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start ti
 	var response string
 	var status int
 
-	getTimeout := 2 * time.Second
+	getTimeout := c.cacheTimeout
 	// This is a GET request, so no payload is sent
 	if getBackup {
 		response, status = c.sendRequestToNode(nodeId, "GET", "getBackup", []byte(jsonPayloadBytes), getTimeout)
@@ -553,7 +557,7 @@ func (c *CacheWrapper) sendSet(nodeId int, key string, value map[string][]byte, 
 	var response string
 	var status int
 
-	setTimeout := 2 * time.Second
+	setTimeout := time.Duration(c.cacheTimeout.Nanoseconds() * 2)
 
 	// This is a GET request, so no payload is sent
 	if setBackup {

@@ -158,9 +158,9 @@ func HandleGetBackup(w http.ResponseWriter, r *http.Request) {
 	v, err, size := globalNode.GetBackUp(kv.Key, kv.Fields)
 
 	if err != nil {
-		if err.Error() == "redis: nil" {
+		if err.Error() == "redis: nil\n" {
 			//log.Printf("Cache miss: %v", err)
-			http.Error(w, "redis: nil", http.StatusNotFound)
+			http.Error(w, "redis: nil\n", http.StatusNotFound)
 			return
 		}
 		log.Printf("Error getting key: %v", err)
@@ -306,7 +306,7 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 
 	if mock {
 		if rr.Intn(100) >= 92 {
-			http.Error(w, "redis: nil", http.StatusNotFound)
+			http.Error(w, "redis: nil\n", http.StatusNotFound)
 			return
 		}
 		v = make(map[string][]byte)
@@ -316,9 +316,9 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 		v, err, size = globalNode.Get(kv.Key, kv.Fields)
 
 		if err != nil {
-			if err.Error() == "redis: nil" {
+			if err.Error() == "redis: nil\n" {
 				log.Printf("Cache miss: %v", err)
-				http.Error(w, "redis: nil", http.StatusNotFound)
+				http.Error(w, "redis: nil\n", http.StatusNotFound)
 				return
 			}
 			log.Printf("Error getting key: %v", err)
