@@ -40,7 +40,7 @@ Cache:
     Value: 10000
   EnableReconfiguration:
     Description: Enables the use of a configuration server for the cache.
-    Value: false
+    Value: true
   Nodes:
     - NodeId:
         Description: The ID of the node.
