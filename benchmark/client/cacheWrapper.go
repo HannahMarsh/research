@@ -106,8 +106,8 @@ func nodeFailureMeasure(t time.Time, nodeIndex int, isStart bool) {
 	}
 }
 
-func (c *CacheWrapper) sendRequestToNode(nodeId int, method, endpoint string, payload []byte) (string, int) {
-	return c.sendRequest(method, fmt.Sprintf("%s/%s", c.nodes[nodeId], endpoint), payload)
+func (c *CacheWrapper) sendRequestToNode(nodeId int, method, endpoint string, payload []byte, timeout time.Duration) (string, int) {
+	return c.sendRequest(method, fmt.Sprintf("%s/%s", c.nodes[nodeId], endpoint), payload, timeout)
 }
 
 var httpClient *http.Client
@@ -140,7 +140,7 @@ var workerPool *WorkerPool = NewWorkerPool(600)
 
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-func (c *CacheWrapper) sendRequest(method, url_ string, payload []byte) (string, int) {
+func (c *CacheWrapper) sendRequest(method, url_ string, payload []byte, timeout time.Duration) (string, int) {
 
 	if mock {
 		u, err := url.Parse(url_)
@@ -177,13 +177,14 @@ func (c *CacheWrapper) sendRequest(method, url_ string, payload []byte) (string,
 		Method:  method,
 		URL:     url_,
 		Payload: payload,
+		Ctx:     c.ctx,
 	}
-	resultChan := workerPool.SubmitJob(job)
+	resultChan := workerPool.SubmitJob(job, timeout)
 	result := <-resultChan // Wait for the job to be processed
 
 	if result.Error != nil {
 		// Handle error
-		return "", -1
+		return result.Error.Error(), result.Status
 	}
 
 	//client := httpClient
@@ -234,7 +235,7 @@ func (c *CacheWrapper) sendRequest(method, url_ string, payload []byte) (string,
 	}
 
 	if result.Status == 500 && result.Response != "redis: nil\n" && result.Response != "redis: nil" && result.Response != "context deadline exceeded\n" {
-		log.Printf("Received response from %s: %v: %s, %s\n", url_, result.Status, result.Status, result.Response)
+		log.Printf("Received response from %s: %v, %s\n", url_, result.Status, result.Response)
 	}
 
 	return result.Response, result.Status
@@ -330,6 +331,7 @@ func NewCache(p *bconfig.Config, ctx context.Context) *CacheWrapper {
 
 func (c *CacheWrapper) scheduleFailures() {
 
+	failureTimeout := 10 * time.Second
 	for n := range c.failedNodes {
 		c.failedNodes[n] = false
 	}
@@ -347,13 +349,13 @@ func (c *CacheWrapper) scheduleFailures() {
 
 			// Schedule node failure
 			failTimer := time.AfterFunc(startDelay, func() {
-				go c.sendRequestToNode(nodeId, "POST", "fail", nil)
+				go c.sendRequestToNode(nodeId, "POST", "fail", nil, failureTimeout)
 				c.markFailed(nodeId)
 				go nodeFailureMeasure(time.Now(), nodeId, true)
 
 				// Schedule node recovery
 				recoverTimer := time.AfterFunc(endDelay-startDelay, func() {
-					go c.sendRequestToNode(nodeId, "POST", "recover", nil)
+					go c.sendRequestToNode(nodeId, "POST", "recover", nil, failureTimeout)
 					c.markRecovered(nodeId)
 					//c.nodeRing.ReconfigureRingAfterRecovery(nodeIndex)
 					nodeFailureMeasure(time.Now(), nodeId, false)
@@ -422,8 +424,9 @@ func (c *CacheWrapper) addNode(p bconfig.NodeConfig, updateInterval float64) int
 		panic(err)
 	}
 
+	newNodeTimeout := 10 * time.Second
 	// This is a GET request, so no payload is sent
-	response, status := c.sendRequest("GET", fmt.Sprintf("%s/newNode", address), []byte(jsonPayloadBytes))
+	response, status := c.sendRequest("GET", fmt.Sprintf("%s/newNode", address), []byte(jsonPayloadBytes), newNodeTimeout)
 	if status != http.StatusOK {
 		log.Printf("Received response from %s: %v: %s\n", fmt.Sprintf("%s/newNode", address), status, response)
 	} else {
@@ -486,11 +489,12 @@ func (c *CacheWrapper) sendGet(key string, fields []string, nodeId int, start ti
 	var response string
 	var status int
 
+	getTimeout := 2 * time.Second
 	// This is a GET request, so no payload is sent
 	if getBackup {
-		response, status = c.sendRequestToNode(nodeId, "GET", "getBackup", []byte(jsonPayloadBytes))
+		response, status = c.sendRequestToNode(nodeId, "GET", "getBackup", []byte(jsonPayloadBytes), getTimeout)
 	} else {
-		response, status = c.sendRequestToNode(nodeId, "GET", "get", []byte(jsonPayloadBytes))
+		response, status = c.sendRequestToNode(nodeId, "GET", "get", []byte(jsonPayloadBytes), getTimeout)
 	}
 	if status != http.StatusOK {
 		err = errors.New(response)
@@ -549,11 +553,13 @@ func (c *CacheWrapper) sendSet(nodeId int, key string, value map[string][]byte, 
 	var response string
 	var status int
 
+	setTimeout := 2 * time.Second
+
 	// This is a GET request, so no payload is sent
 	if setBackup {
-		response, status = c.sendRequestToNode(nodeId, "POST", "setBackup", []byte(jsonPayloadBytes))
+		response, status = c.sendRequestToNode(nodeId, "POST", "setBackup", []byte(jsonPayloadBytes), setTimeout)
 	} else {
-		response, status = c.sendRequestToNode(nodeId, "POST", "set", []byte(jsonPayloadBytes))
+		response, status = c.sendRequestToNode(nodeId, "POST", "set", []byte(jsonPayloadBytes), setTimeout)
 	}
 	if status != http.StatusCreated {
 		err = errors.New(response)
@@ -645,7 +651,8 @@ func (c *CacheWrapper) GetNode(key string) int {
 }
 
 func (c *CacheWrapper) GetNodes(key string) []int {
-	return c.nodeOrders[(util.StringHash(key) % len(c.nodeOrders))]
+	index := util.StringHash(key) % len(c.nodeOrders)
+	return c.nodeOrders[index]
 	//numbers := make([]int, 0, len(c.nodes))
 	//used := make(map[int]bool)
 	//hash := fmt.Sprintf("%d", util.StringHash64(key))
