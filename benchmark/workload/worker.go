@@ -73,7 +73,7 @@ func (w *Worker) Run(ctx context.Context) {
 
 	for startTime := time.Now(); w.opCount == 0 || w.opsDone < w.opCount; w.opsDone++ {
 
-		if i%4 == 0 {
+		if i%20 == 0 {
 			w.workload.DoTransaction(ctx, w.workDB, w.cache)
 		} else {
 			go w.workload.DoTransaction(ctx, w.workDB, w.cache)

@@ -23,8 +23,8 @@ copy_file_to_destination() {
 
 WORKLOAD_ID="workload1"
 
-SUMMARY_PATH="data/{$WORKLOAD_ID}_summary.png"
-DATA_PATH="data/{$WORKLOAD_ID}"
+SUMMARY_PATH="data/${WORKLOAD_ID}_summary.png"
+DATA_PATH="data/${WORKLOAD_ID}"
 DESTINATION_DIR="results"
 
 # Generate a folder name with the current date and time
@@ -49,7 +49,7 @@ fi
 
 DESTINATION_DIR="$DESTINATION_DIR/$FOLDER_NAME"
 
-copy_file_to_destination yaml_file "$DESTINATION_DIR/config.yaml"
+copy_file_to_destination "$yaml_file" "$DESTINATION_DIR/config.yaml"
 
 
 # Get the current commit hash
@@ -67,7 +67,7 @@ echo "Stored commit information:"
 echo "$commit_info"
 
 copy_file_to_destination "$SUMMARY_PATH" "$DESTINATION_DIR/summary.png"
-copy_file_to_destination "$DATA_PATH" "$DESTINATION_DIR/data"
+rsync -avh "$DATA_PATH" "$DESTINATION_DIR/data"
 
 
 # Example usage:

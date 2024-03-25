@@ -28,6 +28,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -176,6 +177,9 @@ func initialLoadGlobal(onProperties func()) {
 	globalCache = nil
 }
 
+var plotmetrics = true
+var ll sync.RWMutex = sync.RWMutex{}
+
 func runClientCommandFunc(cmd *cobra.Command, args []string, command string) {
 
 	// Parse the flags
@@ -208,16 +212,22 @@ func runClientCommandFunc(cmd *cobra.Command, args []string, command string) {
 
 	c.Run(globalContext)
 
-	globalContext.Done()
+	//globalContext.Done()
 
-	ticker.Stop()
-	fmt.Printf("\r  - Done running benchmark. Took %d seconds.%s\n", int(time.Since(start).Seconds())-globalProps.Measurements.WarmUpTime.Value, "              ")
-	fmt.Println("\n**********************************************")
+	ll.Lock()
+	defer ll.Unlock()
+	if plotmetrics {
+		plotmetrics = false
 
-	end := time.Now()
-	time.Sleep(4 * time.Second)
+		ticker.Stop()
+		fmt.Printf("\r  - Done running benchmark. Took %d seconds.%s\n", int(time.Since(start).Seconds())-globalProps.Measurements.WarmUpTime.Value, "              ")
+		fmt.Println("\n**********************************************")
 
-	metrics.PlotMetrics(start, end)
+		end := time.Now()
+		time.Sleep(4 * time.Second)
+
+		metrics.PlotMetrics(start, end)
+	}
 }
 
 func loadClientCommandFunc(cmd *cobra.Command, args []string, command string) {
@@ -232,8 +242,8 @@ func loadClientCommandFunc(cmd *cobra.Command, args []string, command string) {
 		globalProps.Workload.WorkloadIdentifier.Value = "load1"
 		globalProps.Workload.Command.Value = command
 		globalProps.Workload.RequestDistribution.Value = "sequential"
-		globalProps.Workload.TargetOperationsPerSec.Value = 3000
-		globalProps.Database.TimeoutMs.Value = 1000
+		globalProps.Workload.TargetOperationsPerSec.Value = 700
+		globalProps.Database.TimeoutMs.Value = 5000
 		globalProps.Workload.TargetExecutionTime.Value = int(1.2 * float64(globalProps.Workload.NumUniqueKeys.Value/globalProps.Workload.TargetOperationsPerSec.Value))
 		globalProps.Measurements.WarmUpTime.Value = 0
 
@@ -290,6 +300,21 @@ func dispTimer(start time.Time, ticker *time.Ticker) {
 			if now.After(maxExecutionTime) {
 				fmt.Printf("\r  - max execution time reached, forcefully exiting.%s\n", spaces)
 				globalCancel()
+
+				ll.Lock()
+				defer ll.Unlock()
+				if plotmetrics {
+					plotmetrics = false
+
+					ticker.Stop()
+					fmt.Printf("\r  - Done running benchmark. Took %d seconds.%s\n", int(time.Since(start).Seconds())-globalProps.Measurements.WarmUpTime.Value, "              ")
+					fmt.Println("\n**********************************************")
+
+					end := time.Now()
+					time.Sleep(1 * time.Second)
+
+					metrics.PlotMetrics(start, end)
+				}
 				return
 			}
 			if !afterWarmUp {

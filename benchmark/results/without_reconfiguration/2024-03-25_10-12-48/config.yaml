@@ -1,0 +1,205 @@
+Database:
+  CassandraCluster:
+    Description: The host and port of the Cassandra cluster.
+    Value: 127.0.0.1:9042
+  CassandraConnections:
+    Description: The number of concurrent connections to establish with the Cassandra cluster.
+    Value: 200
+  CassandraKeyspace:
+    Description: Keyspace to use within the Cassandra database.
+    Value: test
+  CassandraTableName:
+    Description: Name of the table to use within the Cassandra keyspace.
+    Value: usertable
+  CassandraPassword:
+    Description: The password for authenticating with Cassandra, if PasswordAuthenticator is enabled.
+    Value: ""
+  CassandraUsername:
+    Description: The username for authenticating with Cassandra, if PasswordAuthenticator is enabled.
+    Value: ""
+  PasswordAuthenticator:
+    Description: |-
+      Enables the use of Cassandra's PasswordAuthenticator for client connections. If this is true,
+      then the `CassandraUsername` and `CassandraPassword` properties must be non-empty and valid.
+    Value: false
+  ReplicationStrategy:
+    Description: Replication strategy to use for the Cassandra keyspace.
+    Value: SimpleStrategy
+  ReplicationFactor:
+    Description: Replication factor to use for the Cassandra keyspace.
+    Value: 1
+  TimeoutMs:
+    Description: The timeout, in milliseconds, for database operations.
+    Value: 50
+Cache:
+  GetTimeout:
+    Description: The timeout, in milliseconds, for cache get operations.
+    Value: 500
+  NumHottestKeysBackup:
+    Description: The number of hottest keys to backup.
+    Value: 1000
+  EnableReconfiguration:
+    Description: Enables the use of a configuration server for the cache.
+    Value: false
+  Nodes:
+    - NodeId:
+        Description: The ID of the node.
+        Value: 0
+      Address:
+        Description: Address and port of redis server
+        Value: http://localhost:8081
+      FailureIntervals:
+        - Start: 0.3
+          End: 0.5
+      MaxMemoryMbs:
+        Description: The maximum number of megabytes to store in the cache.
+        Value: 9
+      MaxMemoryPolicy:
+        Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+        Value: allkeys-lfu
+      UseDefaultDatabase:
+        Description: Indicates whether to use the default database for the cache.
+        Value: true
+    - NodeId:
+        Description: The ID of the node.
+        Value: 1
+      Address:
+        Description: Address and port of redis server
+        Value: http://localhost:8082
+      FailureIntervals: [ ]
+      MaxMemoryMbs:
+        Description: The maximum number of megabytes to store in the cache.
+        Value: 9
+      MaxMemoryPolicy:
+        Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+        Value: allkeys-lfu
+      UseDefaultDatabase:
+        Description: Indicates whether to use the default database for the cache.
+        Value: true
+    - NodeId:
+        Description: The ID of the node.
+        Value: 2
+      Address:
+        Description: Address and port of redis server
+        Value: http://localhost:8083
+      FailureIntervals: [ ]
+      MaxMemoryMbs:
+        Description: The maximum number of megabytes to store in the cache.
+        Value: 9
+      MaxMemoryPolicy:
+        Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+        Value: allkeys-lfu
+      UseDefaultDatabase:
+        Description: Indicates whether to use the default database for the cache.
+        Value: true
+    - NodeId:
+        Description: The ID of the node.
+        Value: 3
+      Address:
+        Description: Address and port of redis server
+        Value: http://localhost:8084
+      FailureIntervals: [ ]
+      MaxMemoryMbs:
+        Description: The maximum number of megabytes to store in the cache.
+        Value: 9
+      MaxMemoryPolicy:
+        Description: 'The policy to use for evicting records when the cache is full. Options can be found on: https://redis.io/docs/reference/eviction/#eviction-policies'
+        Value: allkeys-lfu
+      UseDefaultDatabase:
+        Description: Indicates whether to use the default database for the cache.
+        Value: true
+Workload:
+  PerformDataIntegrityChecks:
+    Description: Enables verification of data integrity during database operations. Requires 'FieldSizeDistribution' to be set to 'constant'.
+    Value: false
+  EnableDroppingDataOnStart:
+    Description: Enables dropping any pre-existing data in the database upon startup.
+    Value: false
+  MaxFields:
+    Description: The maximum number of fields (columns) to include in the database table.
+    Value: 2
+  AvFieldSizeBytes:
+    Description: The average size (in bytes) of each field stored in the database.
+    Value: 100
+  FieldSizeDistribution:
+    Description: The type of distribution used to vary the length of fields in data records. Options are 'constant', 'unfiorm', and 'zipfian'
+    Value: uniform
+  NumUniqueKeys:
+    Description: If `WriteAllFields` is true, this is the total number of records to insert during the workload execution.
+    Value: 90000
+  DbOperationRetryLimit:
+    Description: The maximum number of times to retry a failed insert operation.
+    Value: 4
+  TargetExecutionTime:
+    Description: The target duration to run the benchmark for after the warmup time.
+    Value: 15
+  TargetOperationsPerSec:
+    Description: The target number of operations per second that the workload should aim to achieve.
+    Value: 15000
+  WorkloadIdentifier:
+    Description: The name of the workload to be executed (for logging).
+    Value: workload1
+  Command:
+    Description: ""
+    Value: ""
+  ExponentialFrac:
+    Description: Fraction parameter for generating distributions based on exponential function.
+    Value: 0.8571428571
+  ExponentialPercentile:
+    Description: The target percentile for the exponential distribution.
+    Value: 95
+  HotspotDataFraction:
+    Description: The fraction of data that will be considered 'hot' for generating hotspots in the workload.
+    Value: 0.2
+  HotspotOpnFraction:
+    Description: The fraction of operations that will target the 'hot' data.
+    Value: 0.1
+  HashInsertOrder:
+    Description: Enables hashing the order in which records are inserted.
+    Value: true
+  InsertProportion:
+    Description: The proportion of insert operations in the workload.
+    Value: 0.01
+  KeyPrefix:
+    Description: The prefix to be used for keys in the workload.
+    Value: key
+  ReadAllFields:
+    Description: Indicates whether all fields should be read in read operations.
+    Value: false
+  RequestDistribution:
+    Description: |-
+      The distribution of request types in the workload (to simulate different access patterns on the dataset).
+      Options are 'uniform', 'sequential', 'zipfian', 'latest', 'hotspot', and 'exponential'.
+    Value: zipfian
+  ZipfianConstant:
+    Description: The constant to use for the zipfian distribution.
+    Value: 0.99
+Measurements:
+  MetricsOutputDir:
+    Description: The directory where measurement data files are to be saved.
+    Value: data/
+  WarmUpTime:
+    Description: The duration in seconds between the start of the workload execution and when metrics are collected (allows the system to reach a steady state).
+    Value: 7
+  ZeroPadding:
+    Description: The amount of zero-padding for numeric fields (for a fixed width representation).
+    Value: 1
+Logging:
+  DebugPprof:
+    Description: The address to bind the pprof debugging server to, for profiling and debugging purposes.
+    Value: :6060
+  Label:
+    Description: A label to tag log entries for easier filtering.
+    Value: benchmark_log
+  LogInterval:
+    Description: The interval, in seconds, at which log entries should be written to the log output.
+    Value: 3
+  Silence:
+    Description: If set to true, suppresses the output of logs to the console or log files.
+    Value: true
+  Status:
+    Description: A field to log the current status of the application.
+    Value: ""
+  Verbose:
+    Description: Enables verbose logging for debugging purposes.
+    Value: false

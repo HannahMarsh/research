@@ -320,7 +320,7 @@ func HandleGet(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			if err.Error() == redisNil {
-				log.Printf("Cache miss: %v", err)
+				//log.Printf("Cache miss: %v", err)
 				http.Error(w, redisNil, http.StatusNotFound)
 				return
 			}
