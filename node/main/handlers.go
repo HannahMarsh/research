@@ -425,6 +425,7 @@ func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 		MaxMemoryPolicy string  `json:"maxMemoryPolicy"`
 		UpdateInterval  float64 `json:"updateInterval"`
 		NumUniqueKeys   int     `json:"numUniqueKeys"`
+		NumKeysToBackup int     `json:"numKeysToBackup"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
@@ -444,7 +445,7 @@ func NewNodeHandler(w http.ResponseWriter, r *http.Request) {
 
 	globalCtx, globalCancel = context.WithCancel(context.Background())
 
-	globalNode = node.CreateNewNode(params.Id, config.Redis, params.MaxMemMbs, params.MaxMemoryPolicy, params.UpdateInterval, nodes, params.NumUniqueKeys)
+	globalNode = node.CreateNewNode(params.Id, config.Redis, params.MaxMemMbs, params.MaxMemoryPolicy, params.UpdateInterval, nodes, params.NumUniqueKeys, params.NumKeysToBackup)
 	w.WriteHeader(http.StatusOK)
 	_, err := w.Write([]byte("Node created successfully"))
 	if err != nil {

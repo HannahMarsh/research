@@ -416,6 +416,7 @@ func (c *CacheWrapper) addNode(p bconfig.NodeConfig, updateInterval float64) int
 		MaxMemoryPolicy string  `json:"maxMemoryPolicy"`
 		UpdateInterval  float64 `json:"updateInterval"`
 		NumUniqueKeys   int     `json:"numUniqueKeys"`
+		NumKeysToBackup int     `json:"numKeysToBackup"`
 	}
 	var jsonPayload = kv{
 		Id:              nodeId,
@@ -423,6 +424,7 @@ func (c *CacheWrapper) addNode(p bconfig.NodeConfig, updateInterval float64) int
 		MaxMemoryPolicy: maxMemoryPolicy,
 		UpdateInterval:  updateInterval,
 		NumUniqueKeys:   c.p.Workload.NumUniqueKeys.Value,
+		NumKeysToBackup: c.p.Cache.NumHottestKeysBackup.Value,
 	}
 
 	jsonPayloadBytes, err := json.Marshal(jsonPayload)

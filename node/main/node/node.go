@@ -32,6 +32,7 @@ type Node struct {
 	cq              *cq.CQ
 	keysToOtherNode sync.Map
 	httpClient      *http.Client
+	numKeysToBackup int
 }
 
 func (n *Node) getOtherNode(id int) (_ *OtherNode, index int) {
@@ -45,7 +46,7 @@ func (n *Node) getOtherNode(id int) (_ *OtherNode, index int) {
 	//}
 }
 
-func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, updateInterval float64, otherNodes []string, numUniqueKeys int) *Node {
+func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string, updateInterval float64, otherNodes []string, numUniqueKeys int, numKeysToBackup int) *Node {
 	log.Printf("Creating new node with id %d: maxMemMbs: %d\n", id, maxMemMbs)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -53,6 +54,7 @@ func CreateNewNode(id int, address string, maxMemMbs int, maxMemoryPolicy string
 	c.id = int(id)
 	c.Ctx = ctx
 	c.Cancel = cancel
+	c.numKeysToBackup = numKeysToBackup
 	c.otherNodes = make([]*OtherNode, len(otherNodes))
 	c.cq = cq.NewConcurrentQueue(numUniqueKeys)
 	c.httpClient = &http.Client{
@@ -165,14 +167,14 @@ func (n *Node) StartTopKeysUpdateTask(updateInterval time.Duration) {
 	}()
 }
 
-const (
-	numToSend int = 500
-)
+//const (
+//	numToSend int = 500
+//)
 
 func (n *Node) SendUpdateToBackUpNodes() {
 	//log.Printf("Sending top %d keys to backup nodes\n", numToSend)
 
-	m := n.cq.GetTop(numToSend)
+	m := n.cq.GetTop(n.numKeysToBackup)
 
 	var wg sync.WaitGroup
 

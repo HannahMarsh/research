@@ -30,17 +30,17 @@ Database:
     Value: 1
   TimeoutMs:
     Description: The timeout, in milliseconds, for database operations.
-    Value: 20
+    Value: 50
 Cache:
   GetTimeout:
     Description: The timeout, in milliseconds, for cache get operations.
     Value: 500
   NumHottestKeysBackup:
     Description: The number of hottest keys to backup.
-    Value: 10000
+    Value: 1000
   EnableReconfiguration:
     Description: Enables the use of a configuration server for the cache.
-    Value: true
+    Value: false
   Nodes:
     - NodeId:
         Description: The ID of the node.
