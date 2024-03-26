@@ -459,48 +459,48 @@ func PlotMetrics(s time.Time, e time.Time) {
 			numBuckets:       numBuckets,
 			showNodeFailures: true,
 		},
-		{
-			title: "Cache Node Recovery Detections as a Function of Time",
-			yAxis: "Number of Recovery Detections (Commutative)",
-			categories: forEachNode(func(nodeIndex int) category {
-				return category{
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == CLIENT_RECOVERY_DETECTION && has(m, NODE_INDEX, nodeIndex)
-						},
-					},
-					reduce:    totalCount,
-					plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
-					color:     DARK_COLORS[nodeIndex],
-					showMean:  false,
-				}
-			}),
-			start:            start,
-			end:              end,
-			numBuckets:       numBuckets,
-			showNodeFailures: true,
-		},
-		{
-			title: "Number of \"Hot\" (Top 1000 Most Popular) Key Requests Per Second as a Function of Time",
-			yAxis: "Num Requests",
-			categories: forEachNode(func(nodeIndex int) category {
-				return category{
-					filters: []func(m Metric) bool{
-						func(m Metric) bool {
-							return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex) && has(m, HOTTEST, true)
-						},
-					},
-					reduce:    countPerSecond,
-					plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
-					color:     DARK_COLORS[nodeIndex],
-					showMean:  false,
-				}
-			}),
-			start:            start,
-			end:              end,
-			numBuckets:       numBuckets,
-			showNodeFailures: true,
-		},
+		//{
+		//	title: "Cache Node Recovery Detections as a Function of Time",
+		//	yAxis: "Number of Recovery Detections (Commutative)",
+		//	categories: forEachNode(func(nodeIndex int) category {
+		//		return category{
+		//			filters: []func(m Metric) bool{
+		//				func(m Metric) bool {
+		//					return m.metricType == CLIENT_RECOVERY_DETECTION && has(m, NODE_INDEX, nodeIndex)
+		//				},
+		//			},
+		//			reduce:    totalCount,
+		//			plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+		//			color:     DARK_COLORS[nodeIndex],
+		//			showMean:  false,
+		//		}
+		//	}),
+		//	start:            start,
+		//	end:              end,
+		//	numBuckets:       numBuckets,
+		//	showNodeFailures: true,
+		//},
+		//{
+		//	title: "Number of \"Hot\" (Top 1000 Most Popular) Key Requests Per Second as a Function of Time",
+		//	yAxis: "Num Requests",
+		//	categories: forEachNode(func(nodeIndex int) category {
+		//		return category{
+		//			filters: []func(m Metric) bool{
+		//				func(m Metric) bool {
+		//					return m.metricType == CACHE_OPERATION && has(m, NODE_INDEX, nodeIndex) && has(m, HOTTEST, true)
+		//				},
+		//			},
+		//			reduce:    countPerSecond,
+		//			plotLabel: fmt.Sprintf("Node%d", nodeIndex+1),
+		//			color:     DARK_COLORS[nodeIndex],
+		//			showMean:  false,
+		//		}
+		//	}),
+		//	start:            start,
+		//	end:              end,
+		//	numBuckets:       numBuckets,
+		//	showNodeFailures: true,
+		//},
 		{
 			title: "Proportion of Read Transactions that go to the Database as a Function of Time",
 			yAxis: "Fraction of Read Requests",
@@ -1150,12 +1150,12 @@ func (plt *plotInfo) plotNodeFailures(p *plot.Plot) {
 		if node.FailureIntervals != nil && len(node.FailureIntervals) > 0 {
 			for _, mm := range m.Filter(func(m Metric) bool { return has(m, NODE_INDEX, node.NodeId.Value) && has(m, INTERVAL, START) }) {
 				if iStart := time.Duration(mm.timestamp.Sub(plt.start).Nanoseconds()).Seconds(); iStart < duration.Seconds() {
-					addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed\n(t = %.2f)", node.NodeId.Value, iStart), LIGHT_COLORS[node.NodeId.Value])
+					addVerticalLine(p, iStart, fmt.Sprintf("node%d\nfailed\n(t = %.2f)", node.NodeId.Value+1, iStart), LIGHT_COLORS[node.NodeId.Value])
 				}
 			}
 			for _, mm := range m.Filter(func(m Metric) bool { return has(m, NODE_INDEX, node.NodeId.Value) && has(m, INTERVAL, END) }) {
 				if iEnd := time.Duration(mm.timestamp.Sub(plt.start).Nanoseconds()).Seconds(); iEnd < duration.Seconds() {
-					addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered\n(t = %.2f)", node.NodeId.Value, iEnd), LIGHT_COLORS[node.NodeId.Value])
+					addVerticalLine(p, iEnd, fmt.Sprintf("node%d\nrecovered\n(t = %.2f)", node.NodeId.Value+1, iEnd), LIGHT_COLORS[node.NodeId.Value])
 				}
 			}
 		}
