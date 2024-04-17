@@ -47,7 +47,7 @@ Cache:
         Value: 0
       Address:
         Description: Address and port of redis server
-        Value: http://localhost:1030
+        Value: http://ccl1.cs.unh.edu:1121
       FailureIntervals:
         - Start: 0.3
           End: 0.5
@@ -65,7 +65,7 @@ Cache:
         Value: 1
       Address:
         Description: Address and port of redis server
-        Value: http://localhost:8082
+        Value: http://ccl2.cs.unh.edu:1122
       FailureIntervals: [ ]
       MaxMemoryMbs:
         Description: The maximum number of megabytes to store in the cache.
@@ -81,7 +81,7 @@ Cache:
         Value: 2
       Address:
         Description: Address and port of redis server
-        Value: http://localhost:8083
+        Value: http://ccl3.cs.unh.edu:1123
       FailureIntervals: [ ]
       MaxMemoryMbs:
         Description: The maximum number of megabytes to store in the cache.
@@ -97,7 +97,7 @@ Cache:
         Value: 3
       Address:
         Description: Address and port of redis server
-        Value: http://localhost:8084
+        Value: http://ccl4.cs.unh.edu:1124
       FailureIntervals: [ ]
       MaxMemoryMbs:
         Description: The maximum number of megabytes to store in the cache.
