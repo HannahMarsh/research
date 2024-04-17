@@ -1,4 +1,4 @@
-FROM golang:1.18 as builder
+FROM golang:1.21 as builder
 LABEL authors="Hannah Marsh"
 
 
@@ -30,6 +30,7 @@ COPY --from=builder /app/bench .
 
 # Copy node-specific configurations
 COPY config/default.yaml ./config/default.yaml
+COPY metrics/fonts/ ./metrics/fonts/
 
 # Set the entrypoint to your binary, include the nodeId as an argument
 ENTRYPOINT ["./bench"]
