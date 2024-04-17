@@ -4,9 +4,9 @@
   "clientPort": ":1122",
   "nodePort": ":1022",
   "allNodes": {
-    "0": "http://localhost:1021",
-    "1": "http://localhost:1022",
-    "2": "http://localhost:1023",
-    "3": "http://localhost:1024"
+    "0": "http://ccl1.cs.unh.edu:1021",
+    "1": "http://ccl2.cs.unh.edu:1022",
+    "2": "http://ccl3.cs.unh.edu:1023",
+    "3": "http://ccl4.cs.unh.edu:1024"
   }
 }
