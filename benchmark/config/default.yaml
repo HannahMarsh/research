@@ -47,7 +47,7 @@ Cache:
         Value: 0
       Address:
         Description: Address and port of redis server
-        Value: http://localhost:8081
+        Value: http://localhost:1030
       FailureIntervals:
         - Start: 0.3
           End: 0.5

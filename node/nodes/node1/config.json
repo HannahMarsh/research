@@ -1,0 +1,12 @@
+{
+  "id": 1,
+  "redis": "127.0.0.1:6380",
+  "clientPort": ":1122",
+  "nodePort": ":1022",
+  "allNodes": {
+    "0": "http://localhost:1021",
+    "1": "http://localhost:1022",
+    "2": "http://localhost:1023",
+    "3": "http://localhost:1024"
+  }
+}
