@@ -143,10 +143,27 @@ check_docker
 
 case "$action" in
   build)
-      echo "building image for node $node: hannahmarsh12/node${node}"
-      echo "docker build --platform=linux/arm64/v8 -f nodes/node${node}/Dockerfile -t hannahmarsh12/node${node}:node${node} ."
-      docker build --platform=linux/arm64/v8 -f "nodes/node${node}/Dockerfile" -t "hannahmarsh12/node${node}:node${node}" .
-      echo "done building image for node $node: hannahmarsh12/node${node}"
+      case $node in
+        0|1|2|3)
+          echo "building image for node $node: hannahmarsh12/node${node}"
+          echo "docker build --platform=linux/arm64/v8 -f nodes/node${node}/Dockerfile -t hannahmarsh12/node${node}:node${node} ."
+          docker build --platform=linux/arm64/v8 -f "nodes/node${node}/Dockerfile" -t "hannahmarsh12/node${node}:node${node}" .
+          echo "done building image for node $node: hannahmarsh12/node${node}"
+          ;;
+        all)
+          for i in 0 1 2 3; do
+            node=$i
+            echo "building image for node $node: hannahmarsh12/node${node}"
+            echo "docker build --platform=linux/arm64/v8 -f nodes/node${node}/Dockerfile -t hannahmarsh12/node${node}:node${node} ."
+            docker build --platform=linux/arm64/v8 -f "nodes/node${node}/Dockerfile" -t "hannahmarsh12/node${node}:node${node}" .
+            echo "done building image for node $node: hannahmarsh12/node${node}"
+          done
+          exit 0
+          ;;
+        *)
+          usage
+      esac
+
     ;;
   run)
       port=$((1021 + node))
